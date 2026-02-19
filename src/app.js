@@ -66,6 +66,8 @@ const allowedOrigins = [
   "http://localhost:8081", // React Native Web Metro dev server
   "http://localhost:3000",
   "http://127.0.0.1:8081",
+  "https://dhara-peach.vercel.app", // Frontend en Vercel
+  "https://dharaterapeutas.com", // Dominio personalizado si existe
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
