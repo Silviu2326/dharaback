@@ -663,8 +663,6 @@ const getVerificationRequirements = async (req, res) => {
   }
 };
 
-const path = require("path");
-
 const analizarTitulacion = async (req, res) => {
   try {
     if (!req.file) {

@@ -3,10 +3,17 @@ const path = require("path");
 
 const getTerapiasPath = async () => {
   const possiblePaths = [
+    // Rutas relativas desde el controlador
     path.join(__dirname, "../data/terapias.json"),
     path.join(__dirname, "../../data/terapias.json"),
+    // Rutas desde process.cwd() (directorio de trabajo)
     path.join(process.cwd(), "src/data/terapias.json"),
+    path.join(process.cwd(), "backend/src/data/terapias.json"),
+    path.join(process.cwd(), "public/terapias.json"),
+    // Rutas Railway típicas
     "/app/src/data/terapias.json",
+    "/app/backend/src/data/terapias.json",
+    "/app/public/terapias.json",
   ];
   
   for (const p of possiblePaths) {
@@ -20,6 +27,8 @@ const getTerapiasPath = async () => {
     }
   }
   
+  // Si ninguna funciona, devolver la primera y dejar que falle con error claro
+  console.error("ERROR: No se encontró terapias.json en ninguna ruta");
   return possiblePaths[0];
 };
 
