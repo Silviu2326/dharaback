@@ -28,9 +28,11 @@ class GeminiService {
   initialize(apiKey = process.env.GEMINI_API_KEY) {
     try {
       this.genAI = new GoogleGenerativeAI(apiKey);
-      const modelName = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+      const modelName = process.env.GEMINI_MODEL || "gemini-3.0-flash";
       this.model = this.genAI.getGenerativeModel({
         model: modelName,
+      }, {
+        apiVersion: "v1"
       });
       console.log(`✅ Gemini AI inicializado correctamente con modelo: ${modelName}`);
     } catch (error) {
