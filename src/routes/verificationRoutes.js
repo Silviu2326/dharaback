@@ -4,12 +4,18 @@ const verificationController = require("../controllers/verificationController");
 const { protect, authorize } = require("../middleware/auth");
 const multer = require("multer");
 const path = require("path");
+const fs = require("fs");
 
 const router = express.Router();
 
+const uploadDir = path.join(__dirname, "../../uploads/temp");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 const tempStorage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "uploads/temp/");
+    cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);

@@ -663,6 +663,8 @@ const getVerificationRequirements = async (req, res) => {
   }
 };
 
+const path = require("path");
+
 const analizarTitulacion = async (req, res) => {
   try {
     if (!req.file) {
@@ -700,7 +702,9 @@ const analizarTitulacion = async (req, res) => {
       });
     }
 
-    const filePath = req.file.path;
+    const filePath = path.isAbsolute(req.file.path) 
+      ? req.file.path 
+      : path.join(__dirname, "../../", req.file.path);
     const fileBuffer = await fs.readFile(filePath);
     const mimeType = req.file.mimetype;
 
