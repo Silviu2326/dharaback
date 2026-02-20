@@ -3,18 +3,19 @@ const path = require("path");
 
 const getTerapiasPath = async () => {
   const possiblePaths = [
-    path.join(__dirname, "../../public/terapias.json"),
-    path.join(__dirname, "../../../public/terapias.json"),
-    path.join(__dirname, "../../../../public/terapias.json"),
-    path.join(process.cwd(), "public", "terapias.json"),
-    "/app/public/terapias.json",
+    path.join(__dirname, "../data/terapias.json"),
+    path.join(__dirname, "../../data/terapias.json"),
+    path.join(process.cwd(), "src/data/terapias.json"),
+    "/app/src/data/terapias.json",
   ];
   
   for (const p of possiblePaths) {
     try {
       await fs.access(p);
+      console.log("✓ Terapias encontradas en:", p);
       return p;
     } catch {
+      console.log("✗ No encontrado en:", p);
       continue;
     }
   }
