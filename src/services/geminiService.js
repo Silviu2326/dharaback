@@ -11,6 +11,10 @@ class GeminiService {
     // Inicializar solo si hay API key configurada
     if (process.env.GEMINI_API_KEY) {
       this.initialize();
+    } else if (process.env.GEMINI_API_KEY_2) {
+      this.initialize(process.env.GEMINI_API_KEY_2);
+    } else if (process.env.GEMINI_API_KEY_3) {
+      this.initialize(process.env.GEMINI_API_KEY_3);
     } else {
       console.warn(
         "⚠️ GEMINI_API_KEY no configurada. El análisis de titulaciones estará deshabilitado.",
@@ -21,13 +25,14 @@ class GeminiService {
   /**
    * Inicializa el cliente de Gemini
    */
-  initialize() {
+  initialize(apiKey = process.env.GEMINI_API_KEY) {
     try {
-      this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      this.genAI = new GoogleGenerativeAI(apiKey);
+      const modelName = process.env.GEMINI_MODEL || "gemini-1.5-flash";
       this.model = this.genAI.getGenerativeModel({
-        model: "gemini-2.0-flash",
+        model: modelName,
       });
-      console.log("✅ Gemini AI inicializado correctamente");
+      console.log(`✅ Gemini AI inicializado correctamente con modelo: ${modelName}`);
     } catch (error) {
       console.error("❌ Error al inicializar Gemini:", error);
     }
