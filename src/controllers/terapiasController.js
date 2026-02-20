@@ -1,9 +1,31 @@
 const fs = require("fs").promises;
 const path = require("path");
 
+const getTerapiasPath = async () => {
+  const possiblePaths = [
+    path.join(__dirname, "../../public/terapias.json"),
+    path.join(__dirname, "../../../public/terapias.json"),
+    path.join(__dirname, "../../../../public/terapias.json"),
+    path.join(process.cwd(), "public", "terapias.json"),
+    "/app/public/terapias.json",
+  ];
+  
+  for (const p of possiblePaths) {
+    try {
+      await fs.access(p);
+      return p;
+    } catch {
+      continue;
+    }
+  }
+  
+  return possiblePaths[0];
+};
+
 const getTerapias = async (req, res) => {
   try {
-    const terapiasPath = path.join(__dirname, "../../../public/terapias.json");
+    const terapiasPath = await getTerapiasPath();
+    console.log("Cargando terapias desde:", terapiasPath);
     const data = await fs.readFile(terapiasPath, "utf-8");
     const terapiasData = JSON.parse(data);
 
@@ -33,7 +55,7 @@ const getTerapias = async (req, res) => {
 const getTerapiaById = async (req, res) => {
   try {
     const { id } = req.params;
-    const terapiasPath = path.join(__dirname, "../../../public/terapias.json");
+    const terapiasPath = await getTerapiasPath();
     const data = await fs.readFile(terapiasPath, "utf-8");
     const terapiasData = JSON.parse(data);
 
@@ -71,7 +93,7 @@ const buscarTerapias = async (req, res) => {
       });
     }
 
-    const terapiasPath = path.join(__dirname, "../../../public/terapias.json");
+    const terapiasPath = await getTerapiasPath();
     const data = await fs.readFile(terapiasPath, "utf-8");
     const terapiasData = JSON.parse(data);
 
