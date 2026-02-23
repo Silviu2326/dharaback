@@ -378,7 +378,7 @@ class PaymentModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapistId: therapistId }
+      filters: { ...options.filters, therapist_id: therapistId }
     });
   }
 
@@ -420,7 +420,7 @@ class PaymentModel {
       ...options,
       filters: { 
         ...options.filters, 
-        therapistId: therapistId,
+        therapist_id: therapistId,
         status: 'completed'
       }
     });
@@ -496,7 +496,7 @@ class PaymentModel {
 
     if (updateData.bookingId !== undefined) data.booking_id = updateData.bookingId;
     if (updateData.clientId !== undefined) data.client_id = updateData.clientId;
-    if (updateData.therapistId !== undefined) data.therapistId = updateData.therapistId;
+    if (updateData.therapistId !== undefined) data.therapist_id = updateData.therapistId;
     if (updateData.amount !== undefined) data.amount = updateData.amount;
     if (updateData.currency !== undefined) data.currency = updateData.currency;
     if (updateData.status !== undefined) data.status = updateData.status;

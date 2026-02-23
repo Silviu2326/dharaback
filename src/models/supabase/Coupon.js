@@ -380,7 +380,7 @@ class CouponModel {
    */
   async findByCode(code, therapistId = null) {
     const filters = { code: code.toUpperCase() };
-    if (therapistId) filters.therapistId = therapistId;
+    if (therapistId) filters.therapist_id = therapistId;
     return await this.findOne(filters);
   }
 
@@ -390,7 +390,7 @@ class CouponModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapistId: therapistId }
+      filters: { ...options.filters, therapist_id: therapistId }
     });
   }
 

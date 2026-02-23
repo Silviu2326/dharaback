@@ -409,7 +409,7 @@ class PlanAssignmentModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapistId: therapistId }
+      filters: { ...options.filters, therapist_id: therapistId }
     });
   }
 
@@ -435,7 +435,7 @@ class PlanAssignmentModel {
       ...options,
       filters: { 
         ...options.filters, 
-        therapistId: therapistId,
+        therapist_id: therapistId,
         status: 'active'
       }
     });
@@ -513,7 +513,7 @@ class PlanAssignmentModel {
     const data = {};
 
     if (updateData.clientId !== undefined) data.client_id = updateData.clientId;
-    if (updateData.therapistId !== undefined) data.therapistId = updateData.therapistId;
+    if (updateData.therapistId !== undefined) data.therapist_id = updateData.therapistId;
     if (updateData.planId !== undefined) data.plan_id = updateData.planId;
     if (updateData.totalSessions !== undefined) data.total_sessions = updateData.totalSessions;
     if (updateData.usedSessions !== undefined) data.used_sessions = updateData.usedSessions;
@@ -595,7 +595,7 @@ class PlanAssignmentModel {
       client_id: clientId, 
       status: 'active' 
     };
-    if (therapistId) filters.therapistId = therapistId;
+    if (therapistId) filters.therapist_id = therapistId;
 
     const supabase = require('../../config/supabase').supabase;
 

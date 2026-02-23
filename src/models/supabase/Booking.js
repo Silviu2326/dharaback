@@ -236,7 +236,7 @@ class BookingModel {
     if (updateData.startTime) data.start_time = updateData.startTime;
     if (updateData.endTime) data.end_time = updateData.endTime;
     if (updateData.clientId) data.client_id = updateData.clientId;
-    if (updateData.therapistId) data.therapistId = updateData.therapistId;
+    if (updateData.therapistId) data.therapist_id = updateData.therapistId;
     if (updateData.therapyType) data.therapy_type = updateData.therapyType;
     if (updateData.therapyDuration) data.therapy_duration = updateData.therapyDuration;
     if (updateData.status) data.status = updateData.status;
@@ -277,7 +277,7 @@ class BookingModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapistId: therapistId }
+      filters: { ...options.filters, therapist_id: therapistId }
     });
   }
 

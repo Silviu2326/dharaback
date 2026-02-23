@@ -492,7 +492,7 @@ class ClientPlanProgressModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapistId: therapistId }
+      filters: { ...options.filters, therapist_id: therapistId }
     });
   }
 
@@ -528,7 +528,7 @@ class ClientPlanProgressModel {
       ...options,
       filters: { 
         ...options.filters, 
-        therapistId: therapistId,
+        therapist_id: therapistId,
         status: 'active'
       }
     });
@@ -598,7 +598,7 @@ class ClientPlanProgressModel {
     const data = {};
 
     if (updateData.clientId !== undefined) data.client_id = updateData.clientId;
-    if (updateData.therapistId !== undefined) data.therapistId = updateData.therapistId;
+    if (updateData.therapistId !== undefined) data.therapist_id = updateData.therapistId;
     if (updateData.planId !== undefined) data.plan_id = updateData.planId;
     if (updateData.startDate !== undefined) data.start_date = updateData.startDate;
     if (updateData.expectedEndDate !== undefined) data.expected_end_date = updateData.expectedEndDate;

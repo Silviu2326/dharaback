@@ -337,7 +337,7 @@ class PricingPackageModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapistId: therapistId }
+      filters: { ...options.filters, therapist_id: therapistId }
     });
   }
 
@@ -349,7 +349,7 @@ class PricingPackageModel {
       ...options,
       filters: { 
         ...options.filters, 
-        therapistId: therapistId,
+        therapist_id: therapistId,
         is_active: true
       }
     });
@@ -460,7 +460,7 @@ class PricingPackageModel {
   async findByIdAndUpdate(id, updateData, options = {}) {
     const data = {};
 
-    if (updateData.therapistId !== undefined) data.therapistId = updateData.therapistId;
+    if (updateData.therapistId !== undefined) data.therapist_id = updateData.therapistId;
     if (updateData.name !== undefined) data.name = updateData.name;
     if (updateData.description !== undefined) data.description = updateData.description;
     if (updateData.sessions !== undefined) data.sessions = updateData.sessions;

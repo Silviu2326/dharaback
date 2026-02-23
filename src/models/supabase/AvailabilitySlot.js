@@ -251,7 +251,7 @@ class AvailabilitySlotModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapistId: therapistId }
+      filters: { ...options.filters, therapist_id: therapistId }
     });
   }
 
@@ -261,7 +261,7 @@ class AvailabilitySlotModel {
   async findByTherapistAndDay(therapistId, dayOfWeek, options = {}) {
     return await this.find({
       ...options,
-      filters: { therapistId: therapistId, day_of_week: dayOfWeek, is_available: true }
+      filters: { therapist_id: therapistId, day_of_week: dayOfWeek, is_available: true }
     });
   }
 
@@ -300,7 +300,7 @@ class AvailabilitySlotModel {
    * Eliminar múltiples por terapeuta
    */
   async deleteByTherapist(therapistId) {
-    const result = await this.service.deleteMany({ therapistId: therapistId });
+    const result = await this.service.deleteMany({ therapist_id: therapistId });
     return result;
   }
 

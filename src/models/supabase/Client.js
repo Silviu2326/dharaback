@@ -300,7 +300,7 @@ class ClientModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapistId: therapistId }
+      filters: { ...options.filters, therapist_id: therapistId }
     });
   }
 
@@ -308,7 +308,7 @@ class ClientModel {
    * Buscar por email y terapeuta
    */
   async findByEmailAndTherapist(email, therapistId) {
-    return await this.findOne({ email, therapistId: therapistId });
+    return await this.findOne({ email, therapist_id: therapistId });
   }
 
   /**
@@ -360,7 +360,7 @@ class ClientModel {
    * Contar por terapeuta
    */
   async countByTherapist(therapistId, status = null) {
-    const filters = { therapistId: therapistId };
+    const filters = { therapist_id: therapistId };
     if (status) filters.status = status;
     return await this.count(filters);
   }
@@ -402,7 +402,7 @@ class ClientModel {
    * Verificar si existe
    */
   async exists(email, therapistId) {
-    const count = await this.service.count({ email, therapistId: therapistId });
+    const count = await this.service.count({ email, therapist_id: therapistId });
     return count > 0;
   }
 }

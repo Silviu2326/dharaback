@@ -316,7 +316,7 @@ class ConversationModel {
   async findBetweenUsers(clientId, therapistId) {
     return await this.findOne({
       client_id: clientId,
-      therapistId: therapistId
+      therapist_id: therapistId
     });
   }
 
@@ -326,7 +326,7 @@ class ConversationModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapistId: therapistId }
+      filters: { ...options.filters, therapist_id: therapistId }
     });
   }
 
@@ -348,7 +348,7 @@ class ConversationModel {
       ...options,
       filters: { 
         ...options.filters, 
-        therapistId: therapistId,
+        therapist_id: therapistId,
         status: 'active'
       }
     });
@@ -362,7 +362,7 @@ class ConversationModel {
       ...options,
       filters: { 
         ...options.filters, 
-        therapistId: therapistId,
+        therapist_id: therapistId,
         status: 'archived'
       }
     });
@@ -424,7 +424,7 @@ class ConversationModel {
     const data = {};
 
     if (updateData.clientId !== undefined) data.client_id = updateData.clientId;
-    if (updateData.therapistId !== undefined) data.therapistId = updateData.therapistId;
+    if (updateData.therapistId !== undefined) data.therapist_id = updateData.therapistId;
     if (updateData.status !== undefined) data.status = updateData.status;
     if (updateData.lastMessageAt !== undefined) data.last_message_at = updateData.lastMessageAt;
     if (updateData.unreadCount !== undefined) data.unread_count = updateData.unreadCount;
@@ -453,7 +453,7 @@ class ConversationModel {
    * Contar conversaciones por terapeuta
    */
   async countByTherapist(therapistId, status = null) {
-    const filters = { therapistId: therapistId };
+    const filters = { therapist_id: therapistId };
     if (status) filters.status = status;
     return await this.count(filters);
   }
@@ -475,7 +475,7 @@ class ConversationModel {
   async exists(clientId, therapistId) {
     const count = await this.service.count({ 
       client_id: clientId, 
-      therapistId: therapistId 
+      therapist_id: therapistId 
     });
     return count > 0;
   }

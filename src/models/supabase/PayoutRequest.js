@@ -392,7 +392,7 @@ class PayoutRequestModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapistId: therapistId }
+      filters: { ...options.filters, therapist_id: therapistId }
     });
   }
 
@@ -442,7 +442,7 @@ class PayoutRequestModel {
       ...options,
       filters: { 
         ...options.filters, 
-        therapistId: therapistId,
+        therapist_id: therapistId,
         status: 'pending'
       }
     });
@@ -496,7 +496,7 @@ class PayoutRequestModel {
   async findByIdAndUpdate(id, updateData, options = {}) {
     const data = {};
 
-    if (updateData.therapistId !== undefined) data.therapistId = updateData.therapistId;
+    if (updateData.therapistId !== undefined) data.therapist_id = updateData.therapistId;
     if (updateData.amount !== undefined) data.amount = updateData.amount;
     if (updateData.currency !== undefined) data.currency = updateData.currency;
     if (updateData.status !== undefined) data.status = updateData.status;
@@ -622,7 +622,7 @@ class PayoutRequestModel {
    */
   async hasPendingRequests(therapistId) {
     const count = await this.count({
-      therapistId: therapistId,
+      therapist_id: therapistId,
       status: 'pending'
     });
     return count > 0;

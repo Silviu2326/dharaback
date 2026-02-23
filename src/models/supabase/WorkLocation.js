@@ -225,7 +225,7 @@ class WorkLocationModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapistId: therapistId }
+      filters: { ...options.filters, therapist_id: therapistId }
     });
   }
 
@@ -234,7 +234,7 @@ class WorkLocationModel {
    */
   async findPrimary(therapistId) {
     return await this.findOne({ 
-      therapistId: therapistId, 
+      therapist_id: therapistId, 
       is_primary: true 
     });
   }
@@ -274,7 +274,7 @@ class WorkLocationModel {
    * Eliminar por terapeuta
    */
   async deleteByTherapist(therapistId) {
-    const result = await this.service.deleteMany({ therapistId: therapistId });
+    const result = await this.service.deleteMany({ therapist_id: therapistId });
     return result;
   }
 
@@ -302,7 +302,7 @@ class WorkLocationModel {
    * Contar por terapeuta
    */
   async countByTherapist(therapistId) {
-    return await this.service.count({ therapistId: therapistId });
+    return await this.service.count({ therapist_id: therapistId });
   }
 
   /**
