@@ -8,7 +8,7 @@ const SupabaseService = require('../../services/supabaseService');
 class AvailabilitySlot {
   constructor(data = {}) {
     this.id = data.id;
-    this.therapistId = data.therapist_id;
+    this.therapistId = data.therapistId;
     this.dayOfWeek = data.day_of_week;
     this.startTime = data.start_time;
     this.endTime = data.end_time;
@@ -54,7 +54,7 @@ class AvailabilitySlot {
     const { data: bookings, error } = await supabase
       .from('bookings')
       .select('*')
-      .eq('therapist_id', this.therapistId)
+      .eq('therapistId', this.therapistId)
       .eq('date', date)
       .in('status', ['upcoming', 'pending']);
 
@@ -139,7 +139,7 @@ class AvailabilitySlot {
     const service = new SupabaseService('availability_slots');
 
     const data = {
-      therapist_id: this.therapistId,
+      therapistId: this.therapistId,
       day_of_week: this.dayOfWeek,
       start_time: this.startTime,
       end_time: this.endTime,
@@ -202,7 +202,7 @@ class AvailabilitySlotModel {
    */
   async create(data) {
     const slotData = {
-      therapist_id: data.therapistId,
+      therapistId: data.therapistId,
       day_of_week: data.dayOfWeek,
       start_time: data.startTime,
       end_time: data.endTime,
@@ -251,7 +251,7 @@ class AvailabilitySlotModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapist_id: therapistId }
+      filters: { ...options.filters, therapistId: therapistId }
     });
   }
 
@@ -261,7 +261,7 @@ class AvailabilitySlotModel {
   async findByTherapistAndDay(therapistId, dayOfWeek, options = {}) {
     return await this.find({
       ...options,
-      filters: { therapist_id: therapistId, day_of_week: dayOfWeek, is_available: true }
+      filters: { therapistId: therapistId, day_of_week: dayOfWeek, is_available: true }
     });
   }
 
@@ -300,7 +300,7 @@ class AvailabilitySlotModel {
    * Eliminar múltiples por terapeuta
    */
   async deleteByTherapist(therapistId) {
-    const result = await this.service.deleteMany({ therapist_id: therapistId });
+    const result = await this.service.deleteMany({ therapistId: therapistId });
     return result;
   }
 
@@ -313,7 +313,7 @@ class AvailabilitySlotModel {
     let query = supabase
       .from('availability_slots')
       .select('*')
-      .eq('therapist_id', therapistId)
+      .eq('therapistId', therapistId)
       .eq('day_of_week', dayOfWeek)
       .eq('is_available', true)
       .lt('start_time', endTime)

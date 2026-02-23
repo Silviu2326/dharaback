@@ -12,7 +12,7 @@ class Booking {
     this.startTime = data.start_time;
     this.endTime = data.end_time;
     this.clientId = data.client_id;
-    this.therapistId = data.therapist_id;
+    this.therapistId = data.therapistId;
     this.therapyType = data.therapy_type;
     this.therapyDuration = data.therapy_duration || 60;
     this.status = data.status || 'upcoming';
@@ -94,7 +94,7 @@ class Booking {
       start_time: this.startTime,
       end_time: this.endTime,
       client_id: this.clientId,
-      therapist_id: this.therapistId,
+      therapistId: this.therapistId,
       therapy_type: this.therapyType,
       therapy_duration: this.therapyDuration,
       status: this.status,
@@ -176,7 +176,7 @@ class BookingModel {
       start_time: data.startTime,
       end_time: data.endTime,
       client_id: data.clientId,
-      therapist_id: data.therapistId,
+      therapistId: data.therapistId,
       therapy_type: data.therapyType,
       therapy_duration: data.therapyDuration || 60,
       status: data.status || 'upcoming',
@@ -236,7 +236,7 @@ class BookingModel {
     if (updateData.startTime) data.start_time = updateData.startTime;
     if (updateData.endTime) data.end_time = updateData.endTime;
     if (updateData.clientId) data.client_id = updateData.clientId;
-    if (updateData.therapistId) data.therapist_id = updateData.therapistId;
+    if (updateData.therapistId) data.therapistId = updateData.therapistId;
     if (updateData.therapyType) data.therapy_type = updateData.therapyType;
     if (updateData.therapyDuration) data.therapy_duration = updateData.therapyDuration;
     if (updateData.status) data.status = updateData.status;
@@ -277,7 +277,7 @@ class BookingModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapist_id: therapistId }
+      filters: { ...options.filters, therapistId: therapistId }
     });
   }
 
@@ -300,7 +300,7 @@ class BookingModel {
     let query = supabase
       .from('bookings')
       .select(options.select || '*')
-      .eq('therapist_id', therapistId)
+      .eq('therapistId', therapistId)
       .gte('date', startDate)
       .lte('date', endDate);
 
@@ -329,7 +329,7 @@ class BookingModel {
     let query = supabase
       .from('bookings')
       .select('*')
-      .eq('therapist_id', therapistId)
+      .eq('therapistId', therapistId)
       .eq('date', date)
       .in('status', ['upcoming', 'pending', 'completed'])
       .lt('start_time', endTime)
@@ -356,7 +356,7 @@ class BookingModel {
     const { data, error } = await supabase
       .from('bookings')
       .select('*')
-      .eq('therapist_id', therapistId)
+      .eq('therapistId', therapistId)
       .gte('date', today)
       .in('status', ['upcoming', 'pending'])
       .order('date', { ascending: true })
@@ -377,7 +377,7 @@ class BookingModel {
     const { data, error } = await supabase
       .from('bookings')
       .select('status, amount')
-      .eq('therapist_id', therapistId)
+      .eq('therapistId', therapistId)
       .gte('date', startDate)
       .lte('date', endDate);
 

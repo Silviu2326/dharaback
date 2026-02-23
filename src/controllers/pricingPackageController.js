@@ -21,7 +21,7 @@ const pricingPackageController = {
       let query = supabase
         .from('pricing_packages')
         .select('*', { count: 'exact' })
-        .or(`therapist_id.eq.${userId},is_public.eq.true`);
+        .or(`therapistId.eq.${userId},is_public.eq.true`);
 
       if (type) query = query.eq('type', type);
       if (isActive !== undefined) query = query.eq('is_active', isActive === 'true');
@@ -112,7 +112,7 @@ const pricingPackageController = {
         return next(new AppError('Package not found', 404));
       }
 
-      if (existing.therapist_id !== userId) {
+      if (existing.therapistId !== userId) {
         return next(new AppError('Not authorized', 403));
       }
 
@@ -138,7 +138,7 @@ const pricingPackageController = {
         return next(new AppError('Package not found', 404));
       }
 
-      if (existing.therapist_id !== userId) {
+      if (existing.therapistId !== userId) {
         return next(new AppError('Not authorized', 403));
       }
 
@@ -160,7 +160,7 @@ const pricingPackageController = {
       const userId = req.user.id;
 
       const existing = await PricingPackage.findById(packageId);
-      if (!existing || existing.therapist_id !== userId) {
+      if (!existing || existing.therapistId !== userId) {
         return next(new AppError('Package not found', 404));
       }
 
@@ -184,7 +184,7 @@ const pricingPackageController = {
       const userId = req.user.id;
 
       const existing = await PricingPackage.findById(packageId);
-      if (!existing || existing.therapist_id !== userId) {
+      if (!existing || existing.therapistId !== userId) {
         return next(new AppError('Package not found', 404));
       }
 
@@ -209,7 +209,7 @@ const pricingPackageController = {
       const userId = req.user.id;
 
       const existing = await PricingPackage.findById(packageId);
-      if (!existing || existing.therapist_id !== userId) {
+      if (!existing || existing.therapistId !== userId) {
         return next(new AppError('Package not found', 404));
       }
 
@@ -232,7 +232,7 @@ const pricingPackageController = {
       const userId = req.user.id;
 
       const existing = await PricingPackage.findById(packageId);
-      if (!existing || existing.therapist_id !== userId) {
+      if (!existing || existing.therapistId !== userId) {
         return next(new AppError('Package not found', 404));
       }
 
@@ -298,7 +298,7 @@ const pricingPackageController = {
         .from('pricing_packages')
         .select('analytics')
         .eq('id', packageId)
-        .eq('therapist_id', userId);
+        .eq('therapistId', userId);
 
       const { data, error } = await query.single();
 

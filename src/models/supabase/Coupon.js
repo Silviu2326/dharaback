@@ -9,7 +9,7 @@ const SupabaseService = require('../../services/supabaseService');
 class Coupon {
   constructor(data = {}) {
     this.id = data.id;
-    this.therapistId = data.therapist_id;
+    this.therapistId = data.therapistId;
     this.code = data.code;
     this.description = data.description;
     this.discountType = data.discount_type;
@@ -255,7 +255,7 @@ class Coupon {
     const service = new SupabaseService('coupons');
 
     const data = {
-      therapist_id: this.therapistId,
+      therapistId: this.therapistId,
       code: this.code,
       description: this.description,
       discount_type: this.discountType,
@@ -333,7 +333,7 @@ class CouponModel {
     }
 
     const couponData = {
-      therapist_id: data.therapistId,
+      therapistId: data.therapistId,
       code: data.code.toUpperCase(),
       description: data.description,
       discount_type: data.discountType,
@@ -380,7 +380,7 @@ class CouponModel {
    */
   async findByCode(code, therapistId = null) {
     const filters = { code: code.toUpperCase() };
-    if (therapistId) filters.therapist_id = therapistId;
+    if (therapistId) filters.therapistId = therapistId;
     return await this.findOne(filters);
   }
 
@@ -390,7 +390,7 @@ class CouponModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapist_id: therapistId }
+      filters: { ...options.filters, therapistId: therapistId }
     });
   }
 
@@ -403,7 +403,7 @@ class CouponModel {
     let query = supabase
       .from('coupons')
       .select(options.select || '*')
-      .eq('therapist_id', therapistId)
+      .eq('therapistId', therapistId)
       .eq('is_active', true);
 
     // Filtrar los que no han expirado
@@ -428,7 +428,7 @@ class CouponModel {
     let query = supabase
       .from('coupons')
       .select(options.select || '*')
-      .eq('therapist_id', therapistId)
+      .eq('therapistId', therapistId)
       .eq('is_active', true)
       .or(`valid_until.is.null,valid_until.gte.${new Date().toISOString().split('T')[0]}`)
       .or(`applicable_services.cs.{${serviceType}},applicable_services.eq.{}`);
@@ -501,7 +501,7 @@ class CouponModel {
       .lt('valid_until', new Date().toISOString().split('T')[0]);
 
     if (therapistId) {
-      query = query.eq('therapist_id', therapistId);
+      query = query.eq('therapistId', therapistId);
     }
 
     const { data, error } = await query;
@@ -516,7 +516,7 @@ class CouponModel {
   async findByIdAndUpdate(id, updateData, options = {}) {
     const data = {};
 
-    if (updateData.therapistId !== undefined) data.therapist_id = updateData.therapistId;
+    if (updateData.therapistId !== undefined) data.therapistId = updateData.therapistId;
     if (updateData.code !== undefined) data.code = updateData.code.toUpperCase();
     if (updateData.description !== undefined) data.description = updateData.description;
     if (updateData.discountType !== undefined) data.discount_type = updateData.discountType;
@@ -566,17 +566,17 @@ class CouponModel {
     const supabase = require('../../config/supabase').supabase;
 
     const [totalResult, activeResult, percentageResult, fixedResult] = await Promise.all([
-      supabase.from('coupons').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId),
-      supabase.from('coupons').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('is_active', true),
-      supabase.from('coupons').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('discount_type', 'percentage'),
-      supabase.from('coupons').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('discount_type', 'fixed')
+      supabase.from('coupons').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId),
+      supabase.from('coupons').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('is_active', true),
+      supabase.from('coupons').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('discount_type', 'percentage'),
+      supabase.from('coupons').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('discount_type', 'fixed')
     ]);
 
     // Usos totales
     const { data: usageData } = await supabase
       .from('coupons')
       .select('used_count')
-      .eq('therapist_id', therapistId);
+      .eq('therapistId', therapistId);
 
     const totalUses = (usageData || []).reduce((sum, c) => sum + (c.used_count || 0), 0);
 

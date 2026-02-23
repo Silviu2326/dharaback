@@ -20,10 +20,10 @@ const planAssignmentController = {
 
       let query = supabase
         .from('plan_assignments')
-        .select('*, therapy_plan:therapy_plan_id(*), client:client_id(*), therapist:therapist_id(*)', { count: 'exact' });
+        .select('*, therapy_plan:therapy_plan_id(*), client:client_id(*), therapist:therapistId(*)', { count: 'exact' });
 
       if (userRole === 'therapist') {
-        query = query.eq('therapist_id', userId);
+        query = query.eq('therapistId', userId);
       } else if (userRole === 'client') {
         query = query.eq('client_id', userId);
       }
@@ -70,7 +70,7 @@ const planAssignmentController = {
       const [therapyPlan, client, therapist] = await Promise.all([
         TherapyPlan.findById(assignment.therapy_plan_id),
         Client.findById(assignment.client_id),
-        User.findById(assignment.therapist_id)
+        User.findById(assignment.therapistId)
       ]);
 
       res.json({
@@ -164,7 +164,7 @@ const planAssignmentController = {
         return next(new AppError('Plan assignment not found', 404));
       }
 
-      if (existing.therapist_id !== userId) {
+      if (existing.therapistId !== userId) {
         return next(new AppError('Not authorized', 403));
       }
 
@@ -190,7 +190,7 @@ const planAssignmentController = {
         return next(new AppError('Plan assignment not found', 404));
       }
 
-      if (existing.therapist_id !== userId) {
+      if (existing.therapistId !== userId) {
         return next(new AppError('Not authorized', 403));
       }
 
@@ -217,7 +217,7 @@ const planAssignmentController = {
         return next(new AppError('Plan assignment not found', 404));
       }
 
-      if (assignment.therapist_id !== userId) {
+      if (assignment.therapistId !== userId) {
         return next(new AppError('Not authorized', 403));
       }
 
@@ -269,7 +269,7 @@ const planAssignmentController = {
         return next(new AppError('Plan assignment not found', 404));
       }
 
-      if (assignment.therapist_id !== userId) {
+      if (assignment.therapistId !== userId) {
         return next(new AppError('Not authorized', 403));
       }
 
@@ -310,7 +310,7 @@ const planAssignmentController = {
         return next(new AppError('Plan assignment not found', 404));
       }
 
-      if (assignment.therapist_id !== userId) {
+      if (assignment.therapistId !== userId) {
         return next(new AppError('Not authorized', 403));
       }
 
@@ -340,7 +340,7 @@ const planAssignmentController = {
         return next(new AppError('Plan assignment not found', 404));
       }
 
-      if (assignment.therapist_id !== userId) {
+      if (assignment.therapistId !== userId) {
         return next(new AppError('Not authorized', 403));
       }
 
@@ -370,7 +370,7 @@ const planAssignmentController = {
         return next(new AppError('Plan assignment not found', 404));
       }
 
-      if (assignment.therapist_id !== userId) {
+      if (assignment.therapistId !== userId) {
         return next(new AppError('Not authorized', 403));
       }
 
@@ -399,7 +399,7 @@ const planAssignmentController = {
       let query = supabase
         .from('plan_assignments')
         .select('status, progress')
-        .eq(userRole === 'therapist' ? 'therapist_id' : 'client_id', userId);
+        .eq(userRole === 'therapist' ? 'therapistId' : 'client_id', userId);
 
       const { data, error } = await query;
 

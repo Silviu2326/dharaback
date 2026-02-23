@@ -14,7 +14,7 @@ const { User, AvailabilitySlot, Booking } = require('../models');
  */
 const formatSlot = (row) => ({
   id:         row.id,
-  therapistId: row.therapist_id,
+  therapistId: row.therapistId,
   title:      row.title || 'Disponible',
   startDate:  row.valid_from   || null,
   endDate:    row.valid_until  || null,
@@ -58,7 +58,7 @@ const getTherapistAvailability = asyncHandler(async (req, res, next) => {
   const { data: slots, error } = await supabase
     .from('availability_slots')
     .select('*')
-    .eq('therapist_id', therapistId)
+    .eq('therapistId', therapistId)
     .eq('is_available', true)
     .or(`valid_from.is.null,valid_from.lte.${endDate}`)
     .or(`valid_until.is.null,valid_until.gte.${startDate}`)
@@ -96,7 +96,7 @@ const getAvailableSlotsForDate = asyncHandler(async (req, res, next) => {
   const { data: slots, error } = await supabase
     .from('availability_slots')
     .select('*')
-    .eq('therapist_id', therapistId)
+    .eq('therapistId', therapistId)
     .eq('day_of_week', dayOfWeek)
     .eq('is_available', true)
     .order('start_time', { ascending: true });
@@ -127,7 +127,7 @@ const checkSlotAvailability = asyncHandler(async (req, res, next) => {
   const { data: bookings } = await supabase
     .from('bookings')
     .select('id, start_time, end_time')
-    .eq('therapist_id', therapistId)
+    .eq('therapistId', therapistId)
     .eq('date', date)
     .in('status', ['upcoming', 'pending', 'confirmed'])
     .lt('start_time', endTime)
@@ -154,7 +154,7 @@ const getTherapistSchedule = asyncHandler(async (req, res, next) => {
   const { data: slots } = await supabase
     .from('availability_slots')
     .select('*')
-    .eq('therapist_id', therapistId)
+    .eq('therapistId', therapistId)
     .eq('is_available', true)
     .order('day_of_week')
     .order('start_time');
@@ -184,16 +184,16 @@ const getTherapistSchedule = asyncHandler(async (req, res, next) => {
 // @route GET /api/availability/conflicts/check
 // @access Private
 const checkTimeBlockConflicts = asyncHandler(async (req, res, next) => {
-  const { therapist_id, start_time, end_time } = req.query;
+  const { therapistId, start_time, end_time } = req.query;
 
-  if (!therapist_id || !start_time || !end_time) {
-    return next(new AppError('therapist_id, start_time and end_time are required', 400));
+  if (!therapistId || !start_time || !end_time) {
+    return next(new AppError('therapistId, start_time and end_time are required', 400));
   }
 
   const { data: bookings } = await supabase
     .from('bookings')
     .select('id, start_time, end_time, date, status')
-    .eq('therapist_id', therapist_id)
+    .eq('therapistId', therapistId)
     .in('status', ['upcoming', 'pending', 'confirmed'])
     .lt('start_time', end_time)
     .gt('end_time', start_time);
@@ -217,16 +217,16 @@ const checkTimeBlockConflicts = asyncHandler(async (req, res, next) => {
 // @route GET /api/availability/appointments/check
 // @access Private
 const checkExistingAppointments = asyncHandler(async (req, res, next) => {
-  const { therapist_id, date, start_time, end_time } = req.query;
+  const { therapistId, date, start_time, end_time } = req.query;
 
-  if (!therapist_id || !date) {
-    return next(new AppError('therapist_id and date are required', 400));
+  if (!therapistId || !date) {
+    return next(new AppError('therapistId and date are required', 400));
   }
 
   let query = supabase
     .from('bookings')
     .select('id, start_time, end_time, date, status, client_id')
-    .eq('therapist_id', therapist_id)
+    .eq('therapistId', therapistId)
     .eq('date', date)
     .in('status', ['upcoming', 'pending', 'confirmed']);
 
@@ -281,7 +281,7 @@ const createTimeBlock = asyncHandler(async (req, res, next) => {
   const durationMinutes = (eh * 60 + em) - (sh * 60 + sm);
 
   const slotData = {
-    therapist_id:  therapistId,
+    therapistId:  therapistId,
     day_of_week:   dayOfWeek,
     start_time:    startTime,
     end_time:      endTime,
@@ -312,7 +312,7 @@ const createTimeBlock = asyncHandler(async (req, res, next) => {
       const { data: data2, error: error2 } = await supabase
         .from('availability_slots')
         .insert({
-          therapist_id:  slotData.therapist_id,
+          therapistId:  slotData.therapistId,
           day_of_week:   slotData.day_of_week,
           start_time:    slotData.start_time,
           end_time:      slotData.end_time,
@@ -381,7 +381,7 @@ const updateTimeBlock = asyncHandler(async (req, res, next) => {
 
   // Build update data - only columns that definitely exist in the table
   const updateData = {
-    therapist_id:  existing.therapist_id,
+    therapistId:  existing.therapistId,
     start_time:    body.startTime || existing.start_time,
     end_time:      body.endTime || existing.end_time,
     is_available:  body.isActive !== undefined ? body.isActive : existing.is_available,
@@ -476,7 +476,7 @@ const getTherapistTimeBlocks = asyncHandler(async (req, res, next) => {
   let query = supabase
     .from('availability_slots')
     .select('*')
-    .eq('therapist_id', therapistId)
+    .eq('therapistId', therapistId)
     .order('valid_from', { ascending: true })
     .order('start_time', { ascending: true });
 

@@ -8,7 +8,7 @@ const SupabaseService = require('../../services/supabaseService');
 class Rates {
   constructor(data = {}) {
     this.id = data.id;
-    this.therapistId = data.therapist_id;
+    this.therapistId = data.therapistId;
     this.sessionPrice = data.session_price || 60;
     this.followUpPrice = data.follow_up_price || 50;
     this.packagePrice = data.package_price || 200;
@@ -156,7 +156,7 @@ class Rates {
     const service = new SupabaseService('rates');
 
     const data = {
-      therapist_id: this.therapistId,
+      therapistId: this.therapistId,
       session_price: this.sessionPrice,
       follow_up_price: this.followUpPrice,
       package_price: this.packagePrice,
@@ -208,7 +208,7 @@ class RatesModel {
    */
   async create(data) {
     const ratesData = {
-      therapist_id: data.therapistId,
+      therapistId: data.therapistId,
       session_price: data.sessionPrice || 60,
       follow_up_price: data.followUpPrice || 50,
       package_price: data.packagePrice || 200,
@@ -253,7 +253,7 @@ class RatesModel {
    * Buscar por terapeuta
    */
   async findByTherapist(therapistId) {
-    return await this.findOne({ therapist_id: therapistId });
+    return await this.findOne({ therapistId: therapistId });
   }
 
   /**

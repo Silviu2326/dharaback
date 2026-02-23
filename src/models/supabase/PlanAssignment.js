@@ -10,7 +10,7 @@ class PlanAssignment {
   constructor(data = {}) {
     this.id = data.id;
     this.clientId = data.client_id;
-    this.therapistId = data.therapist_id;
+    this.therapistId = data.therapistId;
     this.planId = data.plan_id;
     this.totalSessions = data.total_sessions || 0;
     this.usedSessions = data.used_sessions || 0;
@@ -278,7 +278,7 @@ class PlanAssignment {
 
     const data = {
       client_id: this.clientId,
-      therapist_id: this.therapistId,
+      therapistId: this.therapistId,
       plan_id: this.planId,
       total_sessions: this.totalSessions,
       used_sessions: this.usedSessions,
@@ -354,7 +354,7 @@ class PlanAssignmentModel {
 
     const assignmentData = {
       client_id: data.clientId,
-      therapist_id: data.therapistId,
+      therapistId: data.therapistId,
       plan_id: data.planId,
       total_sessions: data.totalSessions,
       used_sessions: data.usedSessions || 0,
@@ -409,7 +409,7 @@ class PlanAssignmentModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapist_id: therapistId }
+      filters: { ...options.filters, therapistId: therapistId }
     });
   }
 
@@ -435,7 +435,7 @@ class PlanAssignmentModel {
       ...options,
       filters: { 
         ...options.filters, 
-        therapist_id: therapistId,
+        therapistId: therapistId,
         status: 'active'
       }
     });
@@ -475,7 +475,7 @@ class PlanAssignmentModel {
       .eq('status', 'active');
 
     if (options.therapistId) {
-      query = query.eq('therapist_id', options.therapistId);
+      query = query.eq('therapistId', options.therapistId);
     }
 
     const { data, error } = await query;
@@ -497,7 +497,7 @@ class PlanAssignmentModel {
       .filter('used_sessions', 'gte', 'total_sessions');
 
     if (options.therapistId) {
-      query = query.eq('therapist_id', options.therapistId);
+      query = query.eq('therapistId', options.therapistId);
     }
 
     const { data, error } = await query;
@@ -513,7 +513,7 @@ class PlanAssignmentModel {
     const data = {};
 
     if (updateData.clientId !== undefined) data.client_id = updateData.clientId;
-    if (updateData.therapistId !== undefined) data.therapist_id = updateData.therapistId;
+    if (updateData.therapistId !== undefined) data.therapistId = updateData.therapistId;
     if (updateData.planId !== undefined) data.plan_id = updateData.planId;
     if (updateData.totalSessions !== undefined) data.total_sessions = updateData.totalSessions;
     if (updateData.usedSessions !== undefined) data.used_sessions = updateData.usedSessions;
@@ -560,17 +560,17 @@ class PlanAssignmentModel {
     const supabase = require('../../config/supabase').supabase;
 
     const [totalResult, activeResult, completedResult, cancelledResult] = await Promise.all([
-      supabase.from('plan_assignments').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId),
-      supabase.from('plan_assignments').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('status', 'active'),
-      supabase.from('plan_assignments').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('status', 'completed'),
-      supabase.from('plan_assignments').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('status', 'cancelled')
+      supabase.from('plan_assignments').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId),
+      supabase.from('plan_assignments').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('status', 'active'),
+      supabase.from('plan_assignments').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('status', 'completed'),
+      supabase.from('plan_assignments').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('status', 'cancelled')
     ]);
 
     // Calcular sesiones totales
     const { data: sessionsData } = await supabase
       .from('plan_assignments')
       .select('total_sessions, used_sessions')
-      .eq('therapist_id', therapistId);
+      .eq('therapistId', therapistId);
 
     const totalSessions = (sessionsData || []).reduce((sum, a) => sum + (a.total_sessions || 0), 0);
     const usedSessions = (sessionsData || []).reduce((sum, a) => sum + (a.used_sessions || 0), 0);
@@ -595,7 +595,7 @@ class PlanAssignmentModel {
       client_id: clientId, 
       status: 'active' 
     };
-    if (therapistId) filters.therapist_id = therapistId;
+    if (therapistId) filters.therapistId = therapistId;
 
     const supabase = require('../../config/supabase').supabase;
 

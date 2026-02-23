@@ -63,7 +63,7 @@ const updateValidation = [
 ];
 
 const idValidation = [
-  param('credentialId').isUUID().withMessage('Credential ID must be valid')
+  param('credentialId').isMongoId().withMessage('Credential ID must be valid')
 ];
 
 // Main routes

@@ -9,7 +9,7 @@ const SupabaseService = require('../../services/supabaseService');
 class Subscription {
   constructor(data = {}) {
     this.id = data.id;
-    this.therapistId = data.therapist_id;
+    this.therapistId = data.therapistId;
     this.stripeSubscriptionId = data.stripe_subscription_id;
     this.stripeCustomerId = data.stripe_customer_id;
     this.planType = data.plan_type;
@@ -273,7 +273,7 @@ class Subscription {
     const service = new SupabaseService('subscriptions');
 
     const data = {
-      therapist_id: this.therapistId,
+      therapistId: this.therapistId,
       stripe_subscription_id: this.stripeSubscriptionId,
       stripe_customer_id: this.stripeCustomerId,
       plan_type: this.planType,
@@ -344,7 +344,7 @@ class SubscriptionModel {
    */
   async create(data) {
     const subscriptionData = {
-      therapist_id: data.therapistId,
+      therapistId: data.therapistId,
       stripe_subscription_id: data.stripeSubscriptionId,
       stripe_customer_id: data.stripeCustomerId,
       plan_type: data.planType,
@@ -399,7 +399,7 @@ class SubscriptionModel {
    * Buscar suscripción por terapeuta
    */
   async findByTherapist(therapistId) {
-    return await this.findOne({ therapist_id: therapistId });
+    return await this.findOne({ therapistId: therapistId });
   }
 
   /**
@@ -484,7 +484,7 @@ class SubscriptionModel {
   async findByIdAndUpdate(id, updateData, options = {}) {
     const data = {};
 
-    if (updateData.therapistId !== undefined) data.therapist_id = updateData.therapistId;
+    if (updateData.therapistId !== undefined) data.therapistId = updateData.therapistId;
     if (updateData.stripeSubscriptionId !== undefined) data.stripe_subscription_id = updateData.stripeSubscriptionId;
     if (updateData.stripeCustomerId !== undefined) data.stripe_customer_id = updateData.stripeCustomerId;
     if (updateData.planType !== undefined) data.plan_type = updateData.planType;

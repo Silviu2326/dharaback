@@ -216,7 +216,7 @@ router.get('/analysis/occupancy', protect, async (req, res) => {
     const { data: bookings } = await require('../config/supabase').supabase
       .from('bookings')
       .select('date, start_time, end_time, status')
-      .eq('therapist_id', therapistId)
+      .eq('therapistId', therapistId)
       .gte('date', startDate)
       .lte('date', endDate)
       .in('status', ['completed', 'upcoming', 'pending']);
@@ -263,7 +263,7 @@ router.get('/calendar/events', protect, async (req, res) => {
     const { data: slots } = await supabase
       .from('availability_slots')
       .select('*')
-      .eq('therapist_id', therapistId)
+      .eq('therapistId', therapistId)
       .eq('is_available', true)
       .or(`valid_from.is.null,valid_from.lte.${endDate}`)
       .or(`valid_until.is.null,valid_until.gte.${startDate}`);
@@ -272,7 +272,7 @@ router.get('/calendar/events', protect, async (req, res) => {
     const { data: bookings } = await supabase
       .from('bookings')
       .select('*')
-      .eq('therapist_id', therapistId)
+      .eq('therapistId', therapistId)
       .gte('date', startDate)
       .lte('date', endDate)
       .in('status', ['upcoming', 'pending', 'confirmed', 'completed']);

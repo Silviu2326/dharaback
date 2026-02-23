@@ -10,7 +10,7 @@ router.use(protect);
 // Validation rules
 const createNotificationValidation = [
   body('userId')
-    .isUUID()
+    .isMongoId()
     .withMessage('User ID must be valid'),
   body('type')
     .isIn(['appointment', 'message', 'document', 'payment', 'system', 'review', 'reminder', 'cancellation'])
@@ -63,7 +63,7 @@ const bulkValidation = [
     .isArray({ min: 1 })
     .withMessage('Notification IDs must be a non-empty array'),
   body('notificationIds.*')
-    .isUUID()
+    .isMongoId()
     .withMessage('Each notification ID must be valid')
 ];
 
@@ -78,7 +78,7 @@ const deliveryStatusValidation = [
 
 const idValidation = [
   param('notificationId')
-    .isUUID()
+    .isMongoId()
     .withMessage('Notification ID must be valid')
 ];
 

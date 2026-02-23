@@ -26,14 +26,14 @@ const getBookings = asyncHandler(async (req, res, next) => {
     startTime: 'start_time',
     endTime: 'end_time',
     clientId: 'client_id',
-    therapistId: 'therapist_id',
+    therapistId: 'therapistId',
     therapyType: 'therapy_type',
     createdAt: 'created_at'
   };
   const sortColumn = columnMap[sortBy] || sortBy;
 
   // Build filters
-  const filters = { therapist_id: req.user.id || req.user._id };
+  const filters = { therapistId: req.user.id || req.user._id };
 
   if (status && status !== 'all') {
     filters.status = status;
@@ -103,7 +103,7 @@ const getBookings = asyncHandler(async (req, res, next) => {
 const getBooking = asyncHandler(async (req, res, next) => {
   const booking = await Booking.findOne({
     id: req.params.id,
-    therapist_id: req.user.id || req.user._id
+    therapistId: req.user.id || req.user._id
   });
 
   if (!booking) {
@@ -160,7 +160,7 @@ const createBooking = asyncHandler(async (req, res, next) => {
   // Verify client belongs to therapist
   const client = await Client.findOne({
     id: clientId,
-    therapist_id: req.user.id || req.user._id,
+    therapistId: req.user.id || req.user._id,
     status: 'active'
   });
 
@@ -238,7 +238,7 @@ const createBooking = asyncHandler(async (req, res, next) => {
 const updateBooking = asyncHandler(async (req, res, next) => {
   const booking = await Booking.findOne({
     id: req.params.id,
-    therapist_id: req.user.id || req.user._id
+    therapistId: req.user.id || req.user._id
   });
 
   if (!booking) {
@@ -337,7 +337,7 @@ const cancelBooking = asyncHandler(async (req, res, next) => {
 
   const booking = await Booking.findOne({
     id: req.params.id,
-    therapist_id: req.user.id || req.user._id
+    therapistId: req.user.id || req.user._id
   });
 
   if (!booking) {
@@ -373,7 +373,7 @@ const cancelBooking = asyncHandler(async (req, res, next) => {
 const completeBooking = asyncHandler(async (req, res, next) => {
   const booking = await Booking.findOne({
     id: req.params.id,
-    therapist_id: req.user.id || req.user._id
+    therapistId: req.user.id || req.user._id
   });
 
   if (!booking) {
@@ -403,7 +403,7 @@ const completeBooking = asyncHandler(async (req, res, next) => {
 const markNoShow = asyncHandler(async (req, res, next) => {
   const booking = await Booking.findOne({
     id: req.params.id,
-    therapist_id: req.user.id || req.user._id
+    therapistId: req.user.id || req.user._id
   });
 
   if (!booking) {
@@ -436,7 +436,7 @@ const getBookingStats = asyncHandler(async (req, res, next) => {
   let query = supabase
     .from('bookings')
     .select('status, amount, client_id')
-    .eq('therapist_id', therapistId);
+    .eq('therapistId', therapistId);
 
   if (startDate) {
     query = query.gte('date', startDate);
@@ -506,7 +506,7 @@ const getBookingStats = asyncHandler(async (req, res, next) => {
   const { count: registeredClients } = await supabase
     .from('clients')
     .select('*', { count: 'exact', head: true })
-    .eq('therapist_id', therapistId);
+    .eq('therapistId', therapistId);
 
   result.totalUniqueClients = registeredClients || 0;
 
@@ -514,7 +514,7 @@ const getBookingStats = asyncHandler(async (req, res, next) => {
   const { data: upcomingClients } = await supabase
     .from('bookings')
     .select('client_id')
-    .eq('therapist_id', therapistId)
+    .eq('therapistId', therapistId)
     .in('status', ['upcoming', 'pending']);
 
   const activeClientIds = new Set(upcomingClients?.map(b => b.client_id));
@@ -524,7 +524,7 @@ const getBookingStats = asyncHandler(async (req, res, next) => {
   const { data: bookingsByType } = await supabase
     .from('bookings')
     .select('therapy_type, count, amount')
-    .eq('therapist_id', therapistId);
+    .eq('therapistId', therapistId);
 
   // Group by therapy type
   const typeMap = {};
@@ -560,7 +560,7 @@ const getUpcomingBookings = asyncHandler(async (req, res, next) => {
 
   const upcomingBookings = await Booking.find({
     filters: {
-      therapist_id: req.user.id || req.user._id,
+      therapistId: req.user.id || req.user._id,
       status: { in: ['upcoming', 'pending'] },
       date: { gte: today }
     },
@@ -606,7 +606,7 @@ const rescheduleBooking = asyncHandler(async (req, res, next) => {
 
   const booking = await Booking.findOne({
     id: req.params.id,
-    therapist_id: req.user.id || req.user._id
+    therapistId: req.user.id || req.user._id
   });
 
   if (!booking) {

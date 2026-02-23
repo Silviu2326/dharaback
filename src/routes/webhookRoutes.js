@@ -55,11 +55,11 @@ const createValidation = [
     .withMessage('Invalid event type'),
   body('integrationId')
     .optional()
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Integration ID must be valid'),
   body('therapistId')
     .optional()
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Therapist ID must be valid'),
   body('authentication.type')
     .optional()
@@ -138,7 +138,7 @@ const disableValidation = [
 
 const idValidation = [
   param('webhookId')
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Webhook ID must be valid')
 ];
 
@@ -173,7 +173,7 @@ const eventValidation = [
 
 const therapistIdValidation = [
   param('therapistId')
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Therapist ID must be valid')
 ];
 

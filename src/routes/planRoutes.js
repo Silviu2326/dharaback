@@ -88,13 +88,13 @@ router.get('/type/:type',
 
 // GET /api/plans/:planId - Get single therapy plan
 router.get('/:planId',
-  param('planId').isUUID(4).withMessage('Invalid plan ID'),
+  param('planId').isMongoId().withMessage('Invalid plan ID'),
   therapyPlanController.getTherapyPlan
 );
 
 // GET /api/plans/:planId/schedule - Calculate session schedule
 router.get('/:planId/schedule',
-  param('planId').isUUID(4).withMessage('Invalid plan ID'),
+  param('planId').isMongoId().withMessage('Invalid plan ID'),
   query('startDate').isISO8601().withMessage('Valid start date is required'),
   therapyPlanController.calculateSessionSchedule
 );
@@ -112,7 +112,7 @@ router.post('/',
 // PUT /api/plans/:planId - Update therapy plan
 router.put('/:planId',
   authorize('therapist', 'admin'),
-  param('planId').isUUID(4).withMessage('Invalid plan ID'),
+  param('planId').isMongoId().withMessage('Invalid plan ID'),
   updatePlanValidation,
   therapyPlanController.updateTherapyPlan
 );
@@ -120,7 +120,7 @@ router.put('/:planId',
 // DELETE /api/plans/:planId - Delete therapy plan
 router.delete('/:planId',
   authorize('therapist', 'admin'),
-  param('planId').isUUID(4).withMessage('Invalid plan ID'),
+  param('planId').isMongoId().withMessage('Invalid plan ID'),
   therapyPlanController.deleteTherapyPlan
 );
 
@@ -129,21 +129,21 @@ router.delete('/:planId',
 // POST /api/plans/:planId/activate - Activate therapy plan
 router.post('/:planId/activate',
   authorize('therapist', 'admin'),
-  param('planId').isUUID(4).withMessage('Invalid plan ID'),
+  param('planId').isMongoId().withMessage('Invalid plan ID'),
   therapyPlanController.activateTherapyPlan
 );
 
 // POST /api/plans/:planId/archive - Archive therapy plan
 router.post('/:planId/archive',
   authorize('therapist', 'admin'),
-  param('planId').isUUID(4).withMessage('Invalid plan ID'),
+  param('planId').isMongoId().withMessage('Invalid plan ID'),
   therapyPlanController.archiveTherapyPlan
 );
 
 // POST /api/plans/:planId/template - Create template from therapy plan
 router.post('/:planId/template',
   authorize('therapist', 'admin'),
-  param('planId').isUUID(4).withMessage('Invalid plan ID'),
+  param('planId').isMongoId().withMessage('Invalid plan ID'),
   therapyPlanController.createTemplate
 );
 
@@ -152,8 +152,8 @@ router.post('/:planId/template',
 // POST /api/plans/:planId/share - Share therapy plan with another therapist
 router.post('/:planId/share',
   authorize('therapist', 'admin'),
-  param('planId').isUUID(4).withMessage('Invalid plan ID'),
-  body('therapistId').isUUID(4).withMessage('Valid therapist ID is required'),
+  param('planId').isMongoId().withMessage('Invalid plan ID'),
+  body('therapistId').isMongoId().withMessage('Valid therapist ID is required'),
   body('permissions').optional().isIn(['view', 'edit', 'copy']).withMessage('Invalid permissions'),
   therapyPlanController.shareTherapyPlan
 );
@@ -161,8 +161,8 @@ router.post('/:planId/share',
 // POST /api/plans/:planId/assign - Assign therapy plan to client
 router.post('/:planId/assign',
   authorize('therapist', 'admin'),
-  param('planId').isUUID(4).withMessage('Invalid plan ID'),
-  body('clientId').isUUID(4).withMessage('Valid client ID is required'),
+  param('planId').isMongoId().withMessage('Invalid plan ID'),
+  body('clientId').isMongoId().withMessage('Valid client ID is required'),
   body('startDate').optional().isISO8601().withMessage('Invalid start date'),
   therapyPlanController.assignToClient
 );

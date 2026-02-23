@@ -13,7 +13,7 @@ const getFavorites = asyncHandler(async (req, res, next) => {
 
   const { data: favorites, error, count } = await supabase
     .from('favorites')
-    .select('*, therapist:therapist_id(*)', { count: 'exact' })
+    .select('*, therapist:therapistId(*)', { count: 'exact' })
     .eq('client_id', clientId)
     .order(sortBy, { ascending: sortOrder === 'asc' })
     .range(offset, offset + parseInt(limit) - 1);
@@ -27,7 +27,7 @@ const getFavorites = asyncHandler(async (req, res, next) => {
         const { data: profile } = await supabase
           .from('professional_profiles')
           .select('*')
-          .eq('user_id', fav.therapist_id)
+          .eq('user_id', fav.therapistId)
           .single();
         
         fav.therapist.profile = profile || null;
@@ -72,7 +72,7 @@ const addToFavorites = asyncHandler(async (req, res, next) => {
   // Check if already in favorites
   const existingFavorite = await Favorite.findOne({
     client_id: clientId,
-    therapist_id: therapistId
+    therapistId: therapistId
   });
   
   if (existingFavorite) {
@@ -115,7 +115,7 @@ const removeFromFavorites = asyncHandler(async (req, res, next) => {
 
   const favorite = await Favorite.findOne({
     client_id: clientId,
-    therapist_id: therapistId
+    therapistId: therapistId
   });
 
   if (!favorite) {
@@ -158,7 +158,7 @@ const updateFavoriteNotes = asyncHandler(async (req, res, next) => {
 
   const favorite = await Favorite.findOne({
     client_id: clientId,
-    therapist_id: therapistId
+    therapistId: therapistId
   });
 
   if (!favorite) {
@@ -211,7 +211,7 @@ const getFavoriteStats = asyncHandler(async (req, res, next) => {
   const { count: recentFavorites } = await supabase
     .from('favorites')
     .select('*', { count: 'exact', head: true })
-    .eq('therapist_id', therapistId)
+    .eq('therapistId', therapistId)
     .gte('added_at', thirtyDaysAgo.toISOString());
 
   res.status(200).json({
@@ -233,7 +233,7 @@ const getPopularTherapists = asyncHandler(async (req, res, next) => {
 
   let query = supabase
     .from('favorites')
-    .select('therapist_id, added_at');
+    .select('therapistId, added_at');
 
   if (period === '30days') {
     const thirtyDaysAgo = new Date();
@@ -252,7 +252,7 @@ const getPopularTherapists = asyncHandler(async (req, res, next) => {
   // Count favorites per therapist
   const therapistCounts = {};
   (favorites || []).forEach(fav => {
-    therapistCounts[fav.therapist_id] = (therapistCounts[fav.therapist_id] || 0) + 1;
+    therapistCounts[fav.therapistId] = (therapistCounts[fav.therapistId] || 0) + 1;
   });
 
   // Sort and get top therapists
@@ -331,12 +331,12 @@ const bulkManageFavorites = asyncHandler(async (req, res, next) => {
       .from('favorites')
       .delete()
       .eq('client_id', clientId)
-      .in('therapist_id', therapistIds);
+      .in('therapistId', therapistIds);
 
     // Create new favorites
     const favorites = therapistIds.map(therapistId => ({
       client_id: clientId,
-      therapist_id: therapistId,
+      therapistId: therapistId,
       notes: notes?.trim()
     }));
 
@@ -357,7 +357,7 @@ const bulkManageFavorites = asyncHandler(async (req, res, next) => {
       .from('favorites')
       .delete()
       .eq('client_id', clientId)
-      .in('therapist_id', therapistIds)
+      .in('therapistId', therapistIds)
       .select();
 
     res.status(200).json({

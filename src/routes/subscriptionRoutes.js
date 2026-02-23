@@ -14,7 +14,7 @@ router.use(protect);
 // Validation rules
 const createValidation = [
   body('planId')
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Plan ID must be valid'),
   body('billingCycle')
     .optional()
@@ -42,7 +42,7 @@ const suspendValidation = [
 
 const planChangeValidation = [
   body('newPlanId')
-    .isUUID(4)
+    .isMongoId()
     .withMessage('New plan ID must be valid'),
   body('effectiveImmediately')
     .optional()
@@ -52,13 +52,13 @@ const planChangeValidation = [
 
 const idValidation = [
   param('subscriptionId')
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Subscription ID must be valid')
 ];
 
 const therapistIdValidation = [
   param('therapistId')
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Therapist ID must be valid')
 ];
 

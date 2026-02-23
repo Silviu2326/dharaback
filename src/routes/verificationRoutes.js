@@ -117,12 +117,12 @@ const bulkValidation = [
   body("documentIds")
     .isArray({ min: 1 })
     .withMessage("Document IDs must be a non-empty array"),
-  body("documentIds.*").isUUID().withMessage("Each document ID must be valid"),
+  body("documentIds.*").isMongoId().withMessage("Each document ID must be valid"),
   body("comment").optional().isLength({ max: 1000 }),
 ];
 
 const idValidation = [
-  param("documentId").isUUID().withMessage("Document ID must be valid"),
+  param("documentId").isMongoId().withMessage("Document ID must be valid"),
 ];
 
 // Main routes

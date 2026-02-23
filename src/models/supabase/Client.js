@@ -30,7 +30,7 @@ class Client {
     this.emergencyContact = data.emergency_contact || {};
     this.notes = data.notes;
     this.tags = data.tags || [];
-    this.therapistId = data.therapist_id;
+    this.therapistId = data.therapistId;
     this.lastSession = data.last_session;
     this.sessionsCount = data.sessions_count || 0;
     this.rating = data.rating;
@@ -173,7 +173,7 @@ class Client {
       emergency_contact: this.emergencyContact,
       notes: this.notes,
       tags: this.tags,
-      therapist_id: this.therapistId,
+      therapistId: this.therapistId,
       last_session: this.lastSession,
       sessions_count: this.sessionsCount,
       rating: this.rating,
@@ -256,7 +256,7 @@ class ClientModel {
       emergency_contact: data.emergencyContact,
       notes: data.notes,
       tags: data.tags || [],
-      therapist_id: data.therapistId,
+      therapistId: data.therapistId,
       preferences: data.preferences || {
         preferredTime: 'any',
         preferredLocation: 'both',
@@ -300,7 +300,7 @@ class ClientModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapist_id: therapistId }
+      filters: { ...options.filters, therapistId: therapistId }
     });
   }
 
@@ -308,7 +308,7 @@ class ClientModel {
    * Buscar por email y terapeuta
    */
   async findByEmailAndTherapist(email, therapistId) {
-    return await this.findOne({ email, therapist_id: therapistId });
+    return await this.findOne({ email, therapistId: therapistId });
   }
 
   /**
@@ -360,7 +360,7 @@ class ClientModel {
    * Contar por terapeuta
    */
   async countByTherapist(therapistId, status = null) {
-    const filters = { therapist_id: therapistId };
+    const filters = { therapistId: therapistId };
     if (status) filters.status = status;
     return await this.count(filters);
   }
@@ -385,7 +385,7 @@ class ClientModel {
     let query = supabase
       .from('clients')
       .select(options.select || '*')
-      .eq('therapist_id', therapistId)
+      .eq('therapistId', therapistId)
       .overlaps('tags', tags);
 
     if (options.limit) {
@@ -402,7 +402,7 @@ class ClientModel {
    * Verificar si existe
    */
   async exists(email, therapistId) {
-    const count = await this.service.count({ email, therapist_id: therapistId });
+    const count = await this.service.count({ email, therapistId: therapistId });
     return count > 0;
   }
 }

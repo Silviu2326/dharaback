@@ -25,9 +25,9 @@ const getWorkLocations = async (req, res) => {
 
     // Access control
     if (req.user.role === 'therapist') {
-      filters.therapist_id = userId;
+      filters.therapistId = userId;
     } else if (therapistId && req.user.role === 'admin') {
-      filters.therapist_id = therapistId;
+      filters.therapistId = therapistId;
     }
 
     if (locationType) filters.location_type = locationType;
@@ -363,7 +363,7 @@ const setPrimaryLocation = async (req, res) => {
 const getLocationsByTherapist = async (req, res) => {
   try {
     // Get therapist ID from params or query, or default to current user
-    let targetTherapistId = req.params.therapistId || req.query.therapist_id;
+    let targetTherapistId = req.params.therapistId || req.query.therapistId;
 
     // If 'current' is passed or no ID specified, use current user's ID
     const userId = req.user.id || req.user._id;

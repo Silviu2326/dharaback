@@ -18,7 +18,7 @@ const webhookController = {
       let query = supabase
         .from('webhooks')
         .select('*', { count: 'exact' })
-        .eq('therapist_id', therapistId)
+        .eq('therapistId', therapistId)
         .eq('is_active', true);
 
       if (status) query = query.eq('status', status);
@@ -66,7 +66,7 @@ const webhookController = {
 
       const webhook = await Webhook.findOne({
         id: webhookId,
-        therapist_id: therapistId,
+        therapistId: therapistId,
         is_active: true
       });
 
@@ -132,7 +132,7 @@ const webhookController = {
 
       const webhook = await Webhook.findOne({
         id: webhookId,
-        therapist_id: therapistId,
+        therapistId: therapistId,
         is_active: true
       });
 
@@ -179,7 +179,7 @@ const webhookController = {
 
       const webhook = await Webhook.findOne({
         id: webhookId,
-        therapist_id: therapistId,
+        therapistId: therapistId,
         is_active: true
       });
 
@@ -208,7 +208,7 @@ const webhookController = {
 
       const webhook = await Webhook.findOne({
         id: webhookId,
-        therapist_id: therapistId,
+        therapistId: therapistId,
         is_active: true
       });
 
@@ -349,7 +349,7 @@ const webhookController = {
 
       const webhook = await Webhook.findOne({
         id: webhookId,
-        therapist_id: therapistId,
+        therapistId: therapistId,
         is_active: true
       });
 
@@ -395,7 +395,7 @@ const webhookController = {
 
       const webhook = await Webhook.findOne({
         id: webhookId,
-        therapist_id: therapistId,
+        therapistId: therapistId,
         is_active: true
       });
 
@@ -454,7 +454,7 @@ const webhookController = {
 
       const webhook = await Webhook.findOne({
         id: webhookId,
-        therapist_id: therapistId,
+        therapistId: therapistId,
         is_active: true
       });
 
@@ -484,7 +484,7 @@ const webhookController = {
 
       const webhook = await Webhook.findOne({
         id: webhookId,
-        therapist_id: therapistId,
+        therapistId: therapistId,
         is_active: true
       });
 
@@ -514,7 +514,7 @@ const webhookController = {
 
       const webhook = await Webhook.findOne({
         id: webhookId,
-        therapist_id: therapistId,
+        therapistId: therapistId,
         is_active: true
       });
 
@@ -547,7 +547,7 @@ const webhookController = {
 
       const webhook = await Webhook.findOne({
         id: webhookId,
-        therapist_id: therapistId,
+        therapistId: therapistId,
         is_active: true
       });
 
@@ -634,7 +634,7 @@ const webhookController = {
       const { data: webhooks, error } = await supabase
         .from('webhooks')
         .select('*')
-        .eq('therapist_id', therapistId)
+        .eq('therapistId', therapistId)
         .eq('is_active', true)
         .contains('events', [event]);
 

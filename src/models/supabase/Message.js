@@ -9,7 +9,7 @@ const SupabaseService = require('../../services/supabaseService');
 class Message {
   constructor(data = {}) {
     this.id = data.id;
-    this.conversationId = data.conversation_id;
+    this.conversationId = data.conversationId;
     this.senderId = data.sender_id;
     this.senderType = data.sender_type || 'therapist';
     this.content = data.content;
@@ -241,7 +241,7 @@ class Message {
     const service = new SupabaseService('messages');
 
     const data = {
-      conversation_id: this.conversationId,
+      conversationId: this.conversationId,
       sender_id: this.senderId,
       sender_type: this.senderType,
       content: this.content,
@@ -303,7 +303,7 @@ class MessageModel {
    */
   async create(data) {
     const messageData = {
-      conversation_id: data.conversationId,
+      conversationId: data.conversationId,
       sender_id: data.senderId,
       sender_type: data.senderType || 'therapist',
       content: data.content,
@@ -365,7 +365,7 @@ class MessageModel {
     let query = supabase
       .from('messages')
       .select(options.select || '*')
-      .eq('conversation_id', conversationId)
+      .eq('conversationId', conversationId)
       .order('created_at', { ascending: options.ascending !== false });
 
     if (options.limit) {
@@ -400,7 +400,7 @@ class MessageModel {
       ...options,
       filters: { 
         ...options.filters, 
-        conversation_id: conversationId,
+        conversationId: conversationId,
         is_read: false
       }
     });
@@ -415,20 +415,20 @@ class MessageModel {
     // Obtener la conversación para saber el rol del usuario
     const { data: conversation } = await supabase
       .from('conversations')
-      .select('therapist_id, client_id')
+      .select('therapistId, client_id')
       .eq('id', conversationId)
       .single();
 
     if (!conversation) return [];
 
     // Determinar qué tipo de mensajes no leídos buscar
-    const isTherapist = conversation.therapist_id === userId;
+    const isTherapist = conversation.therapistId === userId;
     const senderType = isTherapist ? 'client' : 'therapist';
 
     let query = supabase
       .from('messages')
       .select(options.select || '*')
-      .eq('conversation_id', conversationId)
+      .eq('conversationId', conversationId)
       .eq('is_read', false)
       .eq('sender_type', senderType);
 
@@ -471,7 +471,7 @@ class MessageModel {
     let query = supabase
       .from('messages')
       .select(options.select || '*')
-      .eq('conversation_id', conversationId)
+      .eq('conversationId', conversationId)
       .not('attachments', 'is', null)
       .filter('attachments', 'neq', '[]')
       .order('created_at', { ascending: false });
@@ -495,7 +495,7 @@ class MessageModel {
     let query = supabase
       .from('messages')
       .select(options.select || '*')
-      .eq('conversation_id', conversationId)
+      .eq('conversationId', conversationId)
       .ilike('content', `%${searchTerm}%`)
       .order('created_at', { ascending: false });
 
@@ -515,7 +515,7 @@ class MessageModel {
   async findByIdAndUpdate(id, updateData, options = {}) {
     const data = {};
 
-    if (updateData.conversationId !== undefined) data.conversation_id = updateData.conversationId;
+    if (updateData.conversationId !== undefined) data.conversationId = updateData.conversationId;
     if (updateData.senderId !== undefined) data.sender_id = updateData.senderId;
     if (updateData.senderType !== undefined) data.sender_type = updateData.senderType;
     if (updateData.content !== undefined) data.content = updateData.content;
@@ -546,13 +546,13 @@ class MessageModel {
     // Obtener la conversación para saber el rol del usuario
     const { data: conversation } = await supabase
       .from('conversations')
-      .select('therapist_id, client_id')
+      .select('therapistId, client_id')
       .eq('id', conversationId)
       .single();
 
     if (!conversation) return 0;
 
-    const isTherapist = conversation.therapist_id === userId;
+    const isTherapist = conversation.therapistId === userId;
     const senderType = isTherapist ? 'client' : 'therapist';
 
     const readAt = new Date().toISOString();
@@ -560,7 +560,7 @@ class MessageModel {
     const { data, error } = await supabase
       .from('messages')
       .update({ is_read: true, read_at: readAt })
-      .eq('conversation_id', conversationId)
+      .eq('conversationId', conversationId)
       .eq('is_read', false)
       .eq('sender_type', senderType);
 
@@ -587,7 +587,7 @@ class MessageModel {
    * Contar mensajes por conversación
    */
   async countByConversation(conversationId) {
-    return await this.count({ conversation_id: conversationId });
+    return await this.count({ conversationId: conversationId });
   }
 
   /**
@@ -595,7 +595,7 @@ class MessageModel {
    */
   async countUnread(conversationId) {
     return await this.count({ 
-      conversation_id: conversationId, 
+      conversationId: conversationId, 
       is_read: false 
     });
   }
@@ -618,10 +618,10 @@ class MessageModel {
     const supabase = require('../../config/supabase').supabase;
 
     const [totalResult, unreadResult, therapistResult, clientResult] = await Promise.all([
-      supabase.from('messages').select('*', { count: 'exact', head: true }).eq('conversation_id', conversationId),
-      supabase.from('messages').select('*', { count: 'exact', head: true }).eq('conversation_id', conversationId).eq('is_read', false),
-      supabase.from('messages').select('*', { count: 'exact', head: true }).eq('conversation_id', conversationId).eq('sender_type', 'therapist'),
-      supabase.from('messages').select('*', { count: 'exact', head: true }).eq('conversation_id', conversationId).eq('sender_type', 'client')
+      supabase.from('messages').select('*', { count: 'exact', head: true }).eq('conversationId', conversationId),
+      supabase.from('messages').select('*', { count: 'exact', head: true }).eq('conversationId', conversationId).eq('is_read', false),
+      supabase.from('messages').select('*', { count: 'exact', head: true }).eq('conversationId', conversationId).eq('sender_type', 'therapist'),
+      supabase.from('messages').select('*', { count: 'exact', head: true }).eq('conversationId', conversationId).eq('sender_type', 'client')
     ]);
 
     return {

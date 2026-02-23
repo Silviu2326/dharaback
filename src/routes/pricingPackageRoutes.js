@@ -85,7 +85,7 @@ const updateValidation = [
 
 const testimonialValidation = [
   body('clientId')
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Client ID must be valid'),
   body('rating')
     .isInt({ min: 1, max: 5 })
@@ -104,13 +104,13 @@ const calculatePriceValidation = [
     .withMessage('Discount code must be between 3 and 20 characters'),
   query('clientId')
     .optional()
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Client ID must be valid')
 ];
 
 const idValidation = [
   param('packageId')
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Package ID must be valid')
 ];
 

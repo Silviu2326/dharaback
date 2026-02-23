@@ -2,6 +2,28 @@ console.log('🔥 Starting server...');
 require('dotenv').config();
 console.log('📁 Environment loaded');
 
+const fs = require('fs');
+const path = require('path');
+
+const uploadDirs = [
+  'uploads',
+  'uploads/documents',
+  'uploads/credentials',
+  'uploads/verification',
+  'uploads/attachments',
+  'uploads/temp',
+  'uploads/avatars',
+  'uploads/banners'
+];
+
+uploadDirs.forEach(dir => {
+  const dirPath = path.join(__dirname, '..', dir);
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+    console.log(`📂 Created directory: ${dir}`);
+  }
+});
+
 const app = require('./app');
 console.log('📱 App loaded');
 

@@ -22,7 +22,7 @@ const reviewController = {
       let query = supabase
         .from('reviews')
         .select('*, client:client_id(*), booking:booking_id(*)', { count: 'exact' })
-        .eq('therapist_id', therapistId)
+        .eq('therapistId', therapistId)
         .eq('moderation_status', 'approved');
 
       if (rating) query = query.eq('rating', parseInt(rating));
@@ -70,7 +70,7 @@ const reviewController = {
 
       const review = await Review.findOne({
         id: reviewId,
-        therapist_id: therapistId
+        therapistId: therapistId
       });
 
       if (!review) {
@@ -81,7 +81,7 @@ const reviewController = {
       const [client, booking, therapist] = await Promise.all([
         Client.findById(review.client_id),
         review.booking_id ? Booking.findById(review.booking_id) : null,
-        User.findById(review.therapist_id)
+        User.findById(review.therapistId)
       ]);
 
       res.json({
@@ -118,7 +118,7 @@ const reviewController = {
 
       const review = await Review.findOne({
         id: reviewId,
-        therapist_id: therapistId
+        therapistId: therapistId
       });
 
       if (!review) {
@@ -157,7 +157,7 @@ const reviewController = {
 
       const review = await Review.findOne({
         id: reviewId,
-        therapist_id: therapistId
+        therapistId: therapistId
       });
 
       if (!review) {
@@ -255,7 +255,7 @@ const reviewController = {
       const { data: reviews, error } = await supabase
         .from('reviews')
         .select('rating')
-        .eq('therapist_id', therapistId)
+        .eq('therapistId', therapistId)
         .eq('moderation_status', 'approved');
 
       if (error) throw new Error(error.message);
@@ -293,7 +293,7 @@ const reviewController = {
       const { data: reviews, error } = await supabase
         .from('reviews')
         .select('*, client:client_id(*)')
-        .eq('therapist_id', therapistId)
+        .eq('therapistId', therapistId)
         .eq('moderation_status', 'approved')
         .order('created_at', { ascending: false })
         .limit(parseInt(limit));
@@ -318,7 +318,7 @@ const reviewController = {
       let query = supabase
         .from('reviews')
         .select('*', { count: 'exact' })
-        .eq('therapist_id', therapistId)
+        .eq('therapistId', therapistId)
         .eq('moderation_status', 'approved');
 
       if (searchQuery) {
@@ -366,7 +366,7 @@ const reviewController = {
 
       const review = await Review.findOne({
         id: reviewId,
-        therapist_id: therapistId
+        therapistId: therapistId
       });
 
       if (!review) {
@@ -417,7 +417,7 @@ const reviewController = {
       const { data: reviews, error } = await supabase
         .from('reviews')
         .select('*')
-        .eq('therapist_id', therapistId)
+        .eq('therapistId', therapistId)
         .eq('moderation_status', 'approved')
         .gte('created_at', startDate.toISOString())
         .lte('created_at', now.toISOString());
@@ -469,7 +469,7 @@ const reviewController = {
       const { data: reviews, error } = await supabase
         .from('reviews')
         .select('id, title, rating, created_at, tags')
-        .eq('therapist_id', therapistId)
+        .eq('therapistId', therapistId)
         .eq('moderation_status', 'approved')
         .eq('is_public', true);
 
@@ -544,7 +544,7 @@ const reviewController = {
         const booking = await Booking.findOne({
           id: bookingId,
           client_id: clientId,
-          therapist_id: therapistId,
+          therapistId: therapistId,
           status: 'completed'
         });
 
@@ -555,7 +555,7 @@ const reviewController = {
         // Check if review already exists for this booking
         const existingReview = await Review.findOne({
           client_id: clientId,
-          therapist_id: therapistId,
+          therapistId: therapistId,
           booking_id: bookingId
         });
 
@@ -605,7 +605,7 @@ const reviewController = {
       let query = supabase
         .from('reviews')
         .select('*')
-        .eq('therapist_id', targetTherapistId)
+        .eq('therapistId', targetTherapistId)
         .eq('moderation_status', 'approved');
 
       if (dateFrom) query = query.gte('created_at', dateFrom);
@@ -653,7 +653,7 @@ const reviewController = {
 
       const { data, error, count } = await supabase
         .from('reviews')
-        .select('*, therapist:therapist_id(*), booking:booking_id(*)', { count: 'exact' })
+        .select('*, therapist:therapistId(*), booking:booking_id(*)', { count: 'exact' })
         .eq('client_id', clientId)
         .order(sortBy, { ascending: sortOrder === 'asc' })
         .range((parseInt(page) - 1) * parseInt(limit), parseInt(page) * parseInt(limit) - 1);
@@ -806,7 +806,7 @@ const reviewController = {
         if (r.is_public) publicReviews++;
         if (r.is_verified) verifiedReviews++;
         if (r.response) withResponse++;
-        uniqueTherapists.add(r.therapist_id);
+        uniqueTherapists.add(r.therapistId);
       });
 
       res.json({

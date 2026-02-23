@@ -30,7 +30,7 @@ const createValidation = [
     .withMessage('Invalid resource type'),
   body('resource.id')
     .optional()
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Resource ID must be valid'),
   body('resource.name')
     .optional()
@@ -53,15 +53,15 @@ const createValidation = [
     .withMessage('Tags must be an array'),
   body('context.clientId')
     .optional()
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Client ID must be valid'),
   body('context.bookingId')
     .optional()
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Booking ID must be valid'),
   body('context.integrationId')
     .optional()
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Integration ID must be valid'),
   body('context.correlationId')
     .optional()
@@ -103,7 +103,7 @@ const exportValidation = [
     .withMessage('End date must be valid ISO8601 date'),
   query('userId')
     .optional()
-    .isUUID(4)
+    .isMongoId()
     .withMessage('User ID must be valid'),
   query('category')
     .optional()
@@ -130,7 +130,7 @@ const queryValidation = [
     .withMessage('Limit must be between 1 and 1000'),
   query('userId')
     .optional()
-    .isUUID(4)
+    .isMongoId()
     .withMessage('User ID must be valid'),
   query('action')
     .optional()
@@ -150,7 +150,7 @@ const queryValidation = [
     .withMessage('Resource type must be string'),
   query('resourceId')
     .optional()
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Resource ID must be valid'),
   query('success')
     .optional()
@@ -173,7 +173,7 @@ const activityValidation = [
     .withMessage('Invalid timeframe'),
   query('userId')
     .optional()
-    .isUUID(4)
+    .isMongoId()
     .withMessage('User ID must be valid')
 ];
 
@@ -213,13 +213,13 @@ const resourceValidation = [
     ])
     .withMessage('Invalid resource type'),
   param('resourceId')
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Resource ID must be valid')
 ];
 
 const logIdValidation = [
   param('logId')
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Log ID must be valid')
 ];
 

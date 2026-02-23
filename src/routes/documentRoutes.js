@@ -53,8 +53,8 @@ const uploadValidation = [
     .withMessage('Invalid category'),
   body('clientId')
     .optional()
-    .isUUID()
-    .withMessage('Client ID must be a valid UUID'),
+    .isMongoId()
+    .withMessage('Client ID must be valid'),
   body('visibility')
     .optional()
     .isIn(['private', 'client_shared', 'therapist_only', 'admin_only'])
@@ -86,8 +86,8 @@ const updateValidation = [
 
 const shareValidation = [
   body('clientId')
-    .isUUID()
-    .withMessage('Client ID must be a valid UUID'),
+    .isMongoId()
+    .withMessage('Client ID must be valid'),
   body('permissions')
     .optional()
     .isArray()
@@ -99,14 +99,12 @@ const bulkValidation = [
     .isArray({ min: 1 })
     .withMessage('Document IDs must be a non-empty array'),
   body('documentIds.*')
-    .isUUID()
-    .withMessage('Each document ID must be a valid UUID')
+    .isMongoId()
+    .withMessage('Each document ID must be valid')
 ];
 
 const idValidation = [
-  param('documentId')
-    .isUUID()
-    .withMessage('Document ID must be a valid UUID')
+  param('documentId').isMongoId().withMessage('Document ID must be valid')
 ];
 
 const categoryValidation = [
@@ -117,7 +115,7 @@ const categoryValidation = [
 
 // Document management routes
 router.get('/', documentController.getDocuments);
-router.post('/upload', upload.single('document'), uploadValidation, documentController.uploadDocument);
+router.post('/upload', upload.single('file'), uploadValidation, documentController.uploadDocument);
 router.get('/recent', documentController.getRecentDocuments);
 router.get('/search', documentController.searchDocuments);
 router.get('/statistics', documentController.getStorageStats);

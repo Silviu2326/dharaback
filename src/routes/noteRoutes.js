@@ -33,8 +33,8 @@ const createValidation = [
     .withMessage('Tags must be an array'),
   body('clientId')
     .optional()
-    .isUUID()
-    .withMessage('Client ID must be a valid UUID')
+    .isMongoId()
+    .withMessage('Client ID must be valid')
 ];
 
 const updateValidation = [

@@ -9,7 +9,7 @@ const SupabaseService = require('../../services/supabaseService');
 class TherapyPlan {
   constructor(data = {}) {
     this.id = data.id;
-    this.therapistId = data.therapist_id;
+    this.therapistId = data.therapistId;
     this.name = data.name;
     this.description = data.description;
     this.type = data.type;
@@ -193,7 +193,7 @@ class TherapyPlan {
     const service = new SupabaseService('therapy_plans');
 
     const data = {
-      therapist_id: this.therapistId,
+      therapistId: this.therapistId,
       name: newName || `${this.name} (Copia)`,
       description: this.description,
       type: this.type,
@@ -243,7 +243,7 @@ class TherapyPlan {
     const service = new SupabaseService('therapy_plans');
 
     const data = {
-      therapist_id: this.therapistId,
+      therapistId: this.therapistId,
       name: this.name,
       description: this.description,
       type: this.type,
@@ -310,7 +310,7 @@ class TherapyPlanModel {
    */
   async create(data) {
     const planData = {
-      therapist_id: data.therapistId,
+      therapistId: data.therapistId,
       name: data.name,
       description: data.description,
       type: data.type,
@@ -358,7 +358,7 @@ class TherapyPlanModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapist_id: therapistId }
+      filters: { ...options.filters, therapistId: therapistId }
     });
   }
 
@@ -383,7 +383,7 @@ class TherapyPlanModel {
       ...options,
       filters: { 
         ...options.filters, 
-        therapist_id: therapistId,
+        therapistId: therapistId,
         is_template: true
       }
     });
@@ -397,7 +397,7 @@ class TherapyPlanModel {
       ...options,
       filters: { 
         ...options.filters, 
-        therapist_id: therapistId,
+        therapistId: therapistId,
         is_template: false
       }
     });
@@ -433,7 +433,7 @@ class TherapyPlanModel {
   async findByIdAndUpdate(id, updateData, options = {}) {
     const data = {};
 
-    if (updateData.therapistId !== undefined) data.therapist_id = updateData.therapistId;
+    if (updateData.therapistId !== undefined) data.therapistId = updateData.therapistId;
     if (updateData.name !== undefined) data.name = updateData.name;
     if (updateData.description !== undefined) data.description = updateData.description;
     if (updateData.type !== undefined) data.type = updateData.type;
@@ -483,9 +483,9 @@ class TherapyPlanModel {
     const supabase = require('../../config/supabase').supabase;
 
     const [totalResult, templatesResult, plansResult] = await Promise.all([
-      supabase.from('therapy_plans').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId),
-      supabase.from('therapy_plans').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('is_template', true),
-      supabase.from('therapy_plans').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('is_template', false)
+      supabase.from('therapy_plans').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId),
+      supabase.from('therapy_plans').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('is_template', true),
+      supabase.from('therapy_plans').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('is_template', false)
     ]);
 
     return {

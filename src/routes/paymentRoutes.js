@@ -20,11 +20,11 @@ const createPaymentValidation = [
     .isIn(['card', 'transfer', 'cash', 'paypal', 'stripe', 'other'])
     .withMessage('Invalid payment method'),
   body('clientId')
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Client ID must be valid'),
   body('bookingId')
     .optional()
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Booking ID must be valid'),
   body('description')
     .notEmpty()
@@ -94,13 +94,13 @@ const createPayoutRequestValidation = [
 
 const idValidation = [
   param('paymentId')
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Payment ID must be valid')
 ];
 
 const payoutIdValidation = [
   param('payoutId')
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Payout ID must be valid')
 ];
 

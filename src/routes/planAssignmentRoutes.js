@@ -11,10 +11,10 @@ router.use(protect);
 // Validation rules
 const createValidation = [
   body('therapyPlanId')
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Therapy plan ID must be valid'),
   body('clientId')
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Client ID must be valid'),
   body('startDate')
     .optional()
@@ -52,7 +52,7 @@ const updateValidation = [
 const sessionCompletionValidation = [
   body('sessionId')
     .optional()
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Session ID must be valid'),
   body('notes')
     .optional()
@@ -91,13 +91,13 @@ const completeValidation = [
 
 const idValidation = [
   param('assignmentId')
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Assignment ID must be valid')
 ];
 
 const clientIdValidation = [
   param('clientId')
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Client ID must be valid')
 ];
 

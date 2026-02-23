@@ -22,7 +22,7 @@ const couponController = {
       let query = supabase
         .from('coupons')
         .select('*', { count: 'exact' })
-        .or(`therapist_id.eq.${userId},is_global.eq.true`);
+        .or(`therapistId.eq.${userId},is_global.eq.true`);
 
       if (type) query = query.eq('type', type);
       if (targetAudience) query = query.eq('target_audience', targetAudience);
@@ -159,7 +159,7 @@ const couponController = {
         return next(new AppError('Coupon not found', 404));
       }
 
-      if (existing.therapist_id !== userId) {
+      if (existing.therapistId !== userId) {
         return next(new AppError('Not authorized', 403));
       }
 
@@ -185,7 +185,7 @@ const couponController = {
         return next(new AppError('Coupon not found', 404));
       }
 
-      if (existing.therapist_id !== userId) {
+      if (existing.therapistId !== userId) {
         return next(new AppError('Not authorized', 403));
       }
 
@@ -308,7 +308,7 @@ const couponController = {
         return next(new AppError('Coupon not found', 404));
       }
 
-      if (existing.therapist_id !== userId) {
+      if (existing.therapistId !== userId) {
         return next(new AppError('Not authorized', 403));
       }
 
@@ -337,7 +337,7 @@ const couponController = {
         return next(new AppError('Coupon not found', 404));
       }
 
-      if (existing.therapist_id !== userId) {
+      if (existing.therapistId !== userId) {
         return next(new AppError('Not authorized', 403));
       }
 
@@ -367,7 +367,7 @@ const couponController = {
         return next(new AppError('Coupon not found', 404));
       }
 
-      if (existing.therapist_id !== userId) {
+      if (existing.therapistId !== userId) {
         return next(new AppError('Not authorized', 403));
       }
 
@@ -397,7 +397,7 @@ const couponController = {
         return next(new AppError('Coupon not found', 404));
       }
 
-      if (existing.therapist_id !== userId) {
+      if (existing.therapistId !== userId) {
         return next(new AppError('Not authorized', 403));
       }
 
@@ -425,7 +425,7 @@ const couponController = {
         .from('coupons')
         .select('usage_count, usage_history, revenue_impact')
         .eq('id', couponId)
-        .eq('therapist_id', userId);
+        .eq('therapistId', userId);
 
       const { data, error } = await query.single();
 
@@ -456,7 +456,7 @@ const couponController = {
       const { data, error } = await supabase
         .from('coupons')
         .select('id, code, name, usage_count, revenue_impact, type, is_active')
-        .eq('therapist_id', userId);
+        .eq('therapistId', userId);
 
       if (error) throw new Error(error.message);
 
