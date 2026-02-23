@@ -219,6 +219,13 @@ class Document {
   async save() {
     const service = new SupabaseService('documents');
 
+    // Preparar metadata con supabase_url
+    let metadata = this.metadata || {};
+    if (this.supabaseUrl) {
+      metadata.supabaseUrl = this.supabaseUrl;
+      metadata.storageType = 'supabase';
+    }
+
     const data = {
       user_id: this.userId,
       client_id: this.clientId,
@@ -227,23 +234,41 @@ class Document {
       mime_type: this.mimeType,
       size: this.size,
       path: this.path,
-      supabase_url: this.supabaseUrl,
       is_public: this.isPublic,
       category: this.category,
       description: this.description,
-      metadata: this.metadata,
+      metadata: metadata,
       access_log: this.accessLog,
       expires_at: this.expiresAt
     };
 
-    if (this.id) {
-      // Actualizar
-      const result = await service.update(this.id, data);
-      return new Document(result);
-    } else {
-      // Crear
-      const result = await service.create(data);
-      return new Document(result);
+    // Intentar agregar supabase_url si la columna existe
+    try {
+      data.supabase_url = this.supabaseUrl;
+      
+      if (this.id) {
+        // Actualizar
+        const result = await service.update(this.id, data);
+        return new Document(result);
+      } else {
+        // Crear
+        const result = await service.create(data);
+        return new Document(result);
+      }
+    } catch (error) {
+      // Si falla por columna inexistente, intentar sin supabase_url
+      if (error.message && error.message.includes('supabase_url')) {
+        delete data.supabase_url;
+        
+        if (this.id) {
+          const result = await service.update(this.id, data);
+          return new Document(result);
+        } else {
+          const result = await service.create(data);
+          return new Document(result);
+        }
+      }
+      throw error;
     }
   }
 
@@ -290,6 +315,13 @@ class DocumentModel {
    * Crear nuevo documento
    */
   async create(data) {
+    // Preparar metadata con supabase_url si existe
+    let metadata = data.metadata || {};
+    if (data.supabaseUrl) {
+      metadata.supabaseUrl = data.supabaseUrl;
+      metadata.storageType = 'supabase';
+    }
+
     const documentData = {
       user_id: data.userId,
       client_id: data.clientId || null,
@@ -298,17 +330,28 @@ class DocumentModel {
       mime_type: data.mimeType,
       size: data.size || 0,
       path: data.path,
-      supabase_url: data.supabaseUrl,
       is_public: data.isPublic || false,
       category: data.category || 'general',
       description: data.description,
-      metadata: data.metadata || {},
+      metadata: metadata,
       access_log: data.accessLog || [],
       expires_at: data.expiresAt
     };
 
-    const result = await this.service.create(documentData);
-    return new Document(result);
+    // Intentar agregar supabase_url si la columna existe
+    try {
+      documentData.supabase_url = data.supabaseUrl;
+      const result = await this.service.create(documentData);
+      return new Document(result);
+    } catch (error) {
+      // Si falla por columna inexistente, intentar sin supabase_url
+      if (error.message && error.message.includes('supabase_url')) {
+        delete documentData.supabase_url;
+        const result = await this.service.create(documentData);
+        return new Document(result);
+      }
+      throw error;
+    }
   }
 
   /**
