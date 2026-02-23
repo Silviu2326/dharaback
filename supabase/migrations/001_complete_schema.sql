@@ -210,6 +210,7 @@ CREATE TABLE IF NOT EXISTS documents (
     mime_type VARCHAR(100) NOT NULL,
     size INTEGER NOT NULL CHECK (size > 0),
     path TEXT NOT NULL,
+    supabase_url TEXT,
     is_public BOOLEAN DEFAULT FALSE,
     category VARCHAR(50) DEFAULT 'general' CHECK (category IN ('general', 'contract', 'report', 'prescription', 'invoice', 'other')),
     description TEXT,
@@ -223,6 +224,7 @@ CREATE TABLE IF NOT EXISTS documents (
 CREATE INDEX idx_documents_user ON documents(user_id);
 CREATE INDEX idx_documents_client ON documents(client_id);
 CREATE INDEX idx_documents_category ON documents(category);
+CREATE INDEX idx_documents_supabase_url ON documents(supabase_url);
 
 -- =====================================================
 -- 7. TABLA: notes (Notas Generales)

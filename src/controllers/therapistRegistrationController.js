@@ -9,7 +9,7 @@ const path = require('path');
  * @access  Public
  */
 const createTherapistSubscription = asyncHandler(async (req, res) => {
-  const { email, nombre, userId, trialDays = 90 } = req.body;
+  const { email, nombre, userId, plan = 'avanzado', trialDays } = req.body;
 
   if (!email || !nombre) {
     return res.status(400).json({
@@ -26,30 +26,53 @@ const createTherapistSubscription = asyncHandler(async (req, res) => {
     });
   }
 
+  // Configuración de planes
+  const planConfig = {
+    'basico': {
+      priceId: process.env.STRIPE_PLAN_BASICO_PRICE_ID || 'price_basico_placeholder',
+      defaultTrialDays: 90,
+      nombre: 'Básico'
+    },
+    'avanzado': {
+      priceId: process.env.STRIPE_PLAN_AVANZADO_PRICE_ID || 'price_1T1BngECp38q24a3IczRTdHW',
+      defaultTrialDays: 90,
+      nombre: 'Avanzado'
+    },
+    'avanzado-pro': {
+      priceId: process.env.STRIPE_PLAN_AVANZADO_PRO_PRICE_ID || 'price_avanzado_pro_placeholder',
+      defaultTrialDays: 0,
+      nombre: 'Avanzado Pro'
+    }
+  };
+
+  const selectedPlan = planConfig[plan] || planConfig['avanzado'];
+  const finalTrialDays = trialDays !== undefined ? trialDays : selectedPlan.defaultTrialDays;
+
   try {
     const frontendUrl = process.env.FRONTEND_URL || 'https://dhara-peach.vercel.app';
-    const priceId = process.env.STRIPE_PLAN_AVANZADO_PRICE_ID || 'price_1T1BngECp38q24a3IczRTdHW';
 
     const session = await stripeService.createSubscriptionCheckout({
-      priceId,
+      priceId: selectedPlan.priceId,
       email,
       name: nombre,
-      trialDays,
+      trialDays: finalTrialDays,
       successUrl: `${frontendUrl}/registro-exitoso?session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${frontendUrl}/registro-terapeuta?cancelled=true`,
       metadata: {
         userId: userId || '',
         email,
         nombre,
+        plan: plan,
         tipo: 'registro_terapeuta',
-        trialDays: trialDays.toString()
+        trialDays: finalTrialDays.toString()
       }
     });
 
     console.log('✅ Therapist subscription checkout created:', {
       sessionId: session.id,
       email,
-      trialDays
+      plan: plan,
+      trialDays: finalTrialDays
     });
 
     res.status(200).json({

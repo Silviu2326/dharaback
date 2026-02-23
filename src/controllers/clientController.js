@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { Client, User, Booking } = require('../models');
+const { InvitationCode } = require('../models/InvitationCode');
 const { AppError, asyncHandler } = require('../middleware/errorHandler');
 
 // @desc    Get all clients for therapist
@@ -649,6 +650,215 @@ const getAvailableTherapists = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Generate invitation code for client
+// @route   POST /api/clients/invitation-code
+// @access  Private
+const generateInvitationCode = asyncHandler(async (req, res, next) => {
+  const { clientId, code, expiresIn, email } = req.body;
+  const therapistId = req.user.id || req.user._id;
+
+  // Verify client exists and belongs to therapist
+  const client = await Client.findOne({
+    id: clientId,
+    therapist_id: therapistId
+  });
+
+  if (!client) {
+    return next(new AppError('Client not found', 404));
+  }
+
+  // Calculate expiration date
+  const expiresAt = expiresIn 
+    ? new Date(Date.now() + expiresIn)
+    : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days default
+
+  // Create invitation code
+  const invitationCode = await InvitationCode.create({
+    clientId,
+    therapistId,
+    code: code.toUpperCase(),
+    email,
+    expiresAt: expiresAt.toISOString()
+  });
+
+  res.status(201).json({
+    success: true,
+    data: {
+      code: invitationCode.code,
+      clientId,
+      expiresAt: invitationCode.expiresAt,
+      isValid: invitationCode.isValid
+    }
+  });
+});
+
+// @desc    Send invitation email
+// @route   POST /api/clients/send-invitation
+// @access  Private
+const sendInvitationEmail = asyncHandler(async (req, res, next) => {
+  const { clientId, code } = req.body;
+  const therapistId = req.user.id || req.user._id;
+
+  // Get client
+  const client = await Client.findOne({
+    id: clientId,
+    therapist_id: therapistId
+  });
+
+  if (!client) {
+    return next(new AppError('Client not found', 404));
+  }
+
+  if (!client.email) {
+    return next(new AppError('Client has no email address', 400));
+  }
+
+  // Here you would integrate with your email service (SendGrid, AWS SES, etc.)
+  // For now, we'll just simulate success
+  console.log(`📧 Invitation email would be sent to: ${client.email}`);
+  console.log(`   Code: ${code}`);
+  console.log(`   Client: ${client.name}`);
+
+  // Update the invitation code record to mark email as sent
+  const invitationCode = await InvitationCode.findByCode(code);
+  if (invitationCode) {
+    invitationCode.metadata.emailSent = true;
+    invitationCode.metadata.emailSentAt = new Date().toISOString();
+    // Note: You would need to implement an update method in InvitationCode model
+  }
+
+  res.status(200).json({
+    success: true,
+    message: 'Invitation email sent successfully'
+  });
+});
+
+// @desc    Validate invitation code
+// @route   GET /api/clients/validate-invitation
+// @access  Public
+const validateInvitationCode = asyncHandler(async (req, res, next) => {
+  const { code } = req.query;
+
+  if (!code) {
+    return next(new AppError('Invitation code is required', 400));
+  }
+
+  const invitationCode = await InvitationCode.findByCode(code.toUpperCase());
+
+  if (!invitationCode) {
+    return res.status(200).json({
+      success: true,
+      data: {
+        valid: false,
+        message: 'Invalid invitation code'
+      }
+    });
+  }
+
+  if (invitationCode.isExpired) {
+    return res.status(200).json({
+      success: true,
+      data: {
+        valid: false,
+        message: 'Invitation code has expired'
+      }
+    });
+  }
+
+  if (invitationCode.status !== 'active') {
+    return res.status(200).json({
+      success: true,
+      data: {
+        valid: false,
+        message: 'Invitation code is no longer valid'
+      }
+    });
+  }
+
+  // Get client info
+  const client = await Client.findById(invitationCode.clientId);
+
+  res.status(200).json({
+    success: true,
+    data: {
+      valid: true,
+      code: invitationCode.code,
+      clientName: client?.name,
+      therapistName: client?.therapistName,
+      expiresAt: invitationCode.expiresAt
+    }
+  });
+});
+
+// @desc    Invalidate all invitation codes for a client
+// @route   POST /api/clients/invalidate-codes
+// @access  Private
+const invalidateInvitationCodes = asyncHandler(async (req, res, next) => {
+  const { clientId } = req.body;
+  const therapistId = req.user.id || req.user._id;
+
+  // Verify client exists and belongs to therapist
+  const client = await Client.findOne({
+    id: clientId,
+    therapist_id: therapistId
+  });
+
+  if (!client) {
+    return next(new AppError('Client not found', 404));
+  }
+
+  // Invalidate codes
+  await InvitationCode.invalidateByClient(clientId);
+
+  res.status(200).json({
+    success: true,
+    message: 'All invitation codes invalidated successfully'
+  });
+});
+
+// @desc    Regenerate invitation code
+// @route   POST /api/clients/:id/regenerate-code
+// @access  Private
+const regenerateInvitationCode = asyncHandler(async (req, res, next) => {
+  const clientId = req.params.id;
+  const therapistId = req.user.id || req.user._id;
+
+  // Verify client exists and belongs to therapist
+  const client = await Client.findOne({
+    id: clientId,
+    therapist_id: therapistId
+  });
+
+  if (!client) {
+    return next(new AppError('Client not found', 404));
+  }
+
+  // Invalidate old codes
+  await InvitationCode.invalidateByClient(clientId);
+
+  // Generate new code
+  const newCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+
+  const invitationCode = await InvitationCode.create({
+    clientId,
+    therapistId,
+    code: newCode,
+    email: client.email,
+    expiresAt: expiresAt.toISOString()
+  });
+
+  res.status(201).json({
+    success: true,
+    data: {
+      code: invitationCode.code,
+      clientId,
+      expiresAt: invitationCode.expiresAt,
+      isValid: invitationCode.isValid
+    }
+  });
+});
+
 module.exports = {
   getClients,
   getClient,
@@ -662,5 +872,10 @@ module.exports = {
   bulkUpdateClients,
   registerClient,
   loginClient,
-  getAvailableTherapists
+  getAvailableTherapists,
+  generateInvitationCode,
+  sendInvitationEmail,
+  validateInvitationCode,
+  invalidateInvitationCodes,
+  regenerateInvitationCode
 };

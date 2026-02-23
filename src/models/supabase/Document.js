@@ -16,6 +16,7 @@ class Document {
     this.mimeType = data.mime_type;
     this.size = data.size || 0;
     this.path = data.path;
+    this.supabaseUrl = data.supabase_url;
     this.isPublic = data.is_public || false;
     this.category = data.category || 'general';
     this.description = data.description;
@@ -226,6 +227,7 @@ class Document {
       mime_type: this.mimeType,
       size: this.size,
       path: this.path,
+      supabase_url: this.supabaseUrl,
       is_public: this.isPublic,
       category: this.category,
       description: this.description,
@@ -260,6 +262,7 @@ class Document {
       humanFileSize: this.humanFileSize,
       extension: this.extension,
       path: this.path,
+      supabaseUrl: this.supabaseUrl,
       isPublic: this.isPublic,
       isExpired: this.isExpired,
       category: this.category,
@@ -295,6 +298,7 @@ class DocumentModel {
       mime_type: data.mimeType,
       size: data.size || 0,
       path: data.path,
+      supabase_url: data.supabaseUrl,
       is_public: data.isPublic || false,
       category: data.category || 'general',
       description: data.description,

@@ -1,9 +1,43 @@
 const { validationResult } = require('express-validator');
 const path = require('path');
-const fs = require('fs').promises;
+const fs = require('fs');
 const { Document, Client, User } = require('../models');
 const { supabase } = require('../config/supabase');
 const { AppError } = require('../middleware/errorHandler');
+
+// Helper function to upload file to Supabase Storage
+const uploadToSupabaseStorage = async (filePath, fileName, userId) => {
+  try {
+    const fileBuffer = fs.readFileSync(filePath);
+    const fileExt = path.extname(fileName);
+    const uniqueFileName = `${userId}/${Date.now()}-${Math.random().toString(36).substring(2, 15)}${fileExt}`;
+    
+    const { data, error } = await supabase.storage
+      .from('documents')
+      .upload(uniqueFileName, fileBuffer, {
+        contentType: filePath.mimetype || 'application/octet-stream',
+        upsert: false
+      });
+    
+    if (error) {
+      console.error('Error uploading to Supabase Storage:', error);
+      throw error;
+    }
+    
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('documents')
+      .getPublicUrl(data.path);
+    
+    return {
+      path: data.path,
+      publicUrl: publicUrl
+    };
+  } catch (error) {
+    console.error('Supabase Storage upload failed:', error);
+    throw error;
+  }
+};
 
 const documentController = {
   // Get all documents for a therapist
@@ -167,6 +201,33 @@ const documentController = {
         return 'other';
       };
 
+      // Upload file to Supabase Storage
+      let supabaseUrl = null;
+      let supabasePath = null;
+      try {
+        console.log('📤 Uploading file to Supabase Storage...');
+        const uploadResult = await uploadToSupabaseStorage(
+          req.file.path,
+          req.file.originalname,
+          therapistId
+        );
+        supabaseUrl = uploadResult.publicUrl;
+        supabasePath = uploadResult.path;
+        console.log('✅ File uploaded to Supabase:', supabaseUrl);
+        
+        // Delete local file after successful Supabase upload
+        try {
+          fs.unlinkSync(req.file.path);
+          console.log('🗑️ Local file deleted');
+        } catch (unlinkError) {
+          console.warn('⚠️ Could not delete local file:', unlinkError.message);
+        }
+      } catch (storageError) {
+        console.error('❌ Supabase Storage upload failed:', storageError);
+        // Continue with local storage as fallback
+        console.log('⚠️ Falling back to local storage');
+      }
+
       const documentData = {
         userId: therapistId,
         clientId: clientId || null,
@@ -175,7 +236,8 @@ const documentController = {
         mimeType: req.file.mimetype,
         type: getDocumentType(req.file.mimetype),
         size: req.file.size,
-        path: `/uploads/documents/${req.file.filename}`,
+        path: supabasePath || `/uploads/documents/${req.file.filename}`,
+        supabaseUrl: supabaseUrl,
         category,
         description: title,
         isPublic: visibility === 'public',
@@ -186,7 +248,8 @@ const documentController = {
           uploadedBy: therapistId,
           uploadSource: 'web',
           ipAddress: req.ip,
-          userAgent: req.get('User-Agent')
+          userAgent: req.get('User-Agent'),
+          storageType: supabaseUrl ? 'supabase' : 'local'
         },
         accessLog: [{
           userId: therapistId,
@@ -310,11 +373,21 @@ const documentController = {
       // Track download
       await document.trackAccess(userId, 'download');
 
+      // If file is stored in Supabase Storage, redirect to the public URL
+      if (document.supabaseUrl) {
+        console.log('📥 Redirecting to Supabase Storage URL:', document.supabaseUrl);
+        return res.redirect(document.supabaseUrl);
+      }
+
+      // Fallback to local file system
       const filePath = path.join(__dirname, '../../uploads/documents', document.filename);
 
       try {
-        await fs.access(filePath);
-        res.download(filePath, document.originalName);
+        if (fs.existsSync(filePath)) {
+          res.download(filePath, document.originalName);
+        } else {
+          return next(new AppError('File not found on server', 404));
+        }
       } catch (fileError) {
         return next(new AppError('File not found on server', 404));
       }

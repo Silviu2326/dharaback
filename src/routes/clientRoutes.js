@@ -12,7 +12,12 @@ const {
   bulkUpdateClients,
   registerClient,
   loginClient,
-  getAvailableTherapists
+  getAvailableTherapists,
+  generateInvitationCode,
+  sendInvitationEmail,
+  validateInvitationCode,
+  invalidateInvitationCodes,
+  regenerateInvitationCode
 } = require('../controllers/clientController');
 const { protect } = require('../middleware/auth');
 
@@ -46,5 +51,12 @@ router.route('/:id')
 // Client specific actions
 router.post('/:id/avatar', updateClientAvatar);
 router.get('/:id/summary', getClientSummary);
+
+// Invitation code routes
+router.post('/invitation-code', protect, generateInvitationCode);
+router.post('/send-invitation', protect, sendInvitationEmail);
+router.get('/validate-invitation', validateInvitationCode);
+router.post('/invalidate-codes', protect, invalidateInvitationCodes);
+router.post('/:id/regenerate-code', protect, regenerateInvitationCode);
 
 module.exports = router;
