@@ -41,11 +41,11 @@ const nearbyValidation = [
 ];
 
 const idValidation = [
-  param('locationId').isUUID().withMessage('Location ID must be valid')
+  param('locationId').isMongoId().withMessage('Location ID must be valid')
 ];
 
 const therapistIdValidation = [
-  param('therapistId').isUUID().withMessage('Therapist ID must be valid')
+  param('therapistId').isMongoId().withMessage('Therapist ID must be valid')
 ];
 
 // Main routes

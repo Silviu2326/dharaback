@@ -9,7 +9,7 @@ const SupabaseService = require('../../services/supabaseService');
 class Review {
   constructor(data = {}) {
     this.id = data.id;
-    this.therapistId = data.therapist_id;
+    this.therapistId = data.therapistId;
     this.clientId = data.client_id;
     this.bookingId = data.booking_id;
     this.rating = data.rating || 0;
@@ -217,7 +217,7 @@ class Review {
     const service = new SupabaseService('reviews');
 
     const data = {
-      therapist_id: this.therapistId,
+      therapistId: this.therapistId,
       client_id: this.clientId,
       booking_id: this.bookingId,
       rating: this.rating,
@@ -286,7 +286,7 @@ class ReviewModel {
    */
   async create(data) {
     const reviewData = {
-      therapist_id: data.therapistId,
+      therapistId: data.therapistId,
       client_id: data.clientId,
       booking_id: data.bookingId || null,
       rating: data.rating,
@@ -336,7 +336,7 @@ class ReviewModel {
     let query = supabase
       .from('reviews')
       .select(options.select || '*')
-      .eq('therapist_id', therapistId)
+      .eq('therapistId', therapistId)
       .eq('is_public', true)
       .order('created_at', { ascending: false });
 
@@ -398,7 +398,7 @@ class ReviewModel {
       .eq('is_public', true);
 
     if (therapistId) {
-      query = query.eq('therapist_id', therapistId);
+      query = query.eq('therapistId', therapistId);
     }
 
     query = query.order('created_at', { ascending: false });
@@ -426,7 +426,7 @@ class ReviewModel {
       .eq('is_public', true);
 
     if (therapistId) {
-      query = query.eq('therapist_id', therapistId);
+      query = query.eq('therapistId', therapistId);
     }
 
     query = query.order('created_at', { ascending: false });
@@ -450,7 +450,7 @@ class ReviewModel {
     let query = supabase
       .from('reviews')
       .select(options.select || '*')
-      .eq('therapist_id', therapistId)
+      .eq('therapistId', therapistId)
       .is('therapist_response', null);
 
     if (options.limit) {
@@ -468,7 +468,7 @@ class ReviewModel {
    */
   async findVerified(therapistId = null, options = {}) {
     const filters = { is_verified: true, is_public: true };
-    if (therapistId) filters.therapist_id = therapistId;
+    if (therapistId) filters.therapistId = therapistId;
 
     return await this.find({
       ...options,
@@ -482,7 +482,7 @@ class ReviewModel {
   async findByIdAndUpdate(id, updateData, options = {}) {
     const data = {};
 
-    if (updateData.therapistId !== undefined) data.therapist_id = updateData.therapistId;
+    if (updateData.therapistId !== undefined) data.therapistId = updateData.therapistId;
     if (updateData.clientId !== undefined) data.client_id = updateData.clientId;
     if (updateData.bookingId !== undefined) data.booking_id = updateData.bookingId;
     if (updateData.rating !== undefined) data.rating = updateData.rating;
@@ -533,7 +533,7 @@ class ReviewModel {
     const { data, error } = await supabase
       .from('reviews')
       .select('rating')
-      .eq('therapist_id', therapistId)
+      .eq('therapistId', therapistId)
       .eq('is_public', true);
 
     if (error) throw new Error(error.message);

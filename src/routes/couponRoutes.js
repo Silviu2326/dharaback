@@ -108,7 +108,7 @@ const usageLimitValidation = [
 
 const idValidation = [
   param('couponId')
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Coupon ID must be valid')
 ];
 

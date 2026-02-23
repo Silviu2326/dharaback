@@ -9,7 +9,7 @@ class SessionNote {
   constructor(data = {}) {
     this.id = data.id;
     this.bookingId = data.booking_id;
-    this.therapistId = data.therapist_id;
+    this.therapistId = data.therapistId;
     this.clientId = data.client_id;
     this.notes = data.notes;
     this.objectives = data.objectives || [];
@@ -147,7 +147,7 @@ class SessionNote {
       .from('session_notes')
       .select('*')
       .eq('client_id', this.clientId)
-      .eq('therapist_id', this.therapistId)
+      .eq('therapistId', this.therapistId)
       .lte('created_at', this.createdAt)
       .order('created_at', { ascending: false })
       .limit(sessionCount);
@@ -176,7 +176,7 @@ class SessionNote {
 
     const data = {
       booking_id: this.bookingId,
-      therapist_id: this.therapistId,
+      therapistId: this.therapistId,
       client_id: this.clientId,
       notes: this.notes,
       objectives: this.objectives,
@@ -250,7 +250,7 @@ class SessionNoteModel {
   async create(data) {
     const noteData = {
       booking_id: data.bookingId,
-      therapist_id: data.therapistId,
+      therapistId: data.therapistId,
       client_id: data.clientId,
       notes: data.notes,
       objectives: data.objectives || [],
@@ -320,7 +320,7 @@ class SessionNoteModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapist_id: therapistId }
+      filters: { ...options.filters, therapistId: therapistId }
     });
   }
 
@@ -367,7 +367,7 @@ class SessionNoteModel {
     let query = supabase
       .from('session_notes')
       .select('*')
-      .eq('therapist_id', therapistId);
+      .eq('therapistId', therapistId);
 
     if (startDate && endDate) {
       query = query
@@ -415,7 +415,7 @@ class SessionNoteModel {
       .order('created_at', { ascending: true });
 
     if (therapistId) {
-      query = query.eq('therapist_id', therapistId);
+      query = query.eq('therapistId', therapistId);
     }
 
     const { data, error } = await query;
@@ -453,7 +453,7 @@ class SessionNoteModel {
     let query = supabase
       .from('session_notes')
       .select('*, client:client_id(name, email), booking:booking_id(date, start_time, end_time)')
-      .eq('therapist_id', therapistId);
+      .eq('therapistId', therapistId);
 
     // Aplicar filtros
     if (filters.clientId) query = query.eq('client_id', filters.clientId);

@@ -55,7 +55,7 @@ describe('📅 CRUD BOOKINGS', () => {
     const { data: client, error } = await supabase
       .from('clients')
       .insert({
-        therapist_id: therapistId,
+        therapistId: therapistId,
         name: clientData.name,
         email: clientData.email,
         phone: clientData.phone,
@@ -100,7 +100,7 @@ describe('📅 CRUD BOOKINGS', () => {
 
       const booking = res.body.booking || res.body.data;
       expect(booking).toBeDefined();
-      expect(booking.therapist_id || booking.therapistId).toBeDefined();
+      expect(booking.therapistId || booking.therapistId).toBeDefined();
 
       bookingId = booking.id || booking._id;
     });

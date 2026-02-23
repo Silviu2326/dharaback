@@ -177,7 +177,7 @@ function transformUser(doc) {
 function transformClient(doc) {
   return {
     id: doc._id?.toString() || uuidv4(),
-    therapist_id: doc.therapistId?.toString(),
+    therapistId: doc.therapistId?.toString(),
     name: doc.name,
     email: doc.email,
     phone: doc.phone,
@@ -197,7 +197,7 @@ function transformClient(doc) {
 function transformBooking(doc) {
   return {
     id: doc._id?.toString() || uuidv4(),
-    therapist_id: doc.therapistId?.toString(),
+    therapistId: doc.therapistId?.toString(),
     client_id: doc.clientId?.toString(),
     date: doc.date,
     start_time: doc.startTime,
@@ -244,7 +244,7 @@ function transformProfile(doc) {
 function transformTherapyPlan(doc) {
   return {
     id: doc._id?.toString() || uuidv4(),
-    therapist_id: doc.therapistId?.toString(),
+    therapistId: doc.therapistId?.toString(),
     name: doc.name,
     description: doc.description,
     type: doc.type,
@@ -267,7 +267,7 @@ function transformTherapyPlan(doc) {
 function transformPayment(doc) {
   return {
     id: doc._id?.toString() || uuidv4(),
-    therapist_id: doc.therapistId?.toString(),
+    therapistId: doc.therapistId?.toString(),
     client_id: doc.clientId?.toString(),
     booking_id: doc.bookingId?.toString(),
     amount: doc.amount,
@@ -309,7 +309,7 @@ function transformSubscription(doc) {
 function transformReview(doc) {
   return {
     id: doc._id?.toString() || uuidv4(),
-    therapist_id: doc.therapistId?.toString(),
+    therapistId: doc.therapistId?.toString(),
     client_id: doc.clientId?.toString(),
     booking_id: doc.bookingId?.toString(),
     rating: doc.rating,
@@ -330,7 +330,7 @@ function transformReview(doc) {
 function transformSessionNote(doc) {
   return {
     id: doc._id?.toString() || uuidv4(),
-    therapist_id: doc.therapistId?.toString(),
+    therapistId: doc.therapistId?.toString(),
     client_id: doc.clientId?.toString(),
     booking_id: doc.bookingId?.toString(),
     title: doc.title,
@@ -348,7 +348,7 @@ function transformSessionNote(doc) {
 function transformDocument(doc) {
   return {
     id: doc._id?.toString() || uuidv4(),
-    therapist_id: doc.therapistId?.toString(),
+    therapistId: doc.therapistId?.toString(),
     client_id: doc.clientId?.toString(),
     title: doc.title,
     type: doc.type,
@@ -383,7 +383,7 @@ function transformConversation(doc) {
 function transformMessage(doc) {
   return {
     id: doc._id?.toString() || uuidv4(),
-    conversation_id: doc.conversationId?.toString(),
+    conversationId: doc.conversationId?.toString(),
     sender_id: doc.senderId?.toString(),
     content: doc.content,
     type: doc.type || 'text',
@@ -416,7 +416,7 @@ function transformFavorite(doc) {
   return {
     id: doc._id?.toString() || uuidv4(),
     client_id: doc.clientId?.toString(),
-    therapist_id: doc.therapistId?.toString(),
+    therapistId: doc.therapistId?.toString(),
     notes: doc.notes,
     added_at: doc.addedAt || doc.createdAt || new Date(),
     metadata: {

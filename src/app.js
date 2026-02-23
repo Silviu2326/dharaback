@@ -45,6 +45,7 @@ const favoriteRoutes = require("./routes/favoriteRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const terapiasRoutes = require("./routes/terapiasRoutes");
 const autoResponseRoutes = require("./routes/autoResponseRoutes");
+const healthRoutes = require("./routes/health");
 
 // Import middleware
 const { errorHandler } = require("./middleware/errorHandler");
@@ -122,7 +123,6 @@ app.use((req, res, next) => {
     origin: req.headers.origin,
     "user-agent": req.headers["user-agent"]?.substring(0, 50) + "...",
   });
-  console.log("Body:", req.body);
   console.log("Query:", req.query);
   console.log("================================\n");
   next();
@@ -152,6 +152,7 @@ app.get("/health", (req, res) => {
 });
 
 // API routes
+app.use("/api", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/auth/supabase", supabaseAuthRoutes);
 app.use("/api/payments/stripe", stripeRoutes);
@@ -213,33 +214,6 @@ app.post("/test", (req, res) => {
     receivedData: req.body,
     headers: req.headers,
   });
-});
-
-app.post("/test-login", (req, res) => {
-  console.log("✅ POST /test-login called");
-  console.log("Login test data:", req.body);
-
-  const { email, password } = req.body;
-
-  if (email === "admin@demo.com" && password === "password123") {
-    res.status(200).json({
-      success: true,
-      message: "Test login successful!",
-      data: {
-        token: "test-token-123",
-        user: {
-          id: 1,
-          name: "Test User",
-          email: email,
-        },
-      },
-    });
-  } else {
-    res.status(401).json({
-      success: false,
-      message: "Test login failed - invalid credentials",
-    });
-  }
 });
 
 // 404 handler

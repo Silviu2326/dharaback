@@ -34,11 +34,11 @@ const updateValidation = [
 ];
 
 const idValidation = [
-  param('rateId').isUUID().withMessage('Rate ID must be valid')
+  param('rateId').isMongoId().withMessage('Rate ID must be valid')
 ];
 
 const therapistIdValidation = [
-  param('therapistId').isUUID().withMessage('Therapist ID must be valid')
+  param('therapistId').isMongoId().withMessage('Therapist ID must be valid')
 ];
 
 const calculationValidation = [

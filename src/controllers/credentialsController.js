@@ -18,10 +18,10 @@ const getCredentials = async (req, res) => {
     const userId = req.user.id || req.user._id;
 
     // Build filters
-    const filters = { user_id: userId };
+    const filters = { therapistId: userId };
 
-    if (type) filters.type = type;
-    if (status) filters.status = status;
+    if (type) filters.credentialType = type;
+    if (status) filters.verificationStatus = status;
 
     // Get credentials with pagination
     const result = await Credentials.paginate({
@@ -67,7 +67,7 @@ const createCredential = async (req, res) => {
     const userId = req.user.id || req.user._id;
     const credentialData = {
       ...req.body,
-      userId: userId
+      therapistId: userId
     };
 
     // Handle file upload if present

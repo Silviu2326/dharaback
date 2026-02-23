@@ -20,9 +20,9 @@ const getRates = async (req, res) => {
     // Access control
     const userId = req.user.id || req.user._id;
     if (req.user.role === 'therapist') {
-      filters.therapist_id = userId;
+      filters.therapistId = userId;
     } else if (therapistId && req.user.role === 'admin') {
-      filters.therapist_id = therapistId;
+      filters.therapistId = therapistId;
     }
 
     if (currency) filters.currency = currency;

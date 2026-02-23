@@ -24,14 +24,14 @@ const getAllNotes = async (req, res) => {
     const therapistId = req.user.id;
 
     // Build filters
-    const filters = { therapist_id: therapistId };
+    const filters = { therapistId: therapistId };
 
     // Apply filters
     if (clientId) {
       // Verify client belongs to therapist
       const client = await Client.findOne({ 
         id: clientId, 
-        therapist_id: therapistId 
+        therapistId: therapistId 
       });
       if (!client) {
         return res.status(403).json({
@@ -96,7 +96,7 @@ const getAllNotes = async (req, res) => {
     let query = supabase
       .from('session_notes')
       .select('*, client:client_id(*), booking:booking_id(*)', { count: 'exact' })
-      .eq('therapist_id', therapistId);
+      .eq('therapistId', therapistId);
 
     // Apply additional filters
     if (filters.client_id) query = query.eq('client_id', filters.client_id);
@@ -293,7 +293,7 @@ const createNote = async (req, res) => {
     // Verify client belongs to therapist
     const client = await Client.findOne({ 
       id: clientId, 
-      therapist_id: therapistId 
+      therapistId: therapistId 
     });
     if (!client) {
       return res.status(403).json({
@@ -529,7 +529,7 @@ const getNotesByClient = async (req, res) => {
     // Verify client belongs to therapist
     const client = await Client.findOne({ 
       id: clientId, 
-      therapist_id: therapistId 
+      therapistId: therapistId 
     });
     if (!client) {
       return res.status(403).json({
@@ -543,7 +543,7 @@ const getNotesByClient = async (req, res) => {
       .from('session_notes')
       .select('*, booking:booking_id(*)', { count: 'exact' })
       .eq('client_id', clientId)
-      .eq('therapist_id', therapistId);
+      .eq('therapistId', therapistId);
 
     // Apply sorting and pagination
     query = query.order(sortBy, { ascending: sortOrder === 'asc' });
@@ -597,7 +597,7 @@ const getNotesByBooking = async (req, res) => {
     // Verify booking belongs to therapist
     const booking = await Booking.findOne({ 
       id: bookingId, 
-      therapist_id: therapistId 
+      therapistId: therapistId 
     });
     if (!booking) {
       return res.status(403).json({
@@ -673,7 +673,7 @@ const getTherapistStats = async (req, res) => {
     const { data: riskCases, error } = await supabase
       .from('session_notes')
       .select('id, client_id, risk_assessment, created_at')
-      .eq('therapist_id', therapistId)
+      .eq('therapistId', therapistId)
       .eq('risk_assessment->>flagged', 'true')
       .gte('created_at', start.toISOString())
       .lte('created_at', end.toISOString())

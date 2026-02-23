@@ -10,7 +10,7 @@ class ClientPlanProgress {
   constructor(data = {}) {
     this.id = data.id;
     this.clientId = data.client_id;
-    this.therapistId = data.therapist_id;
+    this.therapistId = data.therapistId;
     this.planId = data.plan_id;
     this.startDate = data.start_date;
     this.expectedEndDate = data.expected_end_date;
@@ -365,7 +365,7 @@ class ClientPlanProgress {
 
     const data = {
       client_id: this.clientId,
-      therapist_id: this.therapistId,
+      therapistId: this.therapistId,
       plan_id: this.planId,
       start_date: this.startDate,
       expected_end_date: this.expectedEndDate,
@@ -437,7 +437,7 @@ class ClientPlanProgressModel {
   async create(data) {
     const progressData = {
       client_id: data.clientId,
-      therapist_id: data.therapistId,
+      therapistId: data.therapistId,
       plan_id: data.planId,
       start_date: data.startDate || new Date().toISOString().split('T')[0],
       expected_end_date: data.expectedEndDate,
@@ -492,7 +492,7 @@ class ClientPlanProgressModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapist_id: therapistId }
+      filters: { ...options.filters, therapistId: therapistId }
     });
   }
 
@@ -528,7 +528,7 @@ class ClientPlanProgressModel {
       ...options,
       filters: { 
         ...options.filters, 
-        therapist_id: therapistId,
+        therapistId: therapistId,
         status: 'active'
       }
     });
@@ -557,7 +557,7 @@ class ClientPlanProgressModel {
       .lt('expected_end_date', new Date().toISOString().split('T')[0]);
 
     if (therapistId) {
-      query = query.eq('therapist_id', therapistId);
+      query = query.eq('therapistId', therapistId);
     }
 
     const { data, error } = await query;
@@ -582,7 +582,7 @@ class ClientPlanProgressModel {
       .gte('actual_end_date', since.toISOString().split('T')[0]);
 
     if (therapistId) {
-      query = query.eq('therapist_id', therapistId);
+      query = query.eq('therapistId', therapistId);
     }
 
     const { data, error } = await query;
@@ -598,7 +598,7 @@ class ClientPlanProgressModel {
     const data = {};
 
     if (updateData.clientId !== undefined) data.client_id = updateData.clientId;
-    if (updateData.therapistId !== undefined) data.therapist_id = updateData.therapistId;
+    if (updateData.therapistId !== undefined) data.therapistId = updateData.therapistId;
     if (updateData.planId !== undefined) data.plan_id = updateData.planId;
     if (updateData.startDate !== undefined) data.start_date = updateData.startDate;
     if (updateData.expectedEndDate !== undefined) data.expected_end_date = updateData.expectedEndDate;
@@ -645,18 +645,18 @@ class ClientPlanProgressModel {
     const supabase = require('../../config/supabase').supabase;
 
     const [totalResult, activeResult, completedResult, cancelledResult, onHoldResult] = await Promise.all([
-      supabase.from('client_plan_progress').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId),
-      supabase.from('client_plan_progress').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('status', 'active'),
-      supabase.from('client_plan_progress').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('status', 'completed'),
-      supabase.from('client_plan_progress').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('status', 'cancelled'),
-      supabase.from('client_plan_progress').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('status', 'on_hold')
+      supabase.from('client_plan_progress').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId),
+      supabase.from('client_plan_progress').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('status', 'active'),
+      supabase.from('client_plan_progress').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('status', 'completed'),
+      supabase.from('client_plan_progress').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('status', 'cancelled'),
+      supabase.from('client_plan_progress').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('status', 'on_hold')
     ]);
 
     // Calcular progreso promedio
     const { data: progressData } = await supabase
       .from('client_plan_progress')
       .select('progress_percentage')
-      .eq('therapist_id', therapistId)
+      .eq('therapistId', therapistId)
       .eq('status', 'active');
 
     const avgProgress = progressData && progressData.length > 0

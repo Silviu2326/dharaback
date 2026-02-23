@@ -24,7 +24,7 @@ const paymentController = {
       let query = supabase
         .from('payments')
         .select('*, client:client_id(*), booking:booking_id(*)', { count: 'exact' })
-        .eq('therapist_id', therapistId);
+        .eq('therapistId', therapistId);
 
       if (status) query = query.eq('status', status);
       if (method) query = query.eq('method', method);
@@ -68,7 +68,7 @@ const paymentController = {
 
       const payment = await Payment.findOne({
         id: paymentId,
-        therapist_id: therapistId
+        therapistId: therapistId
       });
 
       if (!payment) {
@@ -142,7 +142,7 @@ const paymentController = {
       if (bookingId) {
         const booking = await Booking.findOne({
           id: bookingId,
-          therapist_id: therapistId,
+          therapistId: therapistId,
           client_id: clientId
         });
         if (!booking) {
@@ -197,7 +197,7 @@ const paymentController = {
 
       const payment = await Payment.findOne({
         id: paymentId,
-        therapist_id: therapistId
+        therapistId: therapistId
       });
 
       if (!payment) {
@@ -241,7 +241,7 @@ const paymentController = {
 
       const payment = await Payment.findOne({
         id: paymentId,
-        therapist_id: therapistId
+        therapistId: therapistId
       });
 
       if (!payment) {
@@ -322,7 +322,7 @@ const paymentController = {
       let query = supabase
         .from('payout_requests')
         .select('*', { count: 'exact' })
-        .eq('therapist_id', therapistId);
+        .eq('therapistId', therapistId);
 
       if (status) query = query.eq('status', status);
 
@@ -382,7 +382,7 @@ const paymentController = {
       const { count: pendingCount } = await supabase
         .from('payout_requests')
         .select('*', { count: 'exact', head: true })
-        .eq('therapist_id', therapistId)
+        .eq('therapistId', therapistId)
         .in('status', ['pending', 'processing']);
 
       if (pendingCount > 0) {
@@ -417,7 +417,7 @@ const paymentController = {
       const { data: pendingData } = await supabase
         .from('payout_requests')
         .select('amount')
-        .eq('therapist_id', therapistId)
+        .eq('therapistId', therapistId)
         .in('status', ['pending', 'processing']);
 
       const pendingAmount = (pendingData || []).reduce((sum, p) => sum + p.amount, 0);
@@ -448,21 +448,21 @@ const paymentController = {
     const { data: completedPayments } = await supabase
       .from('payments')
       .select('net_amount')
-      .eq('therapist_id', therapistId)
+      .eq('therapistId', therapistId)
       .eq('status', 'completed');
 
     // Calculate total completed payouts
     const { data: completedPayouts } = await supabase
       .from('payout_requests')
       .select('amount')
-      .eq('therapist_id', therapistId)
+      .eq('therapistId', therapistId)
       .eq('status', 'completed');
 
     // Calculate pending payouts
     const { data: pendingPayouts } = await supabase
       .from('payout_requests')
       .select('amount')
-      .eq('therapist_id', therapistId)
+      .eq('therapistId', therapistId)
       .in('status', ['pending', 'processing']);
 
     const totalEarnings = (completedPayments || []).reduce((sum, p) => sum + parseFloat(p.net_amount || 0), 0);
@@ -543,12 +543,12 @@ const paymentController = {
 
       let query = supabase
         .from('payments')
-        .select('*, therapist:therapist_id(*), booking:booking_id(*)', { count: 'exact' })
+        .select('*, therapist:therapistId(*), booking:booking_id(*)', { count: 'exact' })
         .eq('client_id', clientId);
 
       if (status) query = query.eq('status', status);
       if (method) query = query.eq('method', method);
-      if (therapistId) query = query.eq('therapist_id', therapistId);
+      if (therapistId) query = query.eq('therapistId', therapistId);
       if (startDate) query = query.gte('created_at', startDate);
       if (endDate) query = query.lte('created_at', endDate);
 
@@ -658,7 +658,7 @@ const paymentController = {
       // Get recent payments
       const { data: recentPayments } = await supabase
         .from('payments')
-        .select('*, therapist:therapist_id(name, specialties)')
+        .select('*, therapist:therapistId(name, specialties)')
         .eq('client_id', clientId)
         .eq('status', 'completed')
         .order('created_at', { ascending: false })

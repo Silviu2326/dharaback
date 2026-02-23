@@ -44,8 +44,8 @@ const upload = multer({
 // Validation rules
 const createConversationValidation = [
   body('clientId')
-    .isUUID()
-    .withMessage('Client ID must be a valid UUID')
+    .isMongoId()
+    .withMessage('Client ID must be valid')
 ];
 
 const sendMessageValidation = [
@@ -64,8 +64,8 @@ const sendMessageValidation = [
     .withMessage('Invalid priority level'),
   body('replyTo')
     .optional()
-    .isUUID()
-    .withMessage('Reply to must be a valid UUID')
+    .isMongoId()
+    .withMessage('Reply to must be valid')
 ];
 
 const editMessageValidation = [
@@ -86,13 +86,13 @@ const reactionValidation = [
 
 const idValidation = [
   param('conversationId')
-    .isUUID()
+    .isMongoId()
     .withMessage('Conversation ID must be valid')
 ];
 
 const messageIdValidation = [
   param('messageId')
-    .isUUID()
+    .isMongoId()
     .withMessage('Message ID must be valid')
 ];
 

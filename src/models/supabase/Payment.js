@@ -11,7 +11,7 @@ class Payment {
     this.id = data.id;
     this.bookingId = data.booking_id;
     this.clientId = data.client_id;
-    this.therapistId = data.therapist_id;
+    this.therapistId = data.therapistId;
     this.amount = parseFloat(data.amount) || 0;
     this.currency = data.currency || 'EUR';
     this.status = data.status || 'pending';
@@ -240,7 +240,7 @@ class Payment {
     const data = {
       booking_id: this.bookingId,
       client_id: this.clientId,
-      therapist_id: this.therapistId,
+      therapistId: this.therapistId,
       amount: this.amount,
       currency: this.currency,
       status: this.status,
@@ -319,7 +319,7 @@ class PaymentModel {
     const paymentData = {
       booking_id: data.bookingId || null,
       client_id: data.clientId,
-      therapist_id: data.therapistId,
+      therapistId: data.therapistId,
       amount: data.amount,
       currency: data.currency || 'EUR',
       status: data.status || 'pending',
@@ -378,7 +378,7 @@ class PaymentModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapist_id: therapistId }
+      filters: { ...options.filters, therapistId: therapistId }
     });
   }
 
@@ -420,7 +420,7 @@ class PaymentModel {
       ...options,
       filters: { 
         ...options.filters, 
-        therapist_id: therapistId,
+        therapistId: therapistId,
         status: 'completed'
       }
     });
@@ -445,7 +445,7 @@ class PaymentModel {
       .gt('refunded_amount', 0);
 
     if (therapistId) {
-      query = query.eq('therapist_id', therapistId);
+      query = query.eq('therapistId', therapistId);
     }
 
     query = query.order('created_at', { ascending: false });
@@ -473,7 +473,7 @@ class PaymentModel {
       .lte('created_at', endDate);
 
     if (therapistId) {
-      query = query.eq('therapist_id', therapistId);
+      query = query.eq('therapistId', therapistId);
     }
 
     if (options.status) {
@@ -496,7 +496,7 @@ class PaymentModel {
 
     if (updateData.bookingId !== undefined) data.booking_id = updateData.bookingId;
     if (updateData.clientId !== undefined) data.client_id = updateData.clientId;
-    if (updateData.therapistId !== undefined) data.therapist_id = updateData.therapistId;
+    if (updateData.therapistId !== undefined) data.therapistId = updateData.therapistId;
     if (updateData.amount !== undefined) data.amount = updateData.amount;
     if (updateData.currency !== undefined) data.currency = updateData.currency;
     if (updateData.status !== undefined) data.status = updateData.status;
@@ -550,7 +550,7 @@ class PaymentModel {
     let query = supabase
       .from('payments')
       .select('*')
-      .eq('therapist_id', therapistId);
+      .eq('therapistId', therapistId);
 
     if (startDate) {
       query = query.gte('created_at', startDate);
@@ -600,7 +600,7 @@ class PaymentModel {
     const { data, error } = await supabase
       .from('payments')
       .select('amount, net_amount, platform_fee, created_at, status')
-      .eq('therapist_id', therapistId)
+      .eq('therapistId', therapistId)
       .eq('status', 'completed')
       .gte('created_at', startDate.toISOString());
 

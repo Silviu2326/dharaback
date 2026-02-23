@@ -9,7 +9,7 @@ const SupabaseService = require('../../services/supabaseService');
 class PayoutRequest {
   constructor(data = {}) {
     this.id = data.id;
-    this.therapistId = data.therapist_id;
+    this.therapistId = data.therapistId;
     this.amount = parseFloat(data.amount) || 0;
     this.currency = data.currency || 'EUR';
     this.status = data.status || 'pending';
@@ -276,7 +276,7 @@ class PayoutRequest {
     const service = new SupabaseService('payout_requests');
 
     const data = {
-      therapist_id: this.therapistId,
+      therapistId: this.therapistId,
       amount: this.amount,
       currency: this.currency,
       status: this.status,
@@ -349,7 +349,7 @@ class PayoutRequestModel {
     }
 
     const requestData = {
-      therapist_id: data.therapistId,
+      therapistId: data.therapistId,
       amount: data.amount,
       currency: data.currency || 'EUR',
       status: 'pending',
@@ -392,7 +392,7 @@ class PayoutRequestModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapist_id: therapistId }
+      filters: { ...options.filters, therapistId: therapistId }
     });
   }
 
@@ -442,7 +442,7 @@ class PayoutRequestModel {
       ...options,
       filters: { 
         ...options.filters, 
-        therapist_id: therapistId,
+        therapistId: therapistId,
         status: 'pending'
       }
     });
@@ -471,7 +471,7 @@ class PayoutRequestModel {
       .lte('created_at', endDate);
 
     if (options.therapistId) {
-      query = query.eq('therapist_id', options.therapistId);
+      query = query.eq('therapistId', options.therapistId);
     }
 
     if (options.status) {
@@ -496,7 +496,7 @@ class PayoutRequestModel {
   async findByIdAndUpdate(id, updateData, options = {}) {
     const data = {};
 
-    if (updateData.therapistId !== undefined) data.therapist_id = updateData.therapistId;
+    if (updateData.therapistId !== undefined) data.therapistId = updateData.therapistId;
     if (updateData.amount !== undefined) data.amount = updateData.amount;
     if (updateData.currency !== undefined) data.currency = updateData.currency;
     if (updateData.status !== undefined) data.status = updateData.status;
@@ -591,16 +591,16 @@ class PayoutRequestModel {
     const supabase = require('../../config/supabase').supabase;
 
     const [totalResult, pendingResult, completedResult] = await Promise.all([
-      supabase.from('payout_requests').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId),
-      supabase.from('payout_requests').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('status', 'pending'),
-      supabase.from('payout_requests').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('status', 'completed')
+      supabase.from('payout_requests').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId),
+      supabase.from('payout_requests').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('status', 'pending'),
+      supabase.from('payout_requests').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('status', 'completed')
     ]);
 
     // Monto total retirado
     const { data: amounts } = await supabase
       .from('payout_requests')
       .select('amount')
-      .eq('therapist_id', therapistId)
+      .eq('therapistId', therapistId)
       .eq('status', 'completed');
 
     const totalWithdrawn = (amounts || []).reduce((sum, r) => sum + parseFloat(r.amount), 0);
@@ -622,7 +622,7 @@ class PayoutRequestModel {
    */
   async hasPendingRequests(therapistId) {
     const count = await this.count({
-      therapist_id: therapistId,
+      therapistId: therapistId,
       status: 'pending'
     });
     return count > 0;

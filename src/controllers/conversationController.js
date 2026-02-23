@@ -14,7 +14,7 @@ const conversationController = {
       let query = supabase
         .from('conversations')
         .select('*, client:client_id(*)', { count: 'exact' })
-        .eq('therapist_id', therapistId);
+        .eq('therapistId', therapistId);
 
       if (status !== 'all') {
         query = query.eq('status', status);
@@ -71,7 +71,7 @@ const conversationController = {
 
       const conversation = await Conversation.findOne({
         id: conversationId,
-        therapist_id: therapistId
+        therapistId: therapistId
       });
 
       if (!conversation) {
@@ -175,7 +175,7 @@ const conversationController = {
 
       const conversation = await Conversation.findOne({
         id: conversationId,
-        therapist_id: therapistId
+        therapistId: therapistId
       });
 
       if (!conversation) {
@@ -215,7 +215,7 @@ const conversationController = {
 
       const conversation = await Conversation.findOne({
         id: conversationId,
-        therapist_id: therapistId
+        therapistId: therapistId
       });
 
       if (!conversation) {
@@ -243,7 +243,7 @@ const conversationController = {
 
       const conversation = await Conversation.findOne({
         id: conversationId,
-        therapist_id: therapistId
+        therapistId: therapistId
       });
 
       if (!conversation) {
@@ -281,7 +281,7 @@ const conversationController = {
 
       const conversation = await Conversation.findOne({
         id: conversationId,
-        therapist_id: therapistId
+        therapistId: therapistId
       });
 
       if (!conversation) {
@@ -307,7 +307,7 @@ const conversationController = {
 
       const conversation = await Conversation.findOne({
         id: conversationId,
-        therapist_id: therapistId
+        therapistId: therapistId
       });
 
       if (!conversation) {
@@ -340,7 +340,7 @@ const conversationController = {
         // Search in specific conversation
         const conversation = await Conversation.findOne({
           id: conversationId,
-          therapist_id: therapistId
+          therapistId: therapistId
         });
 
         if (!conversation) {
@@ -421,7 +421,7 @@ const conversationController = {
 
       const conversation = await Conversation.findOne({
         id: conversationId,
-        therapist_id: therapistId
+        therapistId: therapistId
       });
 
       if (!conversation) {

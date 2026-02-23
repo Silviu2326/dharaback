@@ -125,7 +125,7 @@ const updateValidation = [
 
 const shareValidation = [
   body('therapistId')
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Therapist ID must be valid'),
   body('permissions')
     .optional()
@@ -135,7 +135,7 @@ const shareValidation = [
 
 const assignValidation = [
   body('clientId')
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Client ID must be valid'),
   body('startDate')
     .optional()
@@ -149,7 +149,7 @@ const assignValidation = [
 
 const idValidation = [
   param('planId')
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Plan ID must be valid')
 ];
 

@@ -14,7 +14,7 @@ const getClients = asyncHandler(async (req, res, next) => {
   const { status, search, tags, sortBy = 'created_at', sortOrder = 'desc' } = req.query;
 
   // Build filters
-  const filters = { therapist_id: req.user.id || req.user._id };
+  const filters = { therapistId: req.user.id || req.user._id };
 
   if (status && status !== 'all') {
     filters.status = status;
@@ -96,7 +96,7 @@ const getClients = asyncHandler(async (req, res, next) => {
 const getClient = asyncHandler(async (req, res, next) => {
   const client = await Client.findOne({
     id: req.params.id,
-    therapist_id: req.user.id || req.user._id
+    therapistId: req.user.id || req.user._id
   });
 
   if (!client) {
@@ -136,7 +136,7 @@ const createClient = asyncHandler(async (req, res, next) => {
   // Check if client with same email already exists for this therapist
   const existingClient = await Client.findOne({
     email: email.toLowerCase(),
-    therapist_id: req.user.id || req.user._id
+    therapistId: req.user.id || req.user._id
   });
 
   if (existingClient) {
@@ -174,7 +174,7 @@ const createClient = asyncHandler(async (req, res, next) => {
 const updateClient = asyncHandler(async (req, res, next) => {
   let client = await Client.findOne({
     id: req.params.id,
-    therapist_id: req.user.id || req.user._id
+    therapistId: req.user.id || req.user._id
   });
 
   if (!client) {
@@ -185,7 +185,7 @@ const updateClient = asyncHandler(async (req, res, next) => {
   if (req.body.email && req.body.email !== client.email) {
     const existingClient = await Client.findOne({
       email: req.body.email.toLowerCase(),
-      therapist_id: req.user.id || req.user._id
+      therapistId: req.user.id || req.user._id
     });
 
     if (existingClient && (existingClient.id || existingClient._id) !== req.params.id) {
@@ -240,7 +240,7 @@ const updateClient = asyncHandler(async (req, res, next) => {
 const deleteClient = asyncHandler(async (req, res, next) => {
   const client = await Client.findOne({
     id: req.params.id,
-    therapist_id: req.user.id || req.user._id
+    therapistId: req.user.id || req.user._id
   });
 
   if (!client) {
@@ -287,7 +287,7 @@ const getClientsStats = asyncHandler(async (req, res, next) => {
   const { data: stats, error } = await supabase
     .from('clients')
     .select('status')
-    .eq('therapist_id', therapistId);
+    .eq('therapistId', therapistId);
 
   if (error) {
     throw new Error(error.message);
@@ -311,7 +311,7 @@ const getClientsStats = asyncHandler(async (req, res, next) => {
   const { count: recentCount } = await supabase
     .from('clients')
     .select('*', { count: 'exact', head: true })
-    .eq('therapist_id', therapistId)
+    .eq('therapistId', therapistId)
     .gte('created_at', thirtyDaysAgo.toISOString());
 
   result.recentClients = recentCount || 0;
@@ -331,7 +331,7 @@ const getClientTags = asyncHandler(async (req, res, next) => {
   const { data: clients, error } = await supabase
     .from('clients')
     .select('tags')
-    .eq('therapist_id', req.user.id || req.user._id);
+    .eq('therapistId', req.user.id || req.user._id);
 
   if (error) {
     throw new Error(error.message);
@@ -364,7 +364,7 @@ const updateClientAvatar = asyncHandler(async (req, res, next) => {
 
   const client = await Client.findOne({
     id: req.params.id,
-    therapist_id: req.user.id || req.user._id
+    therapistId: req.user.id || req.user._id
   });
 
   if (!client) {
@@ -390,7 +390,7 @@ const updateClientAvatar = asyncHandler(async (req, res, next) => {
 const getClientSummary = asyncHandler(async (req, res, next) => {
   const client = await Client.findOne({
     id: req.params.id,
-    therapist_id: req.user.id || req.user._id
+    therapistId: req.user.id || req.user._id
   });
 
   if (!client) {
@@ -419,7 +419,7 @@ const bulkUpdateClients = asyncHandler(async (req, res, next) => {
   const clients = await Client.find({
     filters: {
       id: { in: clientIds },
-      therapist_id: req.user.id || req.user._id
+      therapistId: req.user.id || req.user._id
     }
   });
 
@@ -443,7 +443,7 @@ const bulkUpdateClients = asyncHandler(async (req, res, next) => {
     .from('clients')
     .update(filteredUpdateData)
     .in('id', clientIds)
-    .eq('therapist_id', req.user.id || req.user._id);
+    .eq('therapistId', req.user.id || req.user._id);
 
   if (error) {
     throw new Error(error.message);
@@ -505,7 +505,7 @@ const registerClient = asyncHandler(async (req, res, next) => {
   // Check if client already exists for this therapist
   const existingClient = await Client.findOne({
     email: email.toLowerCase(),
-    therapist_id: therapistId
+    therapistId: therapistId
   });
 
   if (existingClient) {

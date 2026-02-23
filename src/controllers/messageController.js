@@ -18,7 +18,7 @@ const messageController = {
       // Verify conversation exists and therapist has access
       const conversation = await Conversation.findOne({
         id: conversationId,
-        therapist_id: therapistId
+        therapistId: therapistId
       });
 
       if (!conversation) {
@@ -92,7 +92,7 @@ const messageController = {
       // Verify conversation access
       const conversation = await Conversation.findOne({
         id: conversationId,
-        therapist_id: therapistId
+        therapistId: therapistId
       });
 
       if (!conversation) {
@@ -154,7 +154,7 @@ const messageController = {
       // Verify conversation access
       const conversation = await Conversation.findOne({
         id: message.conversationId,
-        therapist_id: therapistId
+        therapistId: therapistId
       });
 
       if (!conversation) {
@@ -275,7 +275,7 @@ const messageController = {
       // Verify conversation access
       const conversation = await Conversation.findOne({
         id: message.conversationId,
-        therapist_id: therapistId
+        therapistId: therapistId
       });
 
       if (!conversation) {
@@ -325,7 +325,7 @@ const messageController = {
       // Verify conversation access
       const conversation = await Conversation.findOne({
         id: message.conversationId,
-        therapist_id: therapistId
+        therapistId: therapistId
       });
 
       if (!conversation) {
@@ -358,7 +358,7 @@ const messageController = {
       // Verify conversation access
       const conversation = await Conversation.findOne({
         id: conversationId,
-        therapist_id: therapistId
+        therapistId: therapistId
       });
 
       if (!conversation) {
@@ -393,7 +393,7 @@ const messageController = {
       // Verify conversation access
       const conversation = await Conversation.findOne({
         id: conversationId,
-        therapist_id: therapistId
+        therapistId: therapistId
       });
 
       if (!conversation) {
@@ -436,7 +436,7 @@ const messageController = {
       // Verify conversation access
       const conversation = await Conversation.findOne({
         id: message.conversationId,
-        therapist_id: therapistId
+        therapistId: therapistId
       });
 
       if (!conversation) {
@@ -473,7 +473,7 @@ const messageController = {
       // Verify conversation access
       const conversation = await Conversation.findOne({
         id: conversationId,
-        therapist_id: therapistId
+        therapistId: therapistId
       });
 
       if (!conversation) {

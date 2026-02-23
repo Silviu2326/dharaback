@@ -100,14 +100,14 @@ async function cleanupTestData() {
     const { error: bookingsError } = await supabase
       .from('bookings')
       .delete()
-      .in('therapist_id', testUserIds);
+      .in('therapistId', testUserIds);
     if (!bookingsError) console.log('  ✅ Bookings eliminados');
 
     // 3. Eliminar clientes de test
     const { error: clientsError } = await supabase
       .from('clients')
       .delete()
-      .in('therapist_id', testUserIds);
+      .in('therapistId', testUserIds);
     if (!clientsError) console.log('  ✅ Clientes eliminados');
 
     // 4. Eliminar professional_profiles de test
@@ -148,8 +148,8 @@ async function cleanupUserByEmail(email) {
     if (!user) return;
 
     // Eliminar datos relacionados
-    await supabase.from('bookings').delete().eq('therapist_id', user.id);
-    await supabase.from('clients').delete().eq('therapist_id', user.id);
+    await supabase.from('bookings').delete().eq('therapistId', user.id);
+    await supabase.from('clients').delete().eq('therapistId', user.id);
     await supabase.from('users').delete().eq('id', user.id);
   } catch (err) {
     // Silenciar errores de cleanup

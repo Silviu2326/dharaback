@@ -80,28 +80,28 @@ class User {
       supabase
         .from('clients')
         .select('*', { count: 'exact', head: true })
-        .eq('therapist_id', this.id)
+        .eq('therapistId', this.id)
         .eq('status', 'active'),
       
       // Contar bookings completados
       supabase
         .from('bookings')
         .select('*', { count: 'exact', head: true })
-        .eq('therapist_id', this.id)
+        .eq('therapistId', this.id)
         .eq('status', 'completed'),
       
       // Sumar pagos completados
       supabase
         .from('payments')
         .select('amount')
-        .eq('therapist_id', this.id)
+        .eq('therapistId', this.id)
         .eq('status', 'completed'),
       
       // Calcular rating promedio
       supabase
         .from('reviews')
         .select('rating')
-        .eq('therapist_id', this.id)
+        .eq('therapistId', this.id)
     ]);
 
     const totalRevenue = paymentsResult.data?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;

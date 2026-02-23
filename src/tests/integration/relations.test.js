@@ -1,8 +1,8 @@
 /**
  * Tests de Integración: Relaciones FK
  * Prueba que las foreign keys entre tablas funcionan correctamente:
- * - User → Client (therapist_id)
- * - User → Booking (therapist_id)
+ * - User → Client (therapistId)
+ * - User → Booking (therapistId)
  * - Client → Booking (client_id)
  * - Acceso solo a datos propios (aislamiento de datos)
  */
@@ -86,7 +86,7 @@ describe('🔗 RELACIONES FK Y AISLAMIENTO', () => {
   });
 
   // ─────────────────────────────────────────────
-  describe('FK: User → Client (therapist_id)', () => {
+  describe('FK: User → Client (therapistId)', () => {
     it('debería crear un cliente vinculado al terapeuta', async () => {
       const clientData = generateTestClient(therapistA_Id, 'relation_a');
 
@@ -105,15 +105,15 @@ describe('🔗 RELACIONES FK Y AISLAMIENTO', () => {
         expect(client).toBeDefined();
         therapistA_ClientId = client.id || client._id;
 
-        // Verificar que el therapist_id es correcto en Supabase
+        // Verificar que el therapistId es correcto en Supabase
         const { data: dbClient } = await supabase
           .from('clients')
-          .select('therapist_id')
+          .select('therapistId')
           .eq('id', therapistA_ClientId)
           .single();
 
         if (dbClient) {
-          expect(dbClient.therapist_id).toBe(therapistA_Id);
+          expect(dbClient.therapistId).toBe(therapistA_Id);
         }
       }
     });
@@ -169,7 +169,7 @@ describe('🔗 RELACIONES FK Y AISLAMIENTO', () => {
   });
 
   // ─────────────────────────────────────────────
-  describe('FK: User+Client → Booking (therapist_id + client_id)', () => {
+  describe('FK: User+Client → Booking (therapistId + client_id)', () => {
     it('debería crear un booking vinculado al terapeuta y cliente', async () => {
       if (!therapistA_ClientId) {
         console.warn('Skipping: no clientId disponible');
@@ -195,12 +195,12 @@ describe('🔗 RELACIONES FK Y AISLAMIENTO', () => {
       // Verificar FK en Supabase
       const { data: dbBooking } = await supabase
         .from('bookings')
-        .select('therapist_id, client_id')
+        .select('therapistId, client_id')
         .eq('id', therapistA_BookingId)
         .single();
 
       expect(dbBooking).toBeDefined();
-      expect(dbBooking.therapist_id).toBe(therapistA_Id);
+      expect(dbBooking.therapistId).toBe(therapistA_Id);
       expect(dbBooking.client_id).toBe(therapistA_ClientId);
     });
 
@@ -249,13 +249,13 @@ describe('🔗 RELACIONES FK Y AISLAMIENTO', () => {
       // Verificar que existe el cliente en Supabase
       const { data: client, error } = await supabase
         .from('clients')
-        .select('id, therapist_id, name')
+        .select('id, therapistId, name')
         .eq('id', therapistA_ClientId)
         .single();
 
       expect(error).toBeNull();
       expect(client).toBeDefined();
-      expect(client.therapist_id).toBe(therapistA_Id);
+      expect(client.therapistId).toBe(therapistA_Id);
     });
 
     it('el terapeuta A tiene al menos un cliente', async () => {
@@ -264,7 +264,7 @@ describe('🔗 RELACIONES FK Y AISLAMIENTO', () => {
       const { data: clients, error } = await supabase
         .from('clients')
         .select('id')
-        .eq('therapist_id', therapistA_Id);
+        .eq('therapistId', therapistA_Id);
 
       expect(error).toBeNull();
       expect(clients).toBeDefined();
@@ -277,7 +277,7 @@ describe('🔗 RELACIONES FK Y AISLAMIENTO', () => {
       const { data: clients } = await supabase
         .from('clients')
         .select('id')
-        .eq('therapist_id', therapistB_Id)
+        .eq('therapistId', therapistB_Id)
         .eq('id', therapistA_ClientId);
 
       // No debe encontrar el cliente de A en los clientes de B

@@ -10,7 +10,7 @@ class Conversation {
   constructor(data = {}) {
     this.id = data.id;
     this.clientId = data.client_id;
-    this.therapistId = data.therapist_id;
+    this.therapistId = data.therapistId;
     this.status = data.status || 'active';
     this.lastMessageAt = data.last_message_at;
     this.unreadCount = data.unread_count || 0;
@@ -176,7 +176,7 @@ class Conversation {
     let query = supabase
       .from('messages')
       .select(options.select || '*')
-      .eq('conversation_id', this.id)
+      .eq('conversationId', this.id)
       .order('created_at', { ascending: options.ascending !== false });
 
     if (options.limit) {
@@ -198,7 +198,7 @@ class Conversation {
     const { count, error } = await supabase
       .from('messages')
       .select('*', { count: 'exact', head: true })
-      .eq('conversation_id', this.id);
+      .eq('conversationId', this.id);
 
     if (error) throw new Error(error.message);
     return count || 0;
@@ -212,7 +212,7 @@ class Conversation {
 
     const data = {
       client_id: this.clientId,
-      therapist_id: this.therapistId,
+      therapistId: this.therapistId,
       status: this.status,
       last_message_at: this.lastMessageAt,
       unread_count: this.unreadCount,
@@ -275,7 +275,7 @@ class ConversationModel {
 
     const conversationData = {
       client_id: data.clientId,
-      therapist_id: data.therapistId,
+      therapistId: data.therapistId,
       status: data.status || 'active',
       last_message_at: data.lastMessageAt,
       unread_count: data.unreadCount || 0,
@@ -316,7 +316,7 @@ class ConversationModel {
   async findBetweenUsers(clientId, therapistId) {
     return await this.findOne({
       client_id: clientId,
-      therapist_id: therapistId
+      therapistId: therapistId
     });
   }
 
@@ -326,7 +326,7 @@ class ConversationModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapist_id: therapistId }
+      filters: { ...options.filters, therapistId: therapistId }
     });
   }
 
@@ -348,7 +348,7 @@ class ConversationModel {
       ...options,
       filters: { 
         ...options.filters, 
-        therapist_id: therapistId,
+        therapistId: therapistId,
         status: 'active'
       }
     });
@@ -362,7 +362,7 @@ class ConversationModel {
       ...options,
       filters: { 
         ...options.filters, 
-        therapist_id: therapistId,
+        therapistId: therapistId,
         status: 'archived'
       }
     });
@@ -377,7 +377,7 @@ class ConversationModel {
     let query = supabase
       .from('conversations')
       .select(options.select || '*')
-      .eq('therapist_id', therapistId)
+      .eq('therapistId', therapistId)
       .gt('unread_count', 0)
       .order('last_message_at', { ascending: false });
 
@@ -400,7 +400,7 @@ class ConversationModel {
     let query = supabase
       .from('conversations')
       .select(options.select || '*')
-      .or(`therapist_id.eq.${userId},client_id.eq.${userId}`)
+      .or(`therapistId.eq.${userId},client_id.eq.${userId}`)
       .order('last_message_at', { ascending: false });
 
     if (options.limit) {
@@ -424,7 +424,7 @@ class ConversationModel {
     const data = {};
 
     if (updateData.clientId !== undefined) data.client_id = updateData.clientId;
-    if (updateData.therapistId !== undefined) data.therapist_id = updateData.therapistId;
+    if (updateData.therapistId !== undefined) data.therapistId = updateData.therapistId;
     if (updateData.status !== undefined) data.status = updateData.status;
     if (updateData.lastMessageAt !== undefined) data.last_message_at = updateData.lastMessageAt;
     if (updateData.unreadCount !== undefined) data.unread_count = updateData.unreadCount;
@@ -453,7 +453,7 @@ class ConversationModel {
    * Contar conversaciones por terapeuta
    */
   async countByTherapist(therapistId, status = null) {
-    const filters = { therapist_id: therapistId };
+    const filters = { therapistId: therapistId };
     if (status) filters.status = status;
     return await this.count(filters);
   }
@@ -475,7 +475,7 @@ class ConversationModel {
   async exists(clientId, therapistId) {
     const count = await this.service.count({ 
       client_id: clientId, 
-      therapist_id: therapistId 
+      therapistId: therapistId 
     });
     return count > 0;
   }
@@ -487,10 +487,10 @@ class ConversationModel {
     const supabase = require('../../config/supabase').supabase;
 
     const [totalResult, activeResult, archivedResult, unreadResult] = await Promise.all([
-      supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId),
-      supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('status', 'active'),
-      supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('status', 'archived'),
-      supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).gt('unread_count', 0)
+      supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId),
+      supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('status', 'active'),
+      supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('status', 'archived'),
+      supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).gt('unread_count', 0)
     ]);
 
     return {

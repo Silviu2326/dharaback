@@ -9,7 +9,7 @@ const SupabaseService = require('../../services/supabaseService');
 class PricingPackage {
   constructor(data = {}) {
     this.id = data.id;
-    this.therapistId = data.therapist_id;
+    this.therapistId = data.therapistId;
     this.name = data.name;
     this.description = data.description;
     this.sessions = data.sessions || 1;
@@ -220,7 +220,7 @@ class PricingPackage {
     const service = new SupabaseService('pricing_packages');
 
     const data = {
-      therapist_id: this.therapistId,
+      therapistId: this.therapistId,
       name: this.name,
       description: this.description,
       sessions: this.sessions,
@@ -290,7 +290,7 @@ class PricingPackageModel {
    */
   async create(data) {
     const packageData = {
-      therapist_id: data.therapistId,
+      therapistId: data.therapistId,
       name: data.name,
       description: data.description,
       sessions: data.sessions || 1,
@@ -337,7 +337,7 @@ class PricingPackageModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapist_id: therapistId }
+      filters: { ...options.filters, therapistId: therapistId }
     });
   }
 
@@ -349,7 +349,7 @@ class PricingPackageModel {
       ...options,
       filters: { 
         ...options.filters, 
-        therapist_id: therapistId,
+        therapistId: therapistId,
         is_active: true
       }
     });
@@ -360,7 +360,7 @@ class PricingPackageModel {
    */
   async findBySessionType(sessionType, therapistId = null, options = {}) {
     const filters = { session_type: sessionType };
-    if (therapistId) filters.therapist_id = therapistId;
+    if (therapistId) filters.therapistId = therapistId;
     if (options.activeOnly !== false) filters.is_active = true;
 
     return await this.find({
@@ -382,7 +382,7 @@ class PricingPackageModel {
       .lte('price', maxPrice);
 
     if (therapistId) {
-      query = query.eq('therapist_id', therapistId);
+      query = query.eq('therapistId', therapistId);
     }
 
     if (options.activeOnly !== false) {
@@ -414,7 +414,7 @@ class PricingPackageModel {
       .gt('original_price', 0);
 
     if (therapistId) {
-      query = query.eq('therapist_id', therapistId);
+      query = query.eq('therapistId', therapistId);
     }
 
     query = query.eq('is_active', true);
@@ -434,7 +434,7 @@ class PricingPackageModel {
    */
   async findMultiSession(therapistId = null, options = {}) {
     const filters = { sessions: { gt: 1 } };
-    if (therapistId) filters.therapist_id = therapistId;
+    if (therapistId) filters.therapistId = therapistId;
 
     const supabase = require('../../config/supabase').supabase;
 
@@ -445,7 +445,7 @@ class PricingPackageModel {
       .eq('is_active', true);
 
     if (therapistId) {
-      query = query.eq('therapist_id', therapistId);
+      query = query.eq('therapistId', therapistId);
     }
 
     const { data, error } = await query;
@@ -460,7 +460,7 @@ class PricingPackageModel {
   async findByIdAndUpdate(id, updateData, options = {}) {
     const data = {};
 
-    if (updateData.therapistId !== undefined) data.therapist_id = updateData.therapistId;
+    if (updateData.therapistId !== undefined) data.therapistId = updateData.therapistId;
     if (updateData.name !== undefined) data.name = updateData.name;
     if (updateData.description !== undefined) data.description = updateData.description;
     if (updateData.sessions !== undefined) data.sessions = updateData.sessions;
@@ -509,16 +509,16 @@ class PricingPackageModel {
     const supabase = require('../../config/supabase').supabase;
 
     const [totalResult, activeResult, inactiveResult] = await Promise.all([
-      supabase.from('pricing_packages').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId),
-      supabase.from('pricing_packages').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('is_active', true),
-      supabase.from('pricing_packages').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('is_active', false)
+      supabase.from('pricing_packages').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId),
+      supabase.from('pricing_packages').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('is_active', true),
+      supabase.from('pricing_packages').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('is_active', false)
     ]);
 
     // Obtener precios promedio
     const { data: prices } = await supabase
       .from('pricing_packages')
       .select('price')
-      .eq('therapist_id', therapistId);
+      .eq('therapistId', therapistId);
 
     const priceValues = (prices || []).map(p => parseFloat(p.price));
     const averagePrice = priceValues.length > 0 

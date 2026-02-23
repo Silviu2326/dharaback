@@ -8,7 +8,7 @@ const SupabaseService = require('../../services/supabaseService');
 class WorkLocation {
   constructor(data = {}) {
     this.id = data.id;
-    this.therapistId = data.therapist_id;
+    this.therapistId = data.therapistId;
     this.name = data.name;
     this.address = data.address;
     this.city = data.city;
@@ -78,7 +78,7 @@ class WorkLocation {
     await supabase
       .from('work_locations')
       .update({ is_primary: false })
-      .eq('therapist_id', this.therapistId)
+      .eq('therapistId', this.therapistId)
       .neq('id', this.id);
 
     this.isPrimary = true;
@@ -96,7 +96,7 @@ class WorkLocation {
     const service = new SupabaseService('work_locations');
 
     const data = {
-      therapist_id: this.therapistId,
+      therapistId: this.therapistId,
       name: this.name,
       address: this.address,
       city: this.city,
@@ -117,7 +117,7 @@ class WorkLocation {
     } else {
       // Si es la primera ubicación, hacerla primaria
       if (!this.isPrimary) {
-        const existingCount = await service.count({ therapist_id: this.therapistId });
+        const existingCount = await service.count({ therapistId: this.therapistId });
         if (existingCount === 0) {
           data.is_primary = true;
           this.isPrimary = true;
@@ -168,7 +168,7 @@ class WorkLocationModel {
    */
   async create(data) {
     const locationData = {
-      therapist_id: data.therapistId,
+      therapistId: data.therapistId,
       name: data.name,
       address: data.address,
       city: data.city,
@@ -185,7 +185,7 @@ class WorkLocationModel {
 
     // Si es la primera ubicación, hacerla primaria
     if (!locationData.is_primary) {
-      const existingCount = await this.service.count({ therapist_id: data.therapistId });
+      const existingCount = await this.service.count({ therapistId: data.therapistId });
       if (existingCount === 0) {
         locationData.is_primary = true;
       }
@@ -225,7 +225,7 @@ class WorkLocationModel {
   async findByTherapist(therapistId, options = {}) {
     return await this.find({
       ...options,
-      filters: { ...options.filters, therapist_id: therapistId }
+      filters: { ...options.filters, therapistId: therapistId }
     });
   }
 
@@ -234,7 +234,7 @@ class WorkLocationModel {
    */
   async findPrimary(therapistId) {
     return await this.findOne({ 
-      therapist_id: therapistId, 
+      therapistId: therapistId, 
       is_primary: true 
     });
   }
@@ -274,7 +274,7 @@ class WorkLocationModel {
    * Eliminar por terapeuta
    */
   async deleteByTherapist(therapistId) {
-    const result = await this.service.deleteMany({ therapist_id: therapistId });
+    const result = await this.service.deleteMany({ therapistId: therapistId });
     return result;
   }
 
@@ -302,7 +302,7 @@ class WorkLocationModel {
    * Contar por terapeuta
    */
   async countByTherapist(therapistId) {
-    return await this.service.count({ therapist_id: therapistId });
+    return await this.service.count({ therapistId: therapistId });
   }
 
   /**
@@ -315,7 +315,7 @@ class WorkLocationModel {
     await supabase
       .from('work_locations')
       .update({ is_primary: false })
-      .eq('therapist_id', therapistId);
+      .eq('therapistId', therapistId);
 
     // Establecer nueva primaria
     const result = await this.service.update(id, { is_primary: true });

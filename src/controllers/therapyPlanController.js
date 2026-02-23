@@ -29,7 +29,7 @@ const therapyPlanController = {
       // Build Supabase query
       let query = supabase
         .from('therapy_plans')
-        .select('*, therapist:therapist_id(*)', { count: 'exact' });
+        .select('*, therapist:therapistId(*)', { count: 'exact' });
 
       // Apply filters
       if (status) query = query.eq('status', status);
@@ -52,8 +52,8 @@ const therapyPlanController = {
       // Access control
       if (userRole === 'therapist') {
         // Therapists can see: their own plans + public active plans + plans shared with them
-        // query = query.or(`therapist_id.eq.${userId},and(is_public.eq.true,status.eq.active)`);
-        query = query.eq('therapist_id', userId);
+        // query = query.or(`therapistId.eq.${userId},and(is_public.eq.true,status.eq.active)`);
+        query = query.eq('therapistId', userId);
       }
 
       // Apply sorting and pagination
@@ -72,13 +72,13 @@ const therapyPlanController = {
         const { data: shared } = await supabase
           .from('therapy_plan_shares')
           .select('plan_id')
-          .eq('therapist_id', userId);
+          .eq('therapistId', userId);
         
         if (shared && shared.length > 0) {
           const planIds = shared.map(s => s.plan_id);
           const { data: sharedPlanData } = await supabase
             .from('therapy_plans')
-            .select('*, therapist:therapist_id(*)')
+            .select('*, therapist:therapistId(*)')
             .in('id', planIds);
           sharedPlans = sharedPlanData || [];
         }
@@ -159,12 +159,12 @@ const therapyPlanController = {
       }
 
       // Get therapist info
-      const therapist = await User.findById(therapyPlan.therapist_id);
+      const therapist = await User.findById(therapyPlan.therapistId);
 
       // Check permissions
       const hasAccess =
         userRole === 'admin' ||
-        therapyPlan.therapist_id === userId;
+        therapyPlan.therapistId === userId;
         // (therapyPlan.is_public && therapyPlan.status === 'active');
 
       // Check if shared with user
@@ -173,7 +173,7 @@ const therapyPlanController = {
           .from('therapy_plan_shares')
           .select('*')
           .eq('plan_id', planId)
-          .eq('therapist_id', userId)
+          .eq('therapistId', userId)
           .single();
         
         if (!share) {
@@ -230,7 +230,7 @@ const therapyPlanController = {
       // Check permissions
       const canEdit =
         userRole === 'admin' ||
-        therapyPlan.therapist_id === userId;
+        therapyPlan.therapistId === userId;
 
       // Check if shared with edit permissions
       if (!canEdit && userRole === 'therapist') {
@@ -238,7 +238,7 @@ const therapyPlanController = {
           .from('therapy_plan_shares')
           .select('*')
           .eq('plan_id', planId)
-          .eq('therapist_id', userId)
+          .eq('therapistId', userId)
           .eq('permissions', 'edit')
           .single();
         
@@ -301,7 +301,7 @@ const therapyPlanController = {
       }
 
       // Check permissions
-      if (userRole !== 'admin' && therapyPlan.therapist_id !== userId) {
+      if (userRole !== 'admin' && therapyPlan.therapistId !== userId) {
         return next(new AppError('Access denied', 403));
       }
 
@@ -340,7 +340,7 @@ const therapyPlanController = {
         return next(new AppError('Therapy plan not found', 404));
       }
 
-      if (userRole !== 'admin' && therapyPlan.therapist_id !== userId) {
+      if (userRole !== 'admin' && therapyPlan.therapistId !== userId) {
         return next(new AppError('Access denied', 403));
       }
 
@@ -372,7 +372,7 @@ const therapyPlanController = {
         return next(new AppError('Therapy plan not found', 404));
       }
 
-      if (userRole !== 'admin' && therapyPlan.therapist_id !== userId) {
+      if (userRole !== 'admin' && therapyPlan.therapistId !== userId) {
         return next(new AppError('Access denied', 403));
       }
 
@@ -404,7 +404,7 @@ const therapyPlanController = {
         return next(new AppError('Therapy plan not found', 404));
       }
 
-      if (userRole !== 'admin' && therapyPlan.therapist_id !== userId) {
+      if (userRole !== 'admin' && therapyPlan.therapistId !== userId) {
         return next(new AppError('Access denied', 403));
       }
 
@@ -450,7 +450,7 @@ const therapyPlanController = {
         return next(new AppError('Therapy plan not found', 404));
       }
 
-      if (userRole !== 'admin' && therapyPlan.therapist_id !== userId) {
+      if (userRole !== 'admin' && therapyPlan.therapistId !== userId) {
         return next(new AppError('Access denied', 403));
       }
 
@@ -459,12 +459,12 @@ const therapyPlanController = {
         .from('therapy_plan_shares')
         .upsert({
           plan_id: planId,
-          therapist_id: therapistId,
+          therapistId: therapistId,
           permissions,
           shared_by: userId,
           shared_at: new Date().toISOString()
         }, {
-          onConflict: 'plan_id,therapist_id'
+          onConflict: 'plan_id,therapistId'
         })
         .select()
         .single();
@@ -502,7 +502,7 @@ const therapyPlanController = {
       // Check permissions
       const canAssign =
         userRole === 'admin' ||
-        therapyPlan.therapist_id === userId;
+        therapyPlan.therapistId === userId;
 
       // Check if shared with copy/edit permissions
       if (!canAssign && userRole === 'therapist') {
@@ -510,7 +510,7 @@ const therapyPlanController = {
           .from('therapy_plan_shares')
           .select('*')
           .eq('plan_id', planId)
-          .eq('therapist_id', userId)
+          .eq('therapistId', userId)
           .in('permissions', ['edit', 'copy'])
           .single();
         
@@ -577,7 +577,7 @@ const therapyPlanController = {
       // Build query
       let query = supabase.from('therapy_plans').select('*');
       if (targetTherapistId) {
-        query = query.eq('therapist_id', targetTherapistId);
+        query = query.eq('therapistId', targetTherapistId);
       }
 
       const { data: plans, error } = await query;
@@ -637,7 +637,7 @@ const therapyPlanController = {
 
       const { data: popularPlans, error } = await supabase
         .from('therapy_plans')
-        .select('*, therapist:therapist_id(name, email)')
+        .select('*, therapist:therapistId(name, email)')
         .order('total_assignments', { ascending: false })
         .limit(parseInt(limit));
 
@@ -671,8 +671,8 @@ const therapyPlanController = {
 
       // Access control
       if (userRole === 'therapist') {
-        // query = query.or(`therapist_id.eq.${userId},and(is_public.eq.true,status.eq.active)`);
-        query = query.eq('therapist_id', userId);
+        // query = query.or(`therapistId.eq.${userId},and(is_public.eq.true,status.eq.active)`);
+        query = query.eq('therapistId', userId);
       }
 
       const { data: plans, error } = await query;

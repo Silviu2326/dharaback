@@ -28,7 +28,7 @@ const reportValidation = [
 
 const createReviewValidation = [
   body('therapistId')
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Therapist ID must be valid'),
   body('rating')
     .isInt({ min: 1, max: 5 })
@@ -45,7 +45,7 @@ const createReviewValidation = [
     .withMessage('Comment must be between 10 and 1000 characters'),
   body('bookingId')
     .optional()
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Booking ID must be valid'),
   body('tags')
     .optional()
@@ -65,7 +65,7 @@ const visibilityValidation = [
 
 const idValidation = [
   param('reviewId')
-    .isUUID(4)
+    .isMongoId()
     .withMessage('Review ID must be valid')
 ];
 
