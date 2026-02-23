@@ -23,7 +23,7 @@ const planAssignmentController = {
         .select('*, therapy_plan:therapy_plan_id(*), client:client_id(*), therapist:therapistId(*)', { count: 'exact' });
 
       if (userRole === 'therapist') {
-        query = query.eq('therapistId', userId);
+        query = query.eq('therapist_id', userId);
       } else if (userRole === 'client') {
         query = query.eq('client_id', userId);
       }

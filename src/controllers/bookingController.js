@@ -436,7 +436,7 @@ const getBookingStats = asyncHandler(async (req, res, next) => {
   let query = supabase
     .from('bookings')
     .select('status, amount, client_id')
-    .eq('therapistId', therapistId);
+    .eq('therapist_id', therapistId);
 
   if (startDate) {
     query = query.gte('date', startDate);
@@ -506,7 +506,7 @@ const getBookingStats = asyncHandler(async (req, res, next) => {
   const { count: registeredClients } = await supabase
     .from('clients')
     .select('*', { count: 'exact', head: true })
-    .eq('therapistId', therapistId);
+    .eq('therapist_id', therapistId);
 
   result.totalUniqueClients = registeredClients || 0;
 
@@ -514,7 +514,7 @@ const getBookingStats = asyncHandler(async (req, res, next) => {
   const { data: upcomingClients } = await supabase
     .from('bookings')
     .select('client_id')
-    .eq('therapistId', therapistId)
+    .eq('therapist_id', therapistId)
     .in('status', ['upcoming', 'pending']);
 
   const activeClientIds = new Set(upcomingClients?.map(b => b.client_id));
@@ -524,7 +524,7 @@ const getBookingStats = asyncHandler(async (req, res, next) => {
   const { data: bookingsByType } = await supabase
     .from('bookings')
     .select('therapy_type, count, amount')
-    .eq('therapistId', therapistId);
+    .eq('therapist_id', therapistId);
 
   // Group by therapy type
   const typeMap = {};

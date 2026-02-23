@@ -300,7 +300,7 @@ class BookingModel {
     let query = supabase
       .from('bookings')
       .select(options.select || '*')
-      .eq('therapistId', therapistId)
+      .eq('therapist_id', therapistId)
       .gte('date', startDate)
       .lte('date', endDate);
 
@@ -329,7 +329,7 @@ class BookingModel {
     let query = supabase
       .from('bookings')
       .select('*')
-      .eq('therapistId', therapistId)
+      .eq('therapist_id', therapistId)
       .eq('date', date)
       .in('status', ['upcoming', 'pending', 'completed'])
       .lt('start_time', endTime)
@@ -356,7 +356,7 @@ class BookingModel {
     const { data, error } = await supabase
       .from('bookings')
       .select('*')
-      .eq('therapistId', therapistId)
+      .eq('therapist_id', therapistId)
       .gte('date', today)
       .in('status', ['upcoming', 'pending'])
       .order('date', { ascending: true })
@@ -377,7 +377,7 @@ class BookingModel {
     const { data, error } = await supabase
       .from('bookings')
       .select('status, amount')
-      .eq('therapistId', therapistId)
+      .eq('therapist_id', therapistId)
       .gte('date', startDate)
       .lte('date', endDate);
 

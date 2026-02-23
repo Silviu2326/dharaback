@@ -336,7 +336,7 @@ class ReviewModel {
     let query = supabase
       .from('reviews')
       .select(options.select || '*')
-      .eq('therapistId', therapistId)
+      .eq('therapist_id', therapistId)
       .eq('is_public', true)
       .order('created_at', { ascending: false });
 
@@ -398,7 +398,7 @@ class ReviewModel {
       .eq('is_public', true);
 
     if (therapistId) {
-      query = query.eq('therapistId', therapistId);
+      query = query.eq('therapist_id', therapistId);
     }
 
     query = query.order('created_at', { ascending: false });
@@ -426,7 +426,7 @@ class ReviewModel {
       .eq('is_public', true);
 
     if (therapistId) {
-      query = query.eq('therapistId', therapistId);
+      query = query.eq('therapist_id', therapistId);
     }
 
     query = query.order('created_at', { ascending: false });
@@ -450,7 +450,7 @@ class ReviewModel {
     let query = supabase
       .from('reviews')
       .select(options.select || '*')
-      .eq('therapistId', therapistId)
+      .eq('therapist_id', therapistId)
       .is('therapist_response', null);
 
     if (options.limit) {
@@ -533,7 +533,7 @@ class ReviewModel {
     const { data, error } = await supabase
       .from('reviews')
       .select('rating')
-      .eq('therapistId', therapistId)
+      .eq('therapist_id', therapistId)
       .eq('is_public', true);
 
     if (error) throw new Error(error.message);

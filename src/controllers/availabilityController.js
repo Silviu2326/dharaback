@@ -58,7 +58,7 @@ const getTherapistAvailability = asyncHandler(async (req, res, next) => {
   const { data: slots, error } = await supabase
     .from('availability_slots')
     .select('*')
-    .eq('therapistId', therapistId)
+    .eq('therapist_id', therapistId)
     .eq('is_available', true)
     .or(`valid_from.is.null,valid_from.lte.${endDate}`)
     .or(`valid_until.is.null,valid_until.gte.${startDate}`)
@@ -96,7 +96,7 @@ const getAvailableSlotsForDate = asyncHandler(async (req, res, next) => {
   const { data: slots, error } = await supabase
     .from('availability_slots')
     .select('*')
-    .eq('therapistId', therapistId)
+    .eq('therapist_id', therapistId)
     .eq('day_of_week', dayOfWeek)
     .eq('is_available', true)
     .order('start_time', { ascending: true });
@@ -127,7 +127,7 @@ const checkSlotAvailability = asyncHandler(async (req, res, next) => {
   const { data: bookings } = await supabase
     .from('bookings')
     .select('id, start_time, end_time')
-    .eq('therapistId', therapistId)
+    .eq('therapist_id', therapistId)
     .eq('date', date)
     .in('status', ['upcoming', 'pending', 'confirmed'])
     .lt('start_time', endTime)
@@ -154,7 +154,7 @@ const getTherapistSchedule = asyncHandler(async (req, res, next) => {
   const { data: slots } = await supabase
     .from('availability_slots')
     .select('*')
-    .eq('therapistId', therapistId)
+    .eq('therapist_id', therapistId)
     .eq('is_available', true)
     .order('day_of_week')
     .order('start_time');
@@ -193,7 +193,7 @@ const checkTimeBlockConflicts = asyncHandler(async (req, res, next) => {
   const { data: bookings } = await supabase
     .from('bookings')
     .select('id, start_time, end_time, date, status')
-    .eq('therapistId', therapistId)
+    .eq('therapist_id', therapistId)
     .in('status', ['upcoming', 'pending', 'confirmed'])
     .lt('start_time', end_time)
     .gt('end_time', start_time);
@@ -226,7 +226,7 @@ const checkExistingAppointments = asyncHandler(async (req, res, next) => {
   let query = supabase
     .from('bookings')
     .select('id, start_time, end_time, date, status, client_id')
-    .eq('therapistId', therapistId)
+    .eq('therapist_id', therapistId)
     .eq('date', date)
     .in('status', ['upcoming', 'pending', 'confirmed']);
 
@@ -476,7 +476,7 @@ const getTherapistTimeBlocks = asyncHandler(async (req, res, next) => {
   let query = supabase
     .from('availability_slots')
     .select('*')
-    .eq('therapistId', therapistId)
+    .eq('therapist_id', therapistId)
     .order('valid_from', { ascending: true })
     .order('start_time', { ascending: true });
 

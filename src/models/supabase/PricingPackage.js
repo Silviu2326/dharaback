@@ -382,7 +382,7 @@ class PricingPackageModel {
       .lte('price', maxPrice);
 
     if (therapistId) {
-      query = query.eq('therapistId', therapistId);
+      query = query.eq('therapist_id', therapistId);
     }
 
     if (options.activeOnly !== false) {
@@ -414,7 +414,7 @@ class PricingPackageModel {
       .gt('original_price', 0);
 
     if (therapistId) {
-      query = query.eq('therapistId', therapistId);
+      query = query.eq('therapist_id', therapistId);
     }
 
     query = query.eq('is_active', true);
@@ -445,7 +445,7 @@ class PricingPackageModel {
       .eq('is_active', true);
 
     if (therapistId) {
-      query = query.eq('therapistId', therapistId);
+      query = query.eq('therapist_id', therapistId);
     }
 
     const { data, error } = await query;
@@ -509,16 +509,16 @@ class PricingPackageModel {
     const supabase = require('../../config/supabase').supabase;
 
     const [totalResult, activeResult, inactiveResult] = await Promise.all([
-      supabase.from('pricing_packages').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId),
-      supabase.from('pricing_packages').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('is_active', true),
-      supabase.from('pricing_packages').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('is_active', false)
+      supabase.from('pricing_packages').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId),
+      supabase.from('pricing_packages').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('is_active', true),
+      supabase.from('pricing_packages').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('is_active', false)
     ]);
 
     // Obtener precios promedio
     const { data: prices } = await supabase
       .from('pricing_packages')
       .select('price')
-      .eq('therapistId', therapistId);
+      .eq('therapist_id', therapistId);
 
     const priceValues = (prices || []).map(p => parseFloat(p.price));
     const averagePrice = priceValues.length > 0 

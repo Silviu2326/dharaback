@@ -112,7 +112,7 @@ const getTherapistDashboard = asyncHandler(async (req, res, next) => {
   const { data: todaysBookings } = await supabase
     .from('bookings')
     .select('*, client:client_id(*)')
-    .eq('therapistId', therapistId)
+    .eq('therapist_id', therapistId)
     .gte('date', today.toISOString())
     .lt('date', tomorrow.toISOString())
     .in('status', ['upcoming', 'pending', 'confirmed'])
@@ -122,7 +122,7 @@ const getTherapistDashboard = asyncHandler(async (req, res, next) => {
   const { data: nextBooking } = await supabase
     .from('bookings')
     .select('*, client:client_id(*)')
-    .eq('therapistId', therapistId)
+    .eq('therapist_id', therapistId)
     .in('status', ['upcoming', 'pending', 'confirmed'])
     .gte('date', today.toISOString())
     .order('date', { ascending: true })
@@ -135,7 +135,7 @@ const getTherapistDashboard = asyncHandler(async (req, res, next) => {
   const { count: completedSessions } = await supabase
     .from('bookings')
     .select('*', { count: 'exact', head: true })
-    .eq('therapistId', therapistId)
+    .eq('therapist_id', therapistId)
     .eq('status', 'completed')
     .gte('date', startOfMonth.toISOString());
 
@@ -143,14 +143,14 @@ const getTherapistDashboard = asyncHandler(async (req, res, next) => {
   const { count: activeClients } = await supabase
     .from('clients')
     .select('*', { count: 'exact', head: true })
-    .eq('therapistId', therapistId)
+    .eq('therapist_id', therapistId)
     .eq('status', 'active');
 
   // Get pending exercises across all clients
   const { count: pendingExercises } = await supabase
     .from('client_plan_progress')
     .select('*', { count: 'exact', head: true })
-    .eq('therapistId', therapistId)
+    .eq('therapist_id', therapistId)
     .in('status', ['not_started', 'in_progress']);
 
   // Format next booking data
@@ -260,17 +260,17 @@ const getDashboardStats = asyncHandler(async (req, res, next) => {
 
     const [completedSessions, activeClients, todaysBookings, totalNotes] = await Promise.all([
       supabase.from('bookings').select('*', { count: 'exact', head: true })
-        .eq('therapistId', userId).eq('status', 'completed')
+        .eq('therapist_id', userId).eq('status', 'completed')
         .gte('date', startOfMonth.toISOString()).then(r => r.count),
       supabase.from('clients').select('*', { count: 'exact', head: true })
-        .eq('therapistId', userId).eq('status', 'active').then(r => r.count),
+        .eq('therapist_id', userId).eq('status', 'active').then(r => r.count),
       supabase.from('bookings').select('*', { count: 'exact', head: true })
-        .eq('therapistId', userId)
+        .eq('therapist_id', userId)
         .gte('date', today.toISOString())
         .lt('date', tomorrow.toISOString())
         .in('status', ['upcoming', 'pending', 'confirmed']).then(r => r.count),
       supabase.from('session_notes').select('*', { count: 'exact', head: true })
-        .eq('therapistId', userId).then(r => r.count)
+        .eq('therapist_id', userId).then(r => r.count)
     ]);
 
     res.status(200).json({

@@ -14,7 +14,7 @@ const conversationController = {
       let query = supabase
         .from('conversations')
         .select('*, client:client_id(*)', { count: 'exact' })
-        .eq('therapistId', therapistId);
+        .eq('therapist_id', therapistId);
 
       if (status !== 'all') {
         query = query.eq('status', status);

@@ -385,7 +385,7 @@ class ClientModel {
     let query = supabase
       .from('clients')
       .select(options.select || '*')
-      .eq('therapistId', therapistId)
+      .eq('therapist_id', therapistId)
       .overlaps('tags', tags);
 
     if (options.limit) {

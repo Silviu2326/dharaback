@@ -377,7 +377,7 @@ class ConversationModel {
     let query = supabase
       .from('conversations')
       .select(options.select || '*')
-      .eq('therapistId', therapistId)
+      .eq('therapist_id', therapistId)
       .gt('unread_count', 0)
       .order('last_message_at', { ascending: false });
 
@@ -487,10 +487,10 @@ class ConversationModel {
     const supabase = require('../../config/supabase').supabase;
 
     const [totalResult, activeResult, archivedResult, unreadResult] = await Promise.all([
-      supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId),
-      supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('status', 'active'),
-      supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('status', 'archived'),
-      supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).gt('unread_count', 0)
+      supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId),
+      supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('status', 'active'),
+      supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('status', 'archived'),
+      supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).gt('unread_count', 0)
     ]);
 
     return {

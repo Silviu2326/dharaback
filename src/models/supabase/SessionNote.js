@@ -147,7 +147,7 @@ class SessionNote {
       .from('session_notes')
       .select('*')
       .eq('client_id', this.clientId)
-      .eq('therapistId', this.therapistId)
+      .eq('therapist_id', this.therapistId)
       .lte('created_at', this.createdAt)
       .order('created_at', { ascending: false })
       .limit(sessionCount);
@@ -367,7 +367,7 @@ class SessionNoteModel {
     let query = supabase
       .from('session_notes')
       .select('*')
-      .eq('therapistId', therapistId);
+      .eq('therapist_id', therapistId);
 
     if (startDate && endDate) {
       query = query
@@ -415,7 +415,7 @@ class SessionNoteModel {
       .order('created_at', { ascending: true });
 
     if (therapistId) {
-      query = query.eq('therapistId', therapistId);
+      query = query.eq('therapist_id', therapistId);
     }
 
     const { data, error } = await query;
@@ -453,7 +453,7 @@ class SessionNoteModel {
     let query = supabase
       .from('session_notes')
       .select('*, client:client_id(name, email), booking:booking_id(date, start_time, end_time)')
-      .eq('therapistId', therapistId);
+      .eq('therapist_id', therapistId);
 
     // Aplicar filtros
     if (filters.clientId) query = query.eq('client_id', filters.clientId);

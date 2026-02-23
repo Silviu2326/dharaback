@@ -78,7 +78,7 @@ class WorkLocation {
     await supabase
       .from('work_locations')
       .update({ is_primary: false })
-      .eq('therapistId', this.therapistId)
+      .eq('therapist_id', this.therapistId)
       .neq('id', this.id);
 
     this.isPrimary = true;
@@ -315,7 +315,7 @@ class WorkLocationModel {
     await supabase
       .from('work_locations')
       .update({ is_primary: false })
-      .eq('therapistId', therapistId);
+      .eq('therapist_id', therapistId);
 
     // Establecer nueva primaria
     const result = await this.service.update(id, { is_primary: true });

@@ -18,7 +18,7 @@ const webhookController = {
       let query = supabase
         .from('webhooks')
         .select('*', { count: 'exact' })
-        .eq('therapistId', therapistId)
+        .eq('therapist_id', therapistId)
         .eq('is_active', true);
 
       if (status) query = query.eq('status', status);
@@ -634,7 +634,7 @@ const webhookController = {
       const { data: webhooks, error } = await supabase
         .from('webhooks')
         .select('*')
-        .eq('therapistId', therapistId)
+        .eq('therapist_id', therapistId)
         .eq('is_active', true)
         .contains('events', [event]);
 

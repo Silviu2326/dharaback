@@ -54,7 +54,7 @@ class AvailabilitySlot {
     const { data: bookings, error } = await supabase
       .from('bookings')
       .select('*')
-      .eq('therapistId', this.therapistId)
+      .eq('therapist_id', this.therapistId)
       .eq('date', date)
       .in('status', ['upcoming', 'pending']);
 
@@ -313,7 +313,7 @@ class AvailabilitySlotModel {
     let query = supabase
       .from('availability_slots')
       .select('*')
-      .eq('therapistId', therapistId)
+      .eq('therapist_id', therapistId)
       .eq('day_of_week', dayOfWeek)
       .eq('is_available', true)
       .lt('start_time', endTime)

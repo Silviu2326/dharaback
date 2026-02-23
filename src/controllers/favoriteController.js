@@ -211,7 +211,7 @@ const getFavoriteStats = asyncHandler(async (req, res, next) => {
   const { count: recentFavorites } = await supabase
     .from('favorites')
     .select('*', { count: 'exact', head: true })
-    .eq('therapistId', therapistId)
+    .eq('therapist_id', therapistId)
     .gte('added_at', thirtyDaysAgo.toISOString());
 
   res.status(200).json({

@@ -471,7 +471,7 @@ class PayoutRequestModel {
       .lte('created_at', endDate);
 
     if (options.therapistId) {
-      query = query.eq('therapistId', options.therapistId);
+      query = query.eq('therapist_id', options.therapistId);
     }
 
     if (options.status) {
@@ -591,16 +591,16 @@ class PayoutRequestModel {
     const supabase = require('../../config/supabase').supabase;
 
     const [totalResult, pendingResult, completedResult] = await Promise.all([
-      supabase.from('payout_requests').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId),
-      supabase.from('payout_requests').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('status', 'pending'),
-      supabase.from('payout_requests').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('status', 'completed')
+      supabase.from('payout_requests').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId),
+      supabase.from('payout_requests').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('status', 'pending'),
+      supabase.from('payout_requests').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('status', 'completed')
     ]);
 
     // Monto total retirado
     const { data: amounts } = await supabase
       .from('payout_requests')
       .select('amount')
-      .eq('therapistId', therapistId)
+      .eq('therapist_id', therapistId)
       .eq('status', 'completed');
 
     const totalWithdrawn = (amounts || []).reduce((sum, r) => sum + parseFloat(r.amount), 0);

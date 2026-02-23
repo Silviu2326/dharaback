@@ -425,7 +425,7 @@ const couponController = {
         .from('coupons')
         .select('usage_count, usage_history, revenue_impact')
         .eq('id', couponId)
-        .eq('therapistId', userId);
+        .eq('therapist_id', userId);
 
       const { data, error } = await query.single();
 
@@ -456,7 +456,7 @@ const couponController = {
       const { data, error } = await supabase
         .from('coupons')
         .select('id, code, name, usage_count, revenue_impact, type, is_active')
-        .eq('therapistId', userId);
+        .eq('therapist_id', userId);
 
       if (error) throw new Error(error.message);
 

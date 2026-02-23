@@ -445,7 +445,7 @@ class PaymentModel {
       .gt('refunded_amount', 0);
 
     if (therapistId) {
-      query = query.eq('therapistId', therapistId);
+      query = query.eq('therapist_id', therapistId);
     }
 
     query = query.order('created_at', { ascending: false });
@@ -473,7 +473,7 @@ class PaymentModel {
       .lte('created_at', endDate);
 
     if (therapistId) {
-      query = query.eq('therapistId', therapistId);
+      query = query.eq('therapist_id', therapistId);
     }
 
     if (options.status) {
@@ -550,7 +550,7 @@ class PaymentModel {
     let query = supabase
       .from('payments')
       .select('*')
-      .eq('therapistId', therapistId);
+      .eq('therapist_id', therapistId);
 
     if (startDate) {
       query = query.gte('created_at', startDate);
@@ -600,7 +600,7 @@ class PaymentModel {
     const { data, error } = await supabase
       .from('payments')
       .select('amount, net_amount, platform_fee, created_at, status')
-      .eq('therapistId', therapistId)
+      .eq('therapist_id', therapistId)
       .eq('status', 'completed')
       .gte('created_at', startDate.toISOString());
 

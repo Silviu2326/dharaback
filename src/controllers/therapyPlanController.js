@@ -53,7 +53,7 @@ const therapyPlanController = {
       if (userRole === 'therapist') {
         // Therapists can see: their own plans + public active plans + plans shared with them
         // query = query.or(`therapistId.eq.${userId},and(is_public.eq.true,status.eq.active)`);
-        query = query.eq('therapistId', userId);
+        query = query.eq('therapist_id', userId);
       }
 
       // Apply sorting and pagination
@@ -72,7 +72,7 @@ const therapyPlanController = {
         const { data: shared } = await supabase
           .from('therapy_plan_shares')
           .select('plan_id')
-          .eq('therapistId', userId);
+          .eq('therapist_id', userId);
         
         if (shared && shared.length > 0) {
           const planIds = shared.map(s => s.plan_id);
@@ -173,7 +173,7 @@ const therapyPlanController = {
           .from('therapy_plan_shares')
           .select('*')
           .eq('plan_id', planId)
-          .eq('therapistId', userId)
+          .eq('therapist_id', userId)
           .single();
         
         if (!share) {
@@ -238,7 +238,7 @@ const therapyPlanController = {
           .from('therapy_plan_shares')
           .select('*')
           .eq('plan_id', planId)
-          .eq('therapistId', userId)
+          .eq('therapist_id', userId)
           .eq('permissions', 'edit')
           .single();
         
@@ -510,7 +510,7 @@ const therapyPlanController = {
           .from('therapy_plan_shares')
           .select('*')
           .eq('plan_id', planId)
-          .eq('therapistId', userId)
+          .eq('therapist_id', userId)
           .in('permissions', ['edit', 'copy'])
           .single();
         
@@ -577,7 +577,7 @@ const therapyPlanController = {
       // Build query
       let query = supabase.from('therapy_plans').select('*');
       if (targetTherapistId) {
-        query = query.eq('therapistId', targetTherapistId);
+        query = query.eq('therapist_id', targetTherapistId);
       }
 
       const { data: plans, error } = await query;
@@ -672,7 +672,7 @@ const therapyPlanController = {
       // Access control
       if (userRole === 'therapist') {
         // query = query.or(`therapistId.eq.${userId},and(is_public.eq.true,status.eq.active)`);
-        query = query.eq('therapistId', userId);
+        query = query.eq('therapist_id', userId);
       }
 
       const { data: plans, error } = await query;

@@ -557,7 +557,7 @@ class ClientPlanProgressModel {
       .lt('expected_end_date', new Date().toISOString().split('T')[0]);
 
     if (therapistId) {
-      query = query.eq('therapistId', therapistId);
+      query = query.eq('therapist_id', therapistId);
     }
 
     const { data, error } = await query;
@@ -582,7 +582,7 @@ class ClientPlanProgressModel {
       .gte('actual_end_date', since.toISOString().split('T')[0]);
 
     if (therapistId) {
-      query = query.eq('therapistId', therapistId);
+      query = query.eq('therapist_id', therapistId);
     }
 
     const { data, error } = await query;
@@ -645,18 +645,18 @@ class ClientPlanProgressModel {
     const supabase = require('../../config/supabase').supabase;
 
     const [totalResult, activeResult, completedResult, cancelledResult, onHoldResult] = await Promise.all([
-      supabase.from('client_plan_progress').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId),
-      supabase.from('client_plan_progress').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('status', 'active'),
-      supabase.from('client_plan_progress').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('status', 'completed'),
-      supabase.from('client_plan_progress').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('status', 'cancelled'),
-      supabase.from('client_plan_progress').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('status', 'on_hold')
+      supabase.from('client_plan_progress').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId),
+      supabase.from('client_plan_progress').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('status', 'active'),
+      supabase.from('client_plan_progress').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('status', 'completed'),
+      supabase.from('client_plan_progress').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('status', 'cancelled'),
+      supabase.from('client_plan_progress').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('status', 'on_hold')
     ]);
 
     // Calcular progreso promedio
     const { data: progressData } = await supabase
       .from('client_plan_progress')
       .select('progress_percentage')
-      .eq('therapistId', therapistId)
+      .eq('therapist_id', therapistId)
       .eq('status', 'active');
 
     const avgProgress = progressData && progressData.length > 0

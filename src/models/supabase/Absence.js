@@ -59,7 +59,7 @@ class Absence {
     const { data: bookings, error } = await supabase
       .from('bookings')
       .select('*, client:client_id(name, email, phone)')
-      .eq('therapistId', this.therapistId)
+      .eq('therapist_id', this.therapistId)
       .gte('date', this.startDate)
       .lte('date', this.endDate)
       .in('status', ['upcoming', 'pending']);
@@ -320,7 +320,7 @@ class AbsenceModel {
     let query = supabase
       .from('absences')
       .select('*')
-      .eq('therapistId', therapistId)
+      .eq('therapist_id', therapistId)
       .eq('status', 'approved')
       .lte('start_date', endDate)
       .gte('end_date', startDate);
@@ -344,7 +344,7 @@ class AbsenceModel {
     const { data, error } = await supabase
       .from('absences')
       .select('*')
-      .eq('therapistId', therapistId)
+      .eq('therapist_id', therapistId)
       .eq('status', 'approved')
       .lte('start_date', endDate)
       .gte('end_date', startDate)
@@ -364,7 +364,7 @@ class AbsenceModel {
     const { data, error } = await supabase
       .from('absences')
       .select('*', { count: 'exact', head: true })
-      .eq('therapistId', therapistId)
+      .eq('therapist_id', therapistId)
       .eq('status', 'approved')
       .lte('start_date', date)
       .gte('end_date', date);
@@ -386,7 +386,7 @@ class AbsenceModel {
     const { data, error } = await supabase
       .from('absences')
       .select('*')
-      .eq('therapistId', therapistId)
+      .eq('therapist_id', therapistId)
       .eq('status', 'approved')
       .gte('start_date', startOfYear)
       .lte('end_date', endOfYear);

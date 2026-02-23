@@ -483,9 +483,9 @@ class TherapyPlanModel {
     const supabase = require('../../config/supabase').supabase;
 
     const [totalResult, templatesResult, plansResult] = await Promise.all([
-      supabase.from('therapy_plans').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId),
-      supabase.from('therapy_plans').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('is_template', true),
-      supabase.from('therapy_plans').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('is_template', false)
+      supabase.from('therapy_plans').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId),
+      supabase.from('therapy_plans').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('is_template', true),
+      supabase.from('therapy_plans').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('is_template', false)
     ]);
 
     return {

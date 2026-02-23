@@ -24,7 +24,7 @@ const paymentController = {
       let query = supabase
         .from('payments')
         .select('*, client:client_id(*), booking:booking_id(*)', { count: 'exact' })
-        .eq('therapistId', therapistId);
+        .eq('therapist_id', therapistId);
 
       if (status) query = query.eq('status', status);
       if (method) query = query.eq('method', method);
@@ -322,7 +322,7 @@ const paymentController = {
       let query = supabase
         .from('payout_requests')
         .select('*', { count: 'exact' })
-        .eq('therapistId', therapistId);
+        .eq('therapist_id', therapistId);
 
       if (status) query = query.eq('status', status);
 
@@ -382,7 +382,7 @@ const paymentController = {
       const { count: pendingCount } = await supabase
         .from('payout_requests')
         .select('*', { count: 'exact', head: true })
-        .eq('therapistId', therapistId)
+        .eq('therapist_id', therapistId)
         .in('status', ['pending', 'processing']);
 
       if (pendingCount > 0) {
@@ -417,7 +417,7 @@ const paymentController = {
       const { data: pendingData } = await supabase
         .from('payout_requests')
         .select('amount')
-        .eq('therapistId', therapistId)
+        .eq('therapist_id', therapistId)
         .in('status', ['pending', 'processing']);
 
       const pendingAmount = (pendingData || []).reduce((sum, p) => sum + p.amount, 0);
@@ -448,21 +448,21 @@ const paymentController = {
     const { data: completedPayments } = await supabase
       .from('payments')
       .select('net_amount')
-      .eq('therapistId', therapistId)
+      .eq('therapist_id', therapistId)
       .eq('status', 'completed');
 
     // Calculate total completed payouts
     const { data: completedPayouts } = await supabase
       .from('payout_requests')
       .select('amount')
-      .eq('therapistId', therapistId)
+      .eq('therapist_id', therapistId)
       .eq('status', 'completed');
 
     // Calculate pending payouts
     const { data: pendingPayouts } = await supabase
       .from('payout_requests')
       .select('amount')
-      .eq('therapistId', therapistId)
+      .eq('therapist_id', therapistId)
       .in('status', ['pending', 'processing']);
 
     const totalEarnings = (completedPayments || []).reduce((sum, p) => sum + parseFloat(p.net_amount || 0), 0);
@@ -548,7 +548,7 @@ const paymentController = {
 
       if (status) query = query.eq('status', status);
       if (method) query = query.eq('method', method);
-      if (therapistId) query = query.eq('therapistId', therapistId);
+      if (therapistId) query = query.eq('therapist_id', therapistId);
       if (startDate) query = query.gte('created_at', startDate);
       if (endDate) query = query.lte('created_at', endDate);
 

@@ -298,7 +298,7 @@ const pricingPackageController = {
         .from('pricing_packages')
         .select('analytics')
         .eq('id', packageId)
-        .eq('therapistId', userId);
+        .eq('therapist_id', userId);
 
       const { data, error } = await query.single();
 

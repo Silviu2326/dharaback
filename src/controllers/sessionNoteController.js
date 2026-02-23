@@ -96,7 +96,7 @@ const getAllNotes = async (req, res) => {
     let query = supabase
       .from('session_notes')
       .select('*, client:client_id(*), booking:booking_id(*)', { count: 'exact' })
-      .eq('therapistId', therapistId);
+      .eq('therapist_id', therapistId);
 
     // Apply additional filters
     if (filters.client_id) query = query.eq('client_id', filters.client_id);
@@ -543,7 +543,7 @@ const getNotesByClient = async (req, res) => {
       .from('session_notes')
       .select('*, booking:booking_id(*)', { count: 'exact' })
       .eq('client_id', clientId)
-      .eq('therapistId', therapistId);
+      .eq('therapist_id', therapistId);
 
     // Apply sorting and pagination
     query = query.order(sortBy, { ascending: sortOrder === 'asc' });
@@ -673,7 +673,7 @@ const getTherapistStats = async (req, res) => {
     const { data: riskCases, error } = await supabase
       .from('session_notes')
       .select('id, client_id, risk_assessment, created_at')
-      .eq('therapistId', therapistId)
+      .eq('therapist_id', therapistId)
       .eq('risk_assessment->>flagged', 'true')
       .gte('created_at', start.toISOString())
       .lte('created_at', end.toISOString())

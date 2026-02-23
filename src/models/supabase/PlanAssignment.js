@@ -475,7 +475,7 @@ class PlanAssignmentModel {
       .eq('status', 'active');
 
     if (options.therapistId) {
-      query = query.eq('therapistId', options.therapistId);
+      query = query.eq('therapist_id', options.therapistId);
     }
 
     const { data, error } = await query;
@@ -497,7 +497,7 @@ class PlanAssignmentModel {
       .filter('used_sessions', 'gte', 'total_sessions');
 
     if (options.therapistId) {
-      query = query.eq('therapistId', options.therapistId);
+      query = query.eq('therapist_id', options.therapistId);
     }
 
     const { data, error } = await query;
@@ -560,17 +560,17 @@ class PlanAssignmentModel {
     const supabase = require('../../config/supabase').supabase;
 
     const [totalResult, activeResult, completedResult, cancelledResult] = await Promise.all([
-      supabase.from('plan_assignments').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId),
-      supabase.from('plan_assignments').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('status', 'active'),
-      supabase.from('plan_assignments').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('status', 'completed'),
-      supabase.from('plan_assignments').select('*', { count: 'exact', head: true }).eq('therapistId', therapistId).eq('status', 'cancelled')
+      supabase.from('plan_assignments').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId),
+      supabase.from('plan_assignments').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('status', 'active'),
+      supabase.from('plan_assignments').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('status', 'completed'),
+      supabase.from('plan_assignments').select('*', { count: 'exact', head: true }).eq('therapist_id', therapistId).eq('status', 'cancelled')
     ]);
 
     // Calcular sesiones totales
     const { data: sessionsData } = await supabase
       .from('plan_assignments')
       .select('total_sessions, used_sessions')
-      .eq('therapistId', therapistId);
+      .eq('therapist_id', therapistId);
 
     const totalSessions = (sessionsData || []).reduce((sum, a) => sum + (a.total_sessions || 0), 0);
     const usedSessions = (sessionsData || []).reduce((sum, a) => sum + (a.used_sessions || 0), 0);

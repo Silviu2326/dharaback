@@ -19,6 +19,20 @@ const reviewController = {
         tags
       } = req.query;
 
+      // Mapear nombres de columnas del frontend a nombres reales en PostgreSQL
+      const columnMap = {
+        createdAt: 'created_at',
+        updatedAt: 'updated_at',
+        therapistId: 'therapist_id',
+        clientId: 'client_id',
+        bookingId: 'booking_id',
+        isPublic: 'is_public',
+        isVerified: 'is_verified',
+        helpfulCount: 'helpful_count',
+        respondedAt: 'responded_at'
+      };
+      const sortColumn = columnMap[sortBy] || sortBy;
+
       let query = supabase
         .from('reviews')
         .select('*, client:client_id(*), booking:booking_id(*)', { count: 'exact' })
@@ -32,7 +46,7 @@ const reviewController = {
           : query.is('therapist_response', null);
       }
 
-      query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+      query = query.order(sortColumn, { ascending: sortOrder === 'asc' });
       
       const offset = (parseInt(page) - 1) * parseInt(limit);
       query = query.range(offset, offset + parseInt(limit) - 1);

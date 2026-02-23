@@ -92,24 +92,24 @@ class ProfessionalProfile {
       supabase
         .from('clients')
         .select('*', { count: 'exact', head: true })
-        .eq('therapistId', this.userId)
+        .eq('therapist_id', this.userId)
         .eq('status', 'active'),
       
       supabase
         .from('clients')
         .select('*', { count: 'exact', head: true })
-        .eq('therapistId', this.userId),
+        .eq('therapist_id', this.userId),
       
       supabase
         .from('bookings')
         .select('*', { count: 'exact', head: true })
-        .eq('therapistId', this.userId)
+        .eq('therapist_id', this.userId)
         .eq('status', 'completed'),
       
       supabase
         .from('reviews')
         .select('rating')
-        .eq('therapistId', this.userId)
+        .eq('therapist_id', this.userId)
     ]);
 
     const ratings = averageRatingResult.data?.map(r => r.rating) || [];

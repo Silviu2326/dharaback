@@ -287,7 +287,7 @@ const getClientsStats = asyncHandler(async (req, res, next) => {
   const { data: stats, error } = await supabase
     .from('clients')
     .select('status')
-    .eq('therapistId', therapistId);
+    .eq('therapist_id', therapistId);
 
   if (error) {
     throw new Error(error.message);
@@ -311,7 +311,7 @@ const getClientsStats = asyncHandler(async (req, res, next) => {
   const { count: recentCount } = await supabase
     .from('clients')
     .select('*', { count: 'exact', head: true })
-    .eq('therapistId', therapistId)
+    .eq('therapist_id', therapistId)
     .gte('created_at', thirtyDaysAgo.toISOString());
 
   result.recentClients = recentCount || 0;
@@ -331,7 +331,7 @@ const getClientTags = asyncHandler(async (req, res, next) => {
   const { data: clients, error } = await supabase
     .from('clients')
     .select('tags')
-    .eq('therapistId', req.user.id || req.user._id);
+    .eq('therapist_id', req.user.id || req.user._id);
 
   if (error) {
     throw new Error(error.message);
@@ -443,7 +443,7 @@ const bulkUpdateClients = asyncHandler(async (req, res, next) => {
     .from('clients')
     .update(filteredUpdateData)
     .in('id', clientIds)
-    .eq('therapistId', req.user.id || req.user._id);
+    .eq('therapist_id', req.user.id || req.user._id);
 
   if (error) {
     throw new Error(error.message);
