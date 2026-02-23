@@ -14,7 +14,7 @@ const getClients = asyncHandler(async (req, res, next) => {
   const { status, search, tags, sortBy = 'created_at', sortOrder = 'desc' } = req.query;
 
   // Build filters
-  const filters = { therapistId: req.user.id || req.user._id };
+  const filters = { therapist_id: req.user.id || req.user._id };
 
   if (status && status !== 'all') {
     filters.status = status;
@@ -96,7 +96,7 @@ const getClients = asyncHandler(async (req, res, next) => {
 const getClient = asyncHandler(async (req, res, next) => {
   const client = await Client.findOne({
     id: req.params.id,
-    therapistId: req.user.id || req.user._id
+    therapist_id: req.user.id || req.user._id
   });
 
   if (!client) {
@@ -136,7 +136,7 @@ const createClient = asyncHandler(async (req, res, next) => {
   // Check if client with same email already exists for this therapist
   const existingClient = await Client.findOne({
     email: email.toLowerCase(),
-    therapistId: req.user.id || req.user._id
+    therapist_id: req.user.id || req.user._id
   });
 
   if (existingClient) {
@@ -158,7 +158,7 @@ const createClient = asyncHandler(async (req, res, next) => {
     notes: notes?.trim(),
     tags: tags || [],
     preferences,
-    therapistId: req.user.id || req.user._id
+    therapist_id: req.user.id || req.user._id
   });
 
   res.status(201).json({
@@ -174,7 +174,7 @@ const createClient = asyncHandler(async (req, res, next) => {
 const updateClient = asyncHandler(async (req, res, next) => {
   let client = await Client.findOne({
     id: req.params.id,
-    therapistId: req.user.id || req.user._id
+    therapist_id: req.user.id || req.user._id
   });
 
   if (!client) {
@@ -185,7 +185,7 @@ const updateClient = asyncHandler(async (req, res, next) => {
   if (req.body.email && req.body.email !== client.email) {
     const existingClient = await Client.findOne({
       email: req.body.email.toLowerCase(),
-      therapistId: req.user.id || req.user._id
+      therapist_id: req.user.id || req.user._id
     });
 
     if (existingClient && (existingClient.id || existingClient._id) !== req.params.id) {
@@ -240,7 +240,7 @@ const updateClient = asyncHandler(async (req, res, next) => {
 const deleteClient = asyncHandler(async (req, res, next) => {
   const client = await Client.findOne({
     id: req.params.id,
-    therapistId: req.user.id || req.user._id
+    therapist_id: req.user.id || req.user._id
   });
 
   if (!client) {
@@ -364,7 +364,7 @@ const updateClientAvatar = asyncHandler(async (req, res, next) => {
 
   const client = await Client.findOne({
     id: req.params.id,
-    therapistId: req.user.id || req.user._id
+    therapist_id: req.user.id || req.user._id
   });
 
   if (!client) {
@@ -390,7 +390,7 @@ const updateClientAvatar = asyncHandler(async (req, res, next) => {
 const getClientSummary = asyncHandler(async (req, res, next) => {
   const client = await Client.findOne({
     id: req.params.id,
-    therapistId: req.user.id || req.user._id
+    therapist_id: req.user.id || req.user._id
   });
 
   if (!client) {
@@ -419,7 +419,7 @@ const bulkUpdateClients = asyncHandler(async (req, res, next) => {
   const clients = await Client.find({
     filters: {
       id: { in: clientIds },
-      therapistId: req.user.id || req.user._id
+      therapist_id: req.user.id || req.user._id
     }
   });
 
@@ -505,7 +505,7 @@ const registerClient = asyncHandler(async (req, res, next) => {
   // Check if client already exists for this therapist
   const existingClient = await Client.findOne({
     email: email.toLowerCase(),
-    therapistId: therapistId
+    therapist_id: therapistId
   });
 
   if (existingClient) {
@@ -518,7 +518,7 @@ const registerClient = asyncHandler(async (req, res, next) => {
     email: email.toLowerCase().trim(),
     password,
     phone: phone.trim(),
-    therapistId,
+    therapist_id: therapistId,
     gdprConsent: {
       given: true,
       date: new Date(),
@@ -675,7 +675,7 @@ const generateInvitationCode = asyncHandler(async (req, res, next) => {
   // Create invitation code
   const invitationCode = await InvitationCode.create({
     clientId,
-    therapistId,
+    therapist_id: therapistId,
     code: code.toUpperCase(),
     email,
     expiresAt: expiresAt.toISOString()
@@ -842,7 +842,7 @@ const regenerateInvitationCode = asyncHandler(async (req, res, next) => {
 
   const invitationCode = await InvitationCode.create({
     clientId,
-    therapistId,
+    therapist_id: therapistId,
     code: newCode,
     email: client.email,
     expiresAt: expiresAt.toISOString()
