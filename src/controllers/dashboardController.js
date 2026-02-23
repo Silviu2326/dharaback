@@ -14,7 +14,7 @@ const getClientDashboard = asyncHandler(async (req, res, next) => {
   // Get next upcoming booking
   const { data: nextBooking } = await supabase
     .from('bookings')
-    .select('*, therapist:therapistId(*)')
+    .select('*, therapist:therapist_id(*)')
     .eq('client_id', clientId)
     .in('status', ['upcoming', 'pending', 'confirmed'])
     .gte('date', today.toISOString())

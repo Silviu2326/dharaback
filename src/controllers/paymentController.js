@@ -543,7 +543,7 @@ const paymentController = {
 
       let query = supabase
         .from('payments')
-        .select('*, therapist:therapistId(*), booking:booking_id(*)', { count: 'exact' })
+        .select('*, therapist:therapist_id(*), booking:booking_id(*)', { count: 'exact' })
         .eq('client_id', clientId);
 
       if (status) query = query.eq('status', status);
@@ -658,7 +658,7 @@ const paymentController = {
       // Get recent payments
       const { data: recentPayments } = await supabase
         .from('payments')
-        .select('*, therapist:therapistId(name, specialties)')
+        .select('*, therapist:therapist_id(name, specialties)')
         .eq('client_id', clientId)
         .eq('status', 'completed')
         .order('created_at', { ascending: false })

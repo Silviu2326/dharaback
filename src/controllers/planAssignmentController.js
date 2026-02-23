@@ -20,7 +20,7 @@ const planAssignmentController = {
 
       let query = supabase
         .from('plan_assignments')
-        .select('*, therapy_plan:therapy_plan_id(*), client:client_id(*), therapist:therapistId(*)', { count: 'exact' });
+        .select('*, therapy_plan:therapy_plan_id(*), client:client_id(*), therapist:therapist_id(*)', { count: 'exact' });
 
       if (userRole === 'therapist') {
         query = query.eq('therapist_id', userId);

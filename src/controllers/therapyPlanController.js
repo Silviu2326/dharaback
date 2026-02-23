@@ -29,7 +29,7 @@ const therapyPlanController = {
       // Build Supabase query
       let query = supabase
         .from('therapy_plans')
-        .select('*, therapist:therapistId(*)', { count: 'exact' });
+        .select('*, therapist:therapist_id(*)', { count: 'exact' });
 
       // Apply filters
       if (status) query = query.eq('status', status);
@@ -78,7 +78,7 @@ const therapyPlanController = {
           const planIds = shared.map(s => s.plan_id);
           const { data: sharedPlanData } = await supabase
             .from('therapy_plans')
-            .select('*, therapist:therapistId(*)')
+            .select('*, therapist:therapist_id(*)')
             .in('id', planIds);
           sharedPlans = sharedPlanData || [];
         }
@@ -637,7 +637,7 @@ const therapyPlanController = {
 
       const { data: popularPlans, error } = await supabase
         .from('therapy_plans')
-        .select('*, therapist:therapistId(name, email)')
+        .select('*, therapist:therapist_id(name, email)')
         .order('total_assignments', { ascending: false })
         .limit(parseInt(limit));
 

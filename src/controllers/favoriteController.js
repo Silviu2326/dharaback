@@ -13,7 +13,7 @@ const getFavorites = asyncHandler(async (req, res, next) => {
 
   const { data: favorites, error, count } = await supabase
     .from('favorites')
-    .select('*, therapist:therapistId(*)', { count: 'exact' })
+    .select('*, therapist:therapist_id(*)', { count: 'exact' })
     .eq('client_id', clientId)
     .order(sortBy, { ascending: sortOrder === 'asc' })
     .range(offset, offset + parseInt(limit) - 1);
