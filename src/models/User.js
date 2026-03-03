@@ -74,8 +74,12 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['therapist', 'admin'],
+    enum: ['therapist', 'admin', 'cliente'],
     default: 'therapist'
+  },
+  phone: {
+    type: String,
+    default: null
   },
   isActive: {
     type: Boolean,
@@ -158,7 +162,8 @@ userSchema.virtual('professionalProfile', {
   ref: 'ProfessionalProfile',
   localField: '_id',
   foreignField: 'userId',
-  justOne: true
+  justOne: true,
+  match: { role: { $in: ['therapist', 'admin'] } }
 });
 
 // Virtual for subscription

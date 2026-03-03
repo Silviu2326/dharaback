@@ -7,7 +7,8 @@ const {
   refreshToken,
   forgotPassword,
   resetPassword,
-  changePassword
+  changePassword,
+  registerCliente
 } = require('../controllers/authController');
 
 const { protect, authRateLimit } = require('../middleware/auth');
@@ -16,6 +17,7 @@ const router = express.Router();
 
 // Public routes with rate limiting (temporarily disabled for testing)
 router.post('/register', register);
+router.post('/register-cliente', registerCliente);
 router.post('/login', login);
 router.post('/refresh', refreshToken);
 router.post('/forgot-password', forgotPassword);

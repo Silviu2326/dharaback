@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { User } = require('../models');
+const { User, Client } = require('../models');
 const { AppError, asyncHandler } = require('../middleware/errorHandler');
 
 // Generate JWT token
@@ -104,23 +104,50 @@ const login = asyncHandler(async (req, res, next) => {
   }
 
   // Check for user (password is always included in Supabase model)
-  const user = await User.findOne({ email: email.toLowerCase() });
+  let user = await User.findOne({ email: email.toLowerCase() });
   console.log('User found:', user ? 'YES' : 'NO');
 
+  let isClient = false;
+  let client = null;
+
+  // If not found in users, check in clients
   if (!user) {
-    console.log('User not found for email:', email.toLowerCase());
+    console.log('User not found, checking clients...');
+    client = await Client.findOne({ email: email.toLowerCase() });
+    console.log('Client found:', client ? 'YES' : 'NO');
+    
+    if (client) {
+      isClient = true;
+    }
+  }
+
+  // If neither user nor client found
+  if (!user && !client) {
+    console.log('User/Client not found for email:', email.toLowerCase());
     return next(new AppError('Invalid credentials', 401));
   }
 
-  console.log('User details:', {
-    id: user.id || user._id,
-    email: user.email,
-    isActive: user.isActive,
-    hasPassword: !!user.password
+  // Determine which entity to use
+  const entity = user || client;
+  
+  console.log('Entity details:', {
+    id: entity.id || entity._id,
+    email: entity.email,
+    type: isClient ? 'client' : 'user',
+    isActive: entity.isActive || entity.status === 'active',
+    hasPassword: !!entity.password,
+    passwordLength: entity.password ? entity.password.length : 0,
+    passwordStart: entity.password ? entity.password.substring(0, 10) : 'none'
   });
+  
+  // Si no tiene password, no puede hacer login
+  if (!entity.password) {
+    console.log('ERROR: Entity has no password stored!');
+    return next(new AppError('Invalid credentials - no password', 401));
+  }
 
   // Check if password matches
-  const isMatch = await user.comparePassword(password);
+  const isMatch = await entity.comparePassword(password);
   console.log('Password match:', isMatch);
 
   if (!isMatch) {
@@ -129,42 +156,50 @@ const login = asyncHandler(async (req, res, next) => {
   }
 
   // Check if account is active
-  if (!user.isActive) {
+  const isActive = isClient ? client.status === 'active' : user.isActive;
+  if (!isActive) {
     return next(new AppError('Account is deactivated. Please contact support.', 401));
   }
 
-  // Update last login
-  await User.findByIdAndUpdate(
-    user.id || user._id,
-    { lastLogin: new Date() },
-    { new: false }
-  );
-
-  // Send token response with appropriate expiry
-  if (rememberMe) {
-    sendTokenResponse(user, 200, res);
-  } else {
-    // Shorter token for non-remember sessions
-    const token = jwt.sign({ id: user.id || user._id }, process.env.JWT_SECRET, {
-      expiresIn: '24h'
-    });
-
-    user.password = undefined;
-
-    res.status(200).json({
-      success: true,
-      accessToken: token,
-      user: {
-        id: user.id || user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        isVerified: user.isVerified,
-        verificationStatus: user.verificationStatus,
-        avatar: user.avatar
-      }
-    });
+  // Update last login (solo para users, clients no tienen ese campo)
+  if (user) {
+    await User.findByIdAndUpdate(
+      user.id || user._id,
+      { lastLogin: new Date() },
+      { new: false }
+    );
   }
+
+  // Generate token
+  const token = jwt.sign({ id: entity.id || entity._id }, process.env.JWT_SECRET, {
+    expiresIn: rememberMe ? '7d' : '24h'
+  });
+
+  entity.password = undefined;
+
+  // Build response
+  const responseData = {
+    success: true,
+    accessToken: token,
+    user: {
+      id: entity.id || entity._id,
+      name: entity.name,
+      email: entity.email,
+      role: isClient ? 'cliente' : entity.role,
+      avatar: entity.avatar
+    }
+  };
+
+  // Add client-specific fields
+  if (isClient) {
+    responseData.user.phone = entity.phone;
+    responseData.user.status = entity.status;
+  } else {
+    responseData.user.isVerified = entity.isVerified;
+    responseData.user.verificationStatus = entity.verificationStatus;
+  }
+
+  res.status(200).json(responseData);
 });
 
 // @desc    Logout user
@@ -415,6 +450,63 @@ const changePassword = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Register client
+// @route   POST /api/auth/register-cliente
+// @access  Public
+const registerCliente = asyncHandler(async (req, res, next) => {
+  const { nombre, apellidos, email, telefono, password } = req.body;
+
+  // Validate input
+  if (!nombre || !apellidos || !email || !password) {
+    return next(new AppError('Por favor proporciona todos los campos requeridos', 400));
+  }
+
+  if (password.length < 8) {
+    return next(new AppError('La contraseña debe tener al menos 8 caracteres', 400));
+  }
+
+  const name = `${nombre.trim()} ${apellidos.trim()}`;
+
+  // Check if client already exists
+  const existingClient = await Client.findOne({ email: email.toLowerCase() });
+  if (existingClient) {
+    return next(new AppError('Ya existe un cliente con este email', 400));
+  }
+
+  // Check if user (therapist) already exists with this email
+  const existingUser = await User.findOne({ email: email.toLowerCase() });
+  if (existingUser) {
+    return next(new AppError('Ya existe un usuario con este email', 400));
+  }
+
+  // Create client
+  const client = await Client.create({
+    name,
+    email: email.toLowerCase().trim(),
+    password,
+    phone: telefono || undefined,
+    status: 'active'
+  });
+
+  // Generate token for client
+  const token = generateToken(client.id);
+  const refreshToken = generateRefreshToken(client.id);
+
+  res.status(201).json({
+    success: true,
+    message: 'Cliente registrado exitosamente',
+    accessToken: token,
+    refreshToken,
+    user: {
+      id: client.id,
+      name: client.name,
+      email: client.email,
+      phone: client.phone,
+      role: 'cliente'
+    }
+  });
+});
+
 module.exports = {
   register,
   login,
@@ -423,5 +515,6 @@ module.exports = {
   refreshToken,
   forgotPassword,
   resetPassword,
-  changePassword
+  changePassword,
+  registerCliente
 };
