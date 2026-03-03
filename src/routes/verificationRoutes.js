@@ -25,15 +25,16 @@ const tempStorage = multer.diskStorage({
 
 const tempUpload = multer({
   storage: tempStorage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: function (req, file, cb) {
-    const allowedTypes = /jpeg|jpg|png|gif|webp/;
-    const extname = allowedTypes.test(
+    const allowedExtensions = /jpeg|jpg|png|gif|webp|pdf/;
+    const allowedMimeTypes = /image\/(jpeg|png|gif|webp)|application\/pdf/;
+    const extname = allowedExtensions.test(
       path.extname(file.originalname).toLowerCase(),
     );
-    const mimetype = allowedTypes.test(file.mimetype.replace("image/", ""));
+    const mimetype = allowedMimeTypes.test(file.mimetype);
     if (mimetype && extname) return cb(null, true);
-    cb(new Error("Solo se permiten imágenes (JPEG, PNG, GIF, WebP)"));
+    cb(new Error("Solo se permiten imágenes (JPEG, PNG, GIF, WebP) o PDFs"));
   },
 });
 

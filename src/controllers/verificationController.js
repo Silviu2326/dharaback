@@ -705,6 +705,9 @@ const analizarTitulacion = async (req, res) => {
       : path.join(__dirname, "../../", req.file.path);
     const fileBuffer = await fs.readFile(filePath);
     const mimeType = req.file.mimetype;
+    const isPDF = mimeType === 'application/pdf';
+
+    console.log(`📄 Analizando documento: ${req.file.originalname} (${isPDF ? 'PDF' : 'Imagen'})`);
 
     const aiAnalysis = await geminiService.analyzeDegreeCertificate(
       fileBuffer,
@@ -719,6 +722,7 @@ const analizarTitulacion = async (req, res) => {
     console.log("✅ Análisis de titulación completado:", {
       esValida: aiAnalysis.esTitulacionValida,
       recomendacion: aiAnalysis.recomendacion,
+      tipoArchivo: isPDF ? 'PDF' : 'Imagen',
     });
 
     res.status(200).json({
@@ -726,6 +730,8 @@ const analizarTitulacion = async (req, res) => {
       data: {
         tempId: req.file.filename,
         originalName: req.file.originalname,
+        fileType: isPDF ? 'pdf' : 'image',
+        mimeType: mimeType,
         aiAnalysis,
       },
     });

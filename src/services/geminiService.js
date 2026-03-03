@@ -48,13 +48,13 @@ class GeminiService {
   }
 
   /**
-   * Analiza una imagen de titulación para verificar si es válida
-   * @param {Buffer} imageBuffer - Buffer de la imagen
-   * @param {string} mimeType - Tipo MIME de la imagen (image/jpeg, image/png, etc.)
+   * Analiza un documento de titulación (imagen o PDF) para verificar si es válido
+   * @param {Buffer} fileBuffer - Buffer del archivo
+   * @param {string} mimeType - Tipo MIME del archivo (image/jpeg, image/png, application/pdf, etc.)
    * @param {Object} context - Contexto adicional (nombre, especialidad, etc.)
    * @returns {Promise<Object>} Resultado del análisis
    */
-  async analyzeDegreeCertificate(imageBuffer, mimeType, context = {}) {
+  async analyzeDegreeCertificate(fileBuffer, mimeType, context = {}) {
     if (!this.isConfigured()) {
       throw new Error(
         "Gemini AI no está configurado. Verifica GEMINI_API_KEY.",
@@ -62,11 +62,20 @@ class GeminiService {
     }
 
     try {
+      // Determinar si es PDF o imagen
+      const isPDF = mimeType === 'application/pdf';
+      
+      if (isPDF) {
+        console.log('📄 Procesando PDF para análisis con Gemini...');
+      }
+
       // Convertir buffer a base64
-      const base64Image = imageBuffer.toString("base64");
+      const base64Data = fileBuffer.toString("base64");
 
       // Construir el prompt para el análisis
-      const prompt = this._buildAnalysisPrompt(context);
+      const prompt = isPDF 
+        ? this._buildPDFAnalysisPrompt(context)
+        : this._buildAnalysisPrompt(context);
 
       // Crear el contenido para el modelo
       const result = await this.model.generateContent({
@@ -78,7 +87,7 @@ class GeminiService {
               {
                 inlineData: {
                   mimeType: mimeType,
-                  data: base64Image,
+                  data: base64Data,
                 },
               },
             ],
@@ -157,6 +166,66 @@ REGLAS CLAVE:
 - Solo rechazar si es claramente falso, illegible o NO relacionado con formación
 - Ante la duda -> aceptarlo (revisar_manualmente como máximo)
 
+    IMPORTANTE: Responde ÚNICAMENTE con el JSON válido, sin texto adicional.`;
+  }
+
+  /**
+   * Construye el prompt específico para análisis de PDFs
+   */
+  _buildPDFAnalysisPrompt(context) {
+    const { nombre, especialidad, titulacion } = context;
+
+    return `Analiza este DOCUMENTO PDF y determina si es un CERTIFICADO O TÍTULO DE FORMACIÓN válido para un TERAPEUTA HOLÍSTICO.
+
+CONTEXTO DEL REGISTRO:
+- Nombre del terapeuta: ${nombre || "No proporcionado"}
+- Especialidad declarada: ${especialidad || "No proporcionada"}
+- Título declarado: ${titulacion || "No proporcionado"}
+
+IMPORTANTE: Este es un documento PDF que puede tener múltiples páginas. Por favor:
+1. Revisa las páginas más relevantes que contengan la información principal del certificado
+2. Ignora páginas de portada, índices o contenido no relacionado con la titulación
+3. Busca la página que contenga: nombre del titulado, título/certificación, entidad emisora, fecha
+
+TIPOS DE DOCUMENTOS VÁLIDOS para TERAPEUTAS HOLÍSTICOS/ALTERNATIVOS:
+- Diplomas de escuelas de naturopatía, homeopatía, acupuntura
+- Certificados de asociaciones de terapeutas (ATHHTA, etc.)
+- Cursos de reprogramación mental, coaching transformacional
+- Certificaciones de reiki, sanación cuántica, otras terapias alternativas
+- Formación en coaching, PNL, programación neurolingüística
+- Cualquier documento que acredite formación en terapias alternativas/complementarias
+
+INSTRUCCIONES DE ANÁLISIS PARA PDF:
+1. Identifica las páginas que contienen información relevante del certificado/título
+2. Si el documento muestra formación en terapias holísticas/alternativas, es VÁLIDO
+3. Verifica que contenga información legible del curso/título
+4. La entidad emitente puede ser una asociación, escuela o instituto
+5. No seas muy estricto - acepta diplomas, certificados, constancias
+6. Solo rechaza si claramente NO es un documento de formación
+
+RESPONSE FORMAT (JSON estricto):
+{
+  "esTitulacionValida": boolean,
+  "tipoDocumento": "titulo_universitario|diploma_formacion|certificado_profesional|licencia_colegial|diploma_holistico|certificado_curso|otro",
+  "nombreTitulo": "string (nombre exacto del título si es visible)",
+  "entidadEmisora": "string (nombre de la universidad/institución/asociación)",
+  "coincideEspecialidad": boolean,
+  "camposDetectados": {
+    "nombreTitulado": "string o null",
+    "fechaEmision": "string o null",
+    "numeroRegistro": "string o null"
+  },
+  "nivelConfianza": "alto|medio|bajo",
+  "observaciones": "string (detalles importantes, incluir si se detectaron múltiples páginas)",
+  "recomendacion": "aceptar|revisar_manualmente|rechazar"
+}
+
+REGLAS CLAVE:
+- Si el documento acredita formación en terapias alternativas/holísticas -> esTitulacionValida: true, recomendacion: "aceptar"
+- Solo rechazar si es claramente falso, illegible o NO relacionado con formación
+- Ante la duda -> aceptarlo (revisar_manualmente como máximo)
+- Para PDFs con múltiples páginas: mencionar en observaciones si todas las páginas son relevantes
+
 IMPORTANTE: Responde ÚNICAMENTE con el JSON válido, sin texto adicional.`;
   }
 
@@ -222,37 +291,42 @@ IMPORTANTE: Responde ÚNICAMENTE con el JSON válido, sin texto adicional.`;
   }
 
   /**
-   * Analiza múltiples imágenes de titulación
-   * @param {Array<{buffer: Buffer, mimeType: string}>} images - Array de imágenes
+   * Analiza múltiples documentos de titulación (imágenes o PDFs)
+   * @param {Array<{buffer: Buffer, mimeType: string}>} documents - Array de documentos
    * @param {Object} context - Contexto del registro
    * @returns {Promise<Array>} Resultados del análisis
    */
-  async analyzeMultipleDegrees(images, context = {}) {
-    if (!Array.isArray(images) || images.length === 0) {
-      throw new Error("Se requiere al menos una imagen para analizar");
+  async analyzeMultipleDegrees(documents, context = {}) {
+    if (!Array.isArray(documents) || documents.length === 0) {
+      throw new Error("Se requiere al menos un documento para analizar");
     }
 
     const results = [];
 
-    for (let i = 0; i < images.length; i++) {
-      const { buffer, mimeType } = images[i];
+    for (let i = 0; i < documents.length; i++) {
+      const { buffer, mimeType } = documents[i];
+      const isPDF = mimeType === 'application/pdf';
+      
+      console.log(`📄 Procesando documento ${i + 1}/${documents.length}: ${isPDF ? 'PDF' : 'Imagen'}`);
 
       try {
         const analysis = await this.analyzeDegreeCertificate(buffer, mimeType, {
           ...context,
-          indiceImagen: i + 1,
-          totalImagenes: images.length,
+          indiceDocumento: i + 1,
+          totalDocumentos: documents.length,
         });
 
         results.push({
           index: i,
           success: true,
+          tipo: isPDF ? 'pdf' : 'imagen',
           ...analysis,
         });
       } catch (error) {
         results.push({
           index: i,
           success: false,
+          tipo: isPDF ? 'pdf' : 'imagen',
           error: error.message,
           esTitulacionValida: false,
           recomendacion: "revisar_manualmente",
