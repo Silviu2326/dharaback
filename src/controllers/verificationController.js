@@ -663,6 +663,8 @@ const getVerificationRequirements = async (req, res) => {
   }
 };
 
+const { supabase } = require('../config/supabase');
+
 const analizarTitulacion = async (req, res) => {
   try {
     if (!req.file) {
@@ -673,7 +675,45 @@ const analizarTitulacion = async (req, res) => {
     }
 
     const { nombre, especialidad, titulacion } = req.body;
+    const bucketName = 'documents';
+    const tempFolder = 'temp-analysis';
+    
+    const fileBuffer = req.file.buffer || await fs.readFile(req.file.path);
+    const mimeType = req.file.mimetype;
+    const isPDF = mimeType === 'application/pdf';
+    const fileExt = path.extname(req.file.originalname) || (isPDF ? '.pdf' : '.jpg');
+    
+    // Generar nombre único para el archivo temporal en el bucket
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const tempFilename = `${tempFolder}/analysis-${uniqueSuffix}${fileExt}`;
 
+    console.log(`📄 Analizando documento: ${req.file.originalname} (${isPDF ? 'PDF' : 'Imagen'})`);
+
+    // Subir archivo temporal al bucket de Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from(bucketName)
+      .upload(tempFilename, fileBuffer, {
+        contentType: mimeType,
+        upsert: false
+      });
+
+    if (uploadError) {
+      console.error('❌ Error uploading to Supabase Storage:', uploadError);
+      return res.status(500).json({
+        success: false,
+        message: "Error al subir el documento para análisis",
+        error: uploadError.message
+      });
+    }
+
+    // Obtener URL pública del archivo temporal
+    const { data: publicUrlData } = supabase.storage
+      .from(bucketName)
+      .getPublicUrl(tempFilename);
+
+    const fileUrl = publicUrlData.publicUrl;
+
+    // Si Gemini no está configurado, retornar análisis básico
     if (!geminiService.isConfigured()) {
       console.warn(
         "⚠️ Gemini no está configurado, usando modo de análisis básico",
@@ -681,8 +721,11 @@ const analizarTitulacion = async (req, res) => {
       return res.status(200).json({
         success: true,
         data: {
-          tempId: req.file.filename,
+          tempId: tempFilename,
           originalName: req.file.originalname,
+          fileUrl: fileUrl,
+          fileType: isPDF ? 'pdf' : 'image',
+          mimeType: mimeType,
           aiAnalysis: {
             esTitulacionValida: true,
             tipoDocumento: "pendiente_verificacion",
@@ -700,15 +743,7 @@ const analizarTitulacion = async (req, res) => {
       });
     }
 
-    const filePath = path.isAbsolute(req.file.path) 
-      ? req.file.path 
-      : path.join(__dirname, "../../", req.file.path);
-    const fileBuffer = await fs.readFile(filePath);
-    const mimeType = req.file.mimetype;
-    const isPDF = mimeType === 'application/pdf';
-
-    console.log(`📄 Analizando documento: ${req.file.originalname} (${isPDF ? 'PDF' : 'Imagen'})`);
-
+    // Analizar el documento con Gemini
     const aiAnalysis = await geminiService.analyzeDegreeCertificate(
       fileBuffer,
       mimeType,
@@ -728,8 +763,9 @@ const analizarTitulacion = async (req, res) => {
     res.status(200).json({
       success: true,
       data: {
-        tempId: req.file.filename,
+        tempId: tempFilename,
         originalName: req.file.originalname,
+        fileUrl: fileUrl,
         fileType: isPDF ? 'pdf' : 'image',
         mimeType: mimeType,
         aiAnalysis,
@@ -737,14 +773,6 @@ const analizarTitulacion = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Error analizando titulación:", error);
-
-    if (req.file) {
-      try {
-        await fs.unlink(req.file.path);
-      } catch (unlinkError) {
-        console.error("Error limpiando archivo:", unlinkError);
-      }
-    }
 
     res.status(500).json({
       success: false,

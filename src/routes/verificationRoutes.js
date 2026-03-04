@@ -8,23 +8,9 @@ const fs = require("fs");
 
 const router = express.Router();
 
-const uploadDir = path.join(__dirname, "../../uploads/temp");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const tempStorage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, "temp-degree-" + uniqueSuffix + path.extname(file.originalname));
-  },
-});
-
+// Configuración de multer para análisis de titulación (memory storage para subir a Supabase)
 const tempUpload = multer({
-  storage: tempStorage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: function (req, file, cb) {
     const allowedExtensions = /jpeg|jpg|png|gif|webp|pdf/;

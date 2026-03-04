@@ -22,7 +22,8 @@ const registerTherapist = asyncHandler(async (req, res) => {
     numeroColegiado,
     experiencia,
     sobreMi,
-    plan = 'avanzado'
+    plan = 'avanzado',
+    documentos = [] // Array de documentos con tempId, aiAnalysis, etc.
   } = req.body;
 
   // Validaciones
@@ -175,7 +176,113 @@ const registerTherapist = asyncHandler(async (req, res) => {
 
     console.log('✅ Professional profile created');
 
-    // 5. Crear suscripción en Stripe
+    // 5. Procesar y guardar documentos de titulación en Supabase Storage
+    if (documentos && documentos.length > 0) {
+      const bucketName = 'documents';
+      
+      for (const doc of documentos) {
+        try {
+          const { tempId, aiAnalysis, originalName } = doc;
+          
+          if (!tempId) {
+            console.warn('⚠️ Document without tempId, skipping');
+            continue;
+          }
+
+          // El tempId ahora es la ruta en el bucket (ej: temp-analysis/analysis-123.pdf)
+          const tempPath = tempId;
+          const fileExt = path.extname(originalName || tempId) || '.pdf';
+          const mimeType = fileExt === '.pdf' ? 'application/pdf' : 'image/jpeg';
+
+          // Descargar archivo temporal del bucket
+          const { data: fileData, error: downloadError } = await supabase.storage
+            .from(bucketName)
+            .download(tempPath);
+
+          if (downloadError) {
+            console.error('❌ Error downloading temp file from bucket:', downloadError);
+            continue;
+          }
+
+          const fileBuffer = Buffer.from(await fileData.arrayBuffer());
+
+          // Generar nombre único para el archivo final
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const newFilename = `degree-${authUser.id}-${uniqueSuffix}${fileExt}`;
+          const storagePath = `therapists/${authUser.id}/verification/${newFilename}`;
+
+          // Subir archivo a la ubicación final en el bucket
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from(bucketName)
+            .upload(storagePath, fileBuffer, {
+              contentType: mimeType,
+              upsert: false
+            });
+
+          if (uploadError) {
+            console.error('❌ Error uploading to Supabase Storage:', uploadError);
+            continue;
+          }
+
+          // Obtener URL pública del archivo
+          const { data: publicUrlData } = supabase.storage
+            .from(bucketName)
+            .getPublicUrl(storagePath);
+
+          const fileUrl = publicUrlData.publicUrl;
+
+          // Calcular checksum
+          const crypto = require('crypto');
+          const checksum = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+
+          // Eliminar archivo temporal del bucket
+          const { error: deleteError } = await supabase.storage
+            .from(bucketName)
+            .remove([tempPath]);
+
+          if (deleteError) {
+            console.warn('⚠️ Could not delete temp file from bucket:', deleteError.message);
+          }
+
+          console.log(`✅ Document moved in bucket: ${tempPath} → ${storagePath}`);
+
+          // Crear registro en verification_documents
+          const documentData = {
+            user_id: authUser.id,
+            type: 'degree',
+            name: originalName || 'Documento de titulación',
+            file_url: fileUrl,
+            document_number: numeroColegiado || null,
+            issuing_body: aiAnalysis?.entidadEmisora || '',
+            status: 'pending',
+            checksum: checksum,
+            metadata: {
+              aiAnalysis: aiAnalysis || {},
+              storagePath: storagePath,
+              bucket: bucketName,
+              originalName: originalName
+            },
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+
+          const { error: docError } = await supabase
+            .from('verification_documents')
+            .insert([documentData]);
+
+          if (docError) {
+            console.error('❌ Error saving verification document record:', docError);
+          } else {
+            console.log(`✅ Verification document record created: ${originalName || tempId}`);
+          }
+        } catch (docProcessError) {
+          console.error('❌ Error processing document:', docProcessError);
+          // Continuar con el siguiente documento
+        }
+      }
+    }
+
+    // 6. Crear suscripción en Stripe
     const trialDays = plan === 'avanzado-pro' ? 0 : 90;
     
     const planConfig = {
