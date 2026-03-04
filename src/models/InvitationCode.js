@@ -35,7 +35,7 @@ class InvitationCode {
    * Marcar código como usado
    */
   async markAsUsed(userId) {
-    const supabase = require('../../config/supabase').supabase;
+    const supabase = require('../config/supabase').supabase;
     
     const { data, error } = await supabase
       .from('invitation_codes')
@@ -62,7 +62,7 @@ class InvitationCode {
    * Invalidar código
    */
   async invalidate() {
-    const supabase = require('../../config/supabase').supabase;
+    const supabase = require('../config/supabase').supabase;
     
     const { data, error } = await supabase
       .from('invitation_codes')
@@ -115,7 +115,7 @@ class InvitationCodeModel {
    * Crear nuevo código de invitación
    */
   async create(data) {
-    const supabase = require('../../config/supabase').supabase;
+    const supabase = require('../config/supabase').supabase;
 
     const codeData = {
       client_id: data.clientId,
@@ -141,7 +141,7 @@ class InvitationCodeModel {
    * Buscar por ID
    */
   async findById(id) {
-    const supabase = require('../../config/supabase').supabase;
+    const supabase = require('../config/supabase').supabase;
 
     const { data, error } = await supabase
       .from(this.tableName)
@@ -157,7 +157,7 @@ class InvitationCodeModel {
    * Buscar por código
    */
   async findByCode(code) {
-    const supabase = require('../../config/supabase').supabase;
+    const supabase = require('../config/supabase').supabase;
 
     const { data, error } = await supabase
       .from(this.tableName)
@@ -173,7 +173,7 @@ class InvitationCodeModel {
    * Buscar códigos por cliente
    */
   async findByClient(clientId, options = {}) {
-    const supabase = require('../../config/supabase').supabase;
+    const supabase = require('../config/supabase').supabase;
     
     let query = supabase
       .from(this.tableName)
@@ -195,7 +195,7 @@ class InvitationCodeModel {
    * Invalidar códigos por cliente
    */
   async invalidateByClient(clientId) {
-    const supabase = require('../../config/supabase').supabase;
+    const supabase = require('../config/supabase').supabase;
 
     const { data, error } = await supabase
       .from(this.tableName)

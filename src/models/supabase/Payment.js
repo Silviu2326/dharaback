@@ -11,7 +11,7 @@ class Payment {
     this.id = data.id;
     this.bookingId = data.booking_id;
     this.clientId = data.client_id;
-    this.therapistId = data.therapistId;
+    this.therapistId = data.therapist_id || data.therapistId;
     this.amount = parseFloat(data.amount) || 0;
     this.currency = data.currency || 'EUR';
     this.status = data.status || 'pending';
@@ -240,7 +240,7 @@ class Payment {
     const data = {
       booking_id: this.bookingId,
       client_id: this.clientId,
-      therapistId: this.therapistId,
+      therapist_id: this.therapistId,
       amount: this.amount,
       currency: this.currency,
       status: this.status,
@@ -316,24 +316,35 @@ class PaymentModel {
    * Crear nuevo pago
    */
   async create(data) {
+    console.log('Payment.create input data:', JSON.stringify(data, null, 2));
+    
     const paymentData = {
       booking_id: data.bookingId || null,
       client_id: data.clientId,
-      therapistId: data.therapistId,
+      therapist_id: data.therapistId,
       amount: data.amount,
       currency: data.currency || 'EUR',
       status: data.status || 'pending',
       method: data.method,
-      stripe_payment_intent_id: data.stripePaymentIntentId,
-      stripe_charge_id: data.stripeChargeId,
+      stripe_payment_intent_id: data.stripePaymentIntentId || null,
+      stripe_charge_id: data.stripeChargeId || null,
       description: data.description,
       metadata: data.metadata || {},
       refunded_amount: data.refundedAmount || 0,
-      refund_reason: data.refundReason,
+      refund_reason: data.refundReason || null,
       net_amount: data.netAmount,
       platform_fee: data.platformFee || 0,
       paid_at: data.paidAt || null
     };
+
+    // Limpiar campos undefined
+    Object.keys(paymentData).forEach(key => {
+      if (paymentData[key] === undefined) {
+        paymentData[key] = null;
+      }
+    });
+
+    console.log('Payment.create transformed data:', JSON.stringify(paymentData, null, 2));
 
     const result = await this.service.create(paymentData);
     return new Payment(result);
@@ -634,6 +645,30 @@ class PaymentModel {
         month,
         ...stats
       }));
+  }
+
+  // Métodos estáticos para compatibilidad con controladores
+  static async findById(id, options = {}) {
+    const instance = new PaymentModel();
+    const result = await instance.service.findById(id, options);
+    return result ? new Payment(result) : null;
+  }
+
+  static async findOne(filters, options = {}) {
+    const instance = new PaymentModel();
+    const result = await instance.service.findOne(filters, options);
+    return result ? new Payment(result) : null;
+  }
+
+  static async findByIdAndUpdate(id, data, options = {}) {
+    const instance = new PaymentModel();
+    const result = await instance.service.update(id, data, options);
+    return result ? new Payment(result) : null;
+  }
+
+  static async create(data) {
+    const instance = new PaymentModel();
+    return await instance.create(data);
   }
 }
 

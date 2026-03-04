@@ -26,14 +26,14 @@ const getBookings = asyncHandler(async (req, res, next) => {
     startTime: 'start_time',
     endTime: 'end_time',
     clientId: 'client_id',
-    therapistId: 'therapistId',
+    therapistId: 'therapist_id',
     therapyType: 'therapy_type',
     createdAt: 'created_at'
   };
   const sortColumn = columnMap[sortBy] || sortBy;
 
   // Build filters
-  const filters = { therapistId: req.user.id || req.user._id };
+  const filters = { therapist_id: req.user.id || req.user._id };
 
   if (status && status !== 'all') {
     filters.status = status;

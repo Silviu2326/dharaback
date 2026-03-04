@@ -259,14 +259,13 @@ router.get('/calendar/events', protect, async (req, res) => {
   try {
     const supabase = require('../config/supabase').supabase;
 
-    // Obtener availability slots
+    // Obtener availability slots that overlap with the requested date range
     const { data: slots } = await supabase
       .from('availability_slots')
       .select('*')
       .eq('therapist_id', therapistId)
       .eq('is_available', true)
-      .or(`valid_from.is.null,valid_from.lte.${endDate}`)
-      .or(`valid_until.is.null,valid_until.gte.${startDate}`);
+      .or(`and(valid_from.is.null,valid_until.is.null),and(valid_from.lte.${endDate},valid_until.is.null),and(valid_from.is.null,valid_until.gte.${startDate}),and(valid_from.lte.${endDate},valid_until.gte.${startDate})`);
 
     // Obtener bookings
     const { data: bookings } = await supabase

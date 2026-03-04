@@ -8,7 +8,7 @@ const SupabaseService = require('../../services/supabaseService');
 class AvailabilitySlot {
   constructor(data = {}) {
     this.id = data.id;
-    this.therapistId = data.therapistId;
+    this.therapistId = data.therapist_id || data.therapistId;
     this.dayOfWeek = data.day_of_week;
     this.startTime = data.start_time;
     this.endTime = data.end_time;
@@ -139,7 +139,7 @@ class AvailabilitySlot {
     const service = new SupabaseService('availability_slots');
 
     const data = {
-      therapistId: this.therapistId,
+      therapist_id: this.therapistId,
       day_of_week: this.dayOfWeek,
       start_time: this.startTime,
       end_time: this.endTime,
@@ -169,7 +169,7 @@ class AvailabilitySlot {
   toJSON() {
     return {
       id: this.id,
-      therapistId: this.therapistId,
+      therapist_id: this.therapistId,
       dayOfWeek: this.dayOfWeek,
       startTime: this.startTime,
       endTime: this.endTime,
@@ -202,7 +202,7 @@ class AvailabilitySlotModel {
    */
   async create(data) {
     const slotData = {
-      therapistId: data.therapistId,
+      therapist_id: data.therapistId || data.therapist_id,
       day_of_week: data.dayOfWeek,
       start_time: data.startTime,
       end_time: data.endTime,

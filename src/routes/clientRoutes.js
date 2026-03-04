@@ -17,7 +17,9 @@ const {
   sendInvitationEmail,
   validateInvitationCode,
   invalidateInvitationCodes,
-  regenerateInvitationCode
+  regenerateInvitationCode,
+  getClientSettings,
+  updateClientSettings
 } = require('../controllers/clientController');
 const { protect } = require('../middleware/auth');
 
@@ -58,5 +60,9 @@ router.post('/send-invitation', protect, sendInvitationEmail);
 router.get('/validate-invitation', validateInvitationCode);
 router.post('/invalidate-codes', protect, invalidateInvitationCodes);
 router.post('/:id/regenerate-code', protect, regenerateInvitationCode);
+
+// Client settings routes
+router.get('/settings', protect, getClientSettings);
+router.put('/settings', protect, updateClientSettings);
 
 module.exports = router;

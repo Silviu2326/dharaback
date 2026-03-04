@@ -20,12 +20,12 @@ const createPaymentValidation = [
     .isIn(['card', 'transfer', 'cash', 'paypal', 'stripe', 'other'])
     .withMessage('Invalid payment method'),
   body('clientId')
-    .isMongoId()
-    .withMessage('Client ID must be valid'),
+    .matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+    .withMessage('Client ID must be a valid UUID'),
   body('bookingId')
     .optional()
-    .isMongoId()
-    .withMessage('Booking ID must be valid'),
+    .matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+    .withMessage('Booking ID must be a valid UUID'),
   body('description')
     .notEmpty()
     .withMessage('Description is required')
@@ -94,14 +94,14 @@ const createPayoutRequestValidation = [
 
 const idValidation = [
   param('paymentId')
-    .isMongoId()
-    .withMessage('Payment ID must be valid')
+    .matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+    .withMessage('Payment ID must be a valid UUID')
 ];
 
 const payoutIdValidation = [
   param('payoutId')
-    .isMongoId()
-    .withMessage('Payout ID must be valid')
+    .matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+    .withMessage('Payout ID must be a valid UUID')
 ];
 
 // Payment Routes

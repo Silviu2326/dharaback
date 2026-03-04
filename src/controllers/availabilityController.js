@@ -55,13 +55,13 @@ const getTherapistAvailability = asyncHandler(async (req, res, next) => {
   }
 
   // Get availability slots for range
+  // Filter slots that overlap with the requested date range
   const { data: slots, error } = await supabase
     .from('availability_slots')
     .select('*')
     .eq('therapist_id', therapistId)
     .eq('is_available', true)
-    .or(`valid_from.is.null,valid_from.lte.${endDate}`)
-    .or(`valid_until.is.null,valid_until.gte.${startDate}`)
+    .or(`and(valid_from.is.null,valid_until.is.null),and(valid_from.lte.${endDate},valid_until.is.null),and(valid_from.is.null,valid_until.gte.${startDate}),and(valid_from.lte.${endDate},valid_until.gte.${startDate})`)
     .order('day_of_week', { ascending: true })
     .order('start_time', { ascending: true });
 
@@ -280,8 +280,9 @@ const createTimeBlock = asyncHandler(async (req, res, next) => {
   const [eh, em] = endTime.split(':').map(Number);
   const durationMinutes = (eh * 60 + em) - (sh * 60 + sm);
 
+  // Build base data with correct snake_case column names for Supabase
   const slotData = {
-    therapistId:  therapistId,
+    therapist_id:  therapistId,     // Fixed: snake_case for Supabase
     day_of_week:   dayOfWeek,
     start_time:    startTime,
     end_time:      endTime,
@@ -290,39 +291,34 @@ const createTimeBlock = asyncHandler(async (req, res, next) => {
     location_type: 'office',
     slot_duration: durationMinutes > 0 ? durationMinutes : 60,
     valid_from:    startDate,
-    valid_until:   endDate || startDate,
-    // Campos extra que el frontend espera (guardados si la tabla los tiene)
-    title:         title || 'Disponible',
-    color:         color || 'sage',
-    repeat:        repeat === 'never' ? 'none' : (repeat || 'none'),
-    notes:         notes || null,
-    timezone:      timezone || 'Europe/Madrid'
+    valid_until:   endDate || startDate
   };
 
+  // Try to insert with all fields (some may not exist in older schemas)
   try {
+    const fullSlotData = {
+      ...slotData,
+      // Extra fields that may exist in newer schema
+      title:         title || 'Disponible',
+      color:         color || 'sage',
+      repeat:        repeat === 'never' ? 'none' : (repeat || 'none'),
+      notes:         notes || null,
+      timezone:      timezone || 'Europe/Madrid'
+    };
+
     const { data, error } = await supabase
       .from('availability_slots')
-      .insert(slotData)
+      .insert(fullSlotData)
       .select()
       .single();
 
     if (error) {
-      // Si la columna extra no existe, intentar sin ella
+      // If extra columns don't exist, retry with minimal data
       console.warn('⚠️  Insert with extra cols failed, retrying minimal:', error.message);
+      
       const { data: data2, error: error2 } = await supabase
         .from('availability_slots')
-        .insert({
-          therapistId:  slotData.therapistId,
-          day_of_week:   slotData.day_of_week,
-          start_time:    slotData.start_time,
-          end_time:      slotData.end_time,
-          is_available:  slotData.is_available,
-          location:      slotData.location,
-          location_type: slotData.location_type,
-          slot_duration: slotData.slot_duration,
-          valid_from:    slotData.valid_from,
-          valid_until:   slotData.valid_until
-        })
+        .insert(slotData)  // Use only the base fields with correct column names
         .select()
         .single();
 
@@ -332,7 +328,15 @@ const createTimeBlock = asyncHandler(async (req, res, next) => {
       }
 
       console.log('✅ Time block created (minimal):', data2.id);
-      return res.status(201).json(formatSlot({ ...data2, title, color, repeat, notes, timezone }));
+      // Return formatted response including frontend fields
+      return res.status(201).json(formatSlot({ 
+        ...data2, 
+        title: title || 'Disponible', 
+        color: color || 'sage', 
+        repeat: repeat || 'none', 
+        notes: notes || null, 
+        timezone: timezone || 'Europe/Madrid' 
+      }));
     }
 
     console.log('✅ Time block created:', data.id);
@@ -381,7 +385,7 @@ const updateTimeBlock = asyncHandler(async (req, res, next) => {
 
   // Build update data - only columns that definitely exist in the table
   const updateData = {
-    therapistId:  existing.therapistId,
+    // Note: therapist_id should not be updated, it's the owner
     start_time:    body.startTime || existing.start_time,
     end_time:      body.endTime || existing.end_time,
     is_available:  body.isActive !== undefined ? body.isActive : existing.is_available,
@@ -485,9 +489,11 @@ const getTherapistTimeBlocks = asyncHandler(async (req, res, next) => {
   }
 
   if (startDate && endDate) {
+    // Filter slots that overlap with the requested date range
+    // A slot overlaps if: valid_from <= endDate AND valid_until >= startDate
+    // (with null handling for open-ended slots)
     query = query
-      .or(`valid_from.is.null,valid_from.lte.${endDate}`)
-      .or(`valid_until.is.null,valid_until.gte.${startDate}`);
+      .or(`and(valid_from.is.null,valid_until.is.null),and(valid_from.lte.${endDate},valid_until.is.null),and(valid_from.is.null,valid_until.gte.${startDate}),and(valid_from.lte.${endDate},valid_until.gte.${startDate})`);
   }
 
   const { data, error } = await query;

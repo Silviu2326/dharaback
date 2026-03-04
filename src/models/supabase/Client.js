@@ -30,7 +30,7 @@ class Client {
     this.emergencyContact = data.emergency_contact || {};
     this.notes = data.notes;
     this.tags = data.tags || [];
-    this.therapistId = data.therapistId;
+    this.therapistId = data.therapist_id || data.therapistId;
     this.lastSession = data.last_session;
     this.sessionsCount = data.sessions_count || 0;
     this.rating = data.rating;
@@ -173,7 +173,7 @@ class Client {
       emergency_contact: this.emergencyContact,
       notes: this.notes,
       tags: this.tags,
-      therapistId: this.therapistId,
+      therapist_id: this.therapistId,
       last_session: this.lastSession,
       sessions_count: this.sessionsCount,
       rating: this.rating,
@@ -209,7 +209,7 @@ class Client {
       emergencyContact: this.emergencyContact,
       notes: this.notes,
       tags: this.tags,
-      therapistId: this.therapistId,
+      therapist_id: this.therapistId,
       lastSession: this.lastSession,
       sessionsCount: this.sessionsCount,
       rating: this.rating,
@@ -256,7 +256,7 @@ class ClientModel {
       emergency_contact: data.emergencyContact,
       notes: data.notes,
       tags: data.tags || [],
-      therapistId: data.therapistId,
+      therapist_id: data.therapistId || data.therapist_id,
       preferences: data.preferences || {
         preferredTime: 'any',
         preferredLocation: 'both',
@@ -404,6 +404,30 @@ class ClientModel {
   async exists(email, therapistId) {
     const count = await this.service.count({ email, therapist_id: therapistId });
     return count > 0;
+  }
+
+  // Métodos estáticos para compatibilidad con controladores
+  static async findById(id, options = {}) {
+    const instance = new ClientModel();
+    const result = await instance.service.findById(id, options);
+    return result ? new Client(result) : null;
+  }
+
+  static async findOne(filters, options = {}) {
+    const instance = new ClientModel();
+    const result = await instance.service.findOne(filters, options);
+    return result ? new Client(result) : null;
+  }
+
+  static async find(filters, options = {}) {
+    const instance = new ClientModel();
+    const results = await instance.service.findAll(filters, options);
+    return results.map(data => new Client(data));
+  }
+
+  static async create(data) {
+    const instance = new ClientModel();
+    return await instance.create(data);
   }
 }
 

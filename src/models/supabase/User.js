@@ -359,6 +359,30 @@ class UserModel {
     const count = await this.service.count({ email });
     return count > 0;
   }
+
+  // Métodos estáticos para compatibilidad con controladores
+  static async findById(id, options = {}) {
+    const instance = new UserModel();
+    const result = await instance.service.findById(id, options);
+    return result ? new User(result) : null;
+  }
+
+  static async findOne(filters, options = {}) {
+    const instance = new UserModel();
+    const result = await instance.service.findOne(filters, options);
+    return result ? new User(result) : null;
+  }
+
+  static async find(filters, options = {}) {
+    const instance = new UserModel();
+    const results = await instance.service.findAll(filters, options);
+    return results.map(data => new User(data));
+  }
+
+  static async create(data) {
+    const instance = new UserModel();
+    return await instance.create(data);
+  }
 }
 
 // Exportar instancia singleton

@@ -9,7 +9,7 @@ const SupabaseService = require('../../services/supabaseService');
 class TherapyPlan {
   constructor(data = {}) {
     this.id = data.id;
-    this.therapistId = data.therapistId;
+    this.therapistId = data.therapist_id || data.therapistId;
     this.name = data.name;
     this.description = data.description;
     this.type = data.type;
@@ -193,7 +193,7 @@ class TherapyPlan {
     const service = new SupabaseService('therapy_plans');
 
     const data = {
-      therapistId: this.therapistId,
+      therapist_id: this.therapistId,
       name: newName || `${this.name} (Copia)`,
       description: this.description,
       type: this.type,
@@ -223,7 +223,7 @@ class TherapyPlan {
 
     return await ClientPlanProgress.create({
       clientId,
-      therapistId: this.therapistId,
+      therapist_id: this.therapistId,
       planId: this.id,
       startDate: start,
       expectedEndDate: expectedEnd,
@@ -243,7 +243,7 @@ class TherapyPlan {
     const service = new SupabaseService('therapy_plans');
 
     const data = {
-      therapistId: this.therapistId,
+      therapist_id: this.therapistId,
       name: this.name,
       description: this.description,
       type: this.type,
@@ -272,7 +272,7 @@ class TherapyPlan {
   toJSON() {
     return {
       id: this.id,
-      therapistId: this.therapistId,
+      therapist_id: this.therapistId,
       name: this.name,
       description: this.description,
       type: this.type,
@@ -310,7 +310,7 @@ class TherapyPlanModel {
    */
   async create(data) {
     const planData = {
-      therapistId: data.therapistId,
+      therapist_id: data.therapistId || data.therapist_id,
       name: data.name,
       description: data.description,
       type: data.type,

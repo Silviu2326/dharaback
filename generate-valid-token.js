@@ -75,7 +75,7 @@ console.log('✅ Valid token set for therapist:', userData.name);
 console.log('🔄 Reload the page to see changes');
 
 // Test the token
-fetch('http://localhost:5000/api/reviews?therapistId=current&verified=true&limit=5', {
+fetch('https://dharaback-production.up.railway.app/api/reviews?therapistId=current&verified=true&limit=5', {
   method: 'GET',
   headers: {
     'Authorization': 'Bearer ' + validToken,

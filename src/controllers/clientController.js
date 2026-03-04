@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
-const { Client, User, Booking } = require('../models');
-const { InvitationCode } = require('../models/InvitationCode');
+const { Client, User, Booking, ProfessionalProfile } = require('../models');
+const { InvitationCodeModel } = require('../models/InvitationCode');
+const InvitationCode = new InvitationCodeModel();
 const { AppError, asyncHandler } = require('../middleware/errorHandler');
 
 // @desc    Get all clients for therapist
@@ -569,11 +570,10 @@ const loginClient = asyncHandler(async (req, res, next) => {
 const getAvailableTherapists = asyncHandler(async (req, res, next) => {
   const { search, specialty } = req.query;
 
-  // Build filters for active, verified therapists
+  // Build filters for active therapists (email verification not required)
   const filters = {
     role: 'therapist',
-    is_active: true,
-    is_verified: true
+    is_active: true
   };
 
   if (search) {
@@ -599,6 +599,12 @@ const getAvailableTherapists = asyncHandler(async (req, res, next) => {
       try {
         const profile = await ProfessionalProfile.findOne({ user_id: therapist.id || therapist._id });
         
+        console.log(`[DEBUG] Therapist ${therapist.name} (${therapist.id}):`, {
+          hasProfile: !!profile,
+          banner: profile?.banner,
+          profileKeys: profile ? Object.keys(profile) : null
+        });
+        
         // Filter by specialty if provided
         if (specialty && profile) {
           const hasSpecialty = profile.therapies?.some(
@@ -616,6 +622,7 @@ const getAvailableTherapists = asyncHandler(async (req, res, next) => {
           joinedAt: therapist.createdAt,
           profile: profile ? {
             about: profile.about,
+            banner: profile.banner,
             isAvailable: profile.isAvailable,
             rating: profile.rating,
             clientsCount: profile.clientsCount,
@@ -675,7 +682,7 @@ const generateInvitationCode = asyncHandler(async (req, res, next) => {
   // Create invitation code
   const invitationCode = await InvitationCode.create({
     clientId,
-    therapist_id: therapistId,
+    therapistId: therapistId,
     code: code.toUpperCase(),
     email,
     expiresAt: expiresAt.toISOString()
@@ -859,6 +866,110 @@ const regenerateInvitationCode = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Get client settings
+// @route   GET /api/client/settings
+// @access  Private
+const getClientSettings = asyncHandler(async (req, res, next) => {
+  const clientId = req.user.id || req.user._id;
+  const supabase = require('../config/supabase').supabase;
+
+  const { data: settings, error } = await supabase
+    .from('client_settings')
+    .select('*')
+    .eq('client_id', clientId)
+    .single();
+
+  if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+    throw new Error(error.message);
+  }
+
+  // If no settings exist, create default settings
+  if (!settings) {
+    const { data: newSettings, error: createError } = await supabase
+      .from('client_settings')
+      .insert([{ client_id: clientId }])
+      .select()
+      .single();
+
+    if (createError) {
+      throw new Error(createError.message);
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: newSettings
+    });
+  }
+
+  res.status(200).json({
+    success: true,
+    data: settings
+  });
+});
+
+// @desc    Update client settings
+// @route   PUT /api/client/settings
+// @access  Private
+const updateClientSettings = asyncHandler(async (req, res, next) => {
+  const clientId = req.user.id || req.user._id;
+  const supabase = require('../config/supabase').supabase;
+
+  const allowedFields = [
+    'email_notifications',
+    'push_notifications',
+    'sms_notifications',
+    'dark_mode',
+    'theme_color',
+    'language',
+    'profile_visibility',
+    'show_online_status',
+    'show_activity'
+  ];
+
+  // Filter only allowed fields
+  const updateData = {};
+  Object.keys(req.body).forEach(key => {
+    if (allowedFields.includes(key)) {
+      updateData[key] = req.body[key];
+    }
+  });
+
+  // Check if settings exist
+  const { data: existingSettings } = await supabase
+    .from('client_settings')
+    .select('id')
+    .eq('client_id', clientId)
+    .single();
+
+  let result;
+  if (existingSettings) {
+    // Update existing settings
+    result = await supabase
+      .from('client_settings')
+      .update(updateData)
+      .eq('client_id', clientId)
+      .select()
+      .single();
+  } else {
+    // Create new settings
+    result = await supabase
+      .from('client_settings')
+      .insert([{ client_id: clientId, ...updateData }])
+      .select()
+      .single();
+  }
+
+  if (result.error) {
+    throw new Error(result.error.message);
+  }
+
+  res.status(200).json({
+    success: true,
+    data: result.data,
+    message: 'Configuración actualizada correctamente'
+  });
+});
+
 module.exports = {
   getClients,
   getClient,
@@ -876,6 +987,8 @@ module.exports = {
   generateInvitationCode,
   sendInvitationEmail,
   validateInvitationCode,
+  getClientSettings,
+  updateClientSettings,
   invalidateInvitationCodes,
   regenerateInvitationCode
 };

@@ -12,7 +12,7 @@ class Booking {
     this.startTime = data.start_time;
     this.endTime = data.end_time;
     this.clientId = data.client_id;
-    this.therapistId = data.therapistId;
+    this.therapistId = data.therapist_id || data.therapistId;
     this.therapyType = data.therapy_type;
     this.therapyDuration = data.therapy_duration || 60;
     this.status = data.status || 'upcoming';
@@ -94,7 +94,7 @@ class Booking {
       start_time: this.startTime,
       end_time: this.endTime,
       client_id: this.clientId,
-      therapistId: this.therapistId,
+      therapist_id: this.therapistId,
       therapy_type: this.therapyType,
       therapy_duration: this.therapyDuration,
       status: this.status,
@@ -133,7 +133,7 @@ class Booking {
       startTime: this.startTime,
       endTime: this.endTime,
       clientId: this.clientId,
-      therapistId: this.therapistId,
+      therapist_id: this.therapistId,
       therapyType: this.therapyType,
       therapyDuration: this.therapyDuration,
       status: this.status,
@@ -204,7 +204,22 @@ class BookingModel {
    * Buscar todos
    */
   async find(options = {}) {
-    const results = await this.service.findAll(options);
+    // Translate property names to database column names in filters
+    let translatedOptions = { ...options };
+    if (options.filters) {
+      const columnFilters = {};
+      const f = options.filters;
+      if (f.id) columnFilters.id = f.id;
+      if (f.clientId || f.client_id) columnFilters.client_id = f.clientId || f.client_id;
+      if (f.therapistId || f.therapist_id) columnFilters.therapist_id = f.therapistId || f.therapist_id;
+      if (f.date) columnFilters.date = f.date;
+      if (f.status) columnFilters.status = f.status;
+      if (f.therapyType || f.therapy_type) columnFilters.therapy_type = f.therapyType || f.therapy_type;
+      if (f.isAvailable !== undefined) columnFilters.is_available = f.isAvailable;
+      translatedOptions.filters = columnFilters;
+    }
+    
+    const results = await this.service.findAll(translatedOptions);
     return results.map(data => new Booking(data));
   }
 
@@ -220,7 +235,16 @@ class BookingModel {
    * Buscar uno
    */
   async findOne(filters, options = {}) {
-    const result = await this.service.findOne(filters, options);
+    // Translate property names to database column names
+    const columnFilters = {};
+    if (filters.id) columnFilters.id = filters.id;
+    if (filters.clientId) columnFilters.client_id = filters.clientId;
+    if (filters.therapistId) columnFilters.therapist_id = filters.therapistId;
+    if (filters.date) columnFilters.date = filters.date;
+    if (filters.status) columnFilters.status = filters.status;
+    if (filters.therapyType) columnFilters.therapy_type = filters.therapyType;
+    
+    const result = await this.service.findOne(columnFilters, options);
     return result ? new Booking(result) : null;
   }
 
@@ -237,6 +261,7 @@ class BookingModel {
     if (updateData.endTime) data.end_time = updateData.endTime;
     if (updateData.clientId) data.client_id = updateData.clientId;
     if (updateData.therapistId) data.therapist_id = updateData.therapistId;
+    if (updateData.therapist_id) data.therapist_id = updateData.therapist_id;
     if (updateData.therapyType) data.therapy_type = updateData.therapyType;
     if (updateData.therapyDuration) data.therapy_duration = updateData.therapyDuration;
     if (updateData.status) data.status = updateData.status;
@@ -411,6 +436,30 @@ class BookingModel {
       ...result,
       data: result.data.map(data => new Booking(data))
     };
+  }
+
+  // Métodos estáticos para compatibilidad con controladores
+  static async findById(id, options = {}) {
+    const instance = new BookingModel();
+    const result = await instance.service.findById(id, options);
+    return result ? new Booking(result) : null;
+  }
+
+  static async findOne(filters, options = {}) {
+    const instance = new BookingModel();
+    const result = await instance.service.findOne(filters, options);
+    return result ? new Booking(result) : null;
+  }
+
+  static async find(filters, options = {}) {
+    const instance = new BookingModel();
+    const results = await instance.service.findAll(filters, options);
+    return results.map(data => new Booking(data));
+  }
+
+  static async create(data) {
+    const instance = new BookingModel();
+    return await instance.create(data);
   }
 }
 
