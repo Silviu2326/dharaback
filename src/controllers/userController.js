@@ -49,6 +49,9 @@ const getProfile = asyncHandler(async (req, res, next) => {
   // Remove password from output
   user.password = undefined;
 
+  console.log('[Backend getProfile] User from DB:', user);
+  console.log('[Backend getProfile] user.videoPresentation:', user.videoPresentation);
+
   // Get professional profile separately if needed
   let professionalProfile = null;
   if (user.role === 'therapist') {
@@ -60,12 +63,16 @@ const getProfile = asyncHandler(async (req, res, next) => {
     }
   }
 
+  const responseData = {
+    ...user.toJSON(),
+    professionalProfile
+  };
+  
+  console.log('[Backend getProfile] Response data:', responseData);
+
   res.status(200).json({
     success: true,
-    data: {
-      ...user.toJSON(),
-      professionalProfile
-    }
+    data: responseData
   });
 });
 
@@ -77,7 +84,8 @@ const updateProfile = asyncHandler(async (req, res, next) => {
     'name',
     'preferences',
     'avatar',
-    'banner'
+    'banner',
+    'videoPresentation'
   ];
 
   // Filter out disallowed fields

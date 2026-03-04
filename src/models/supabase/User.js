@@ -29,6 +29,7 @@ class User {
     this.emailVerificationToken = data.email_verification_token;
     this.emailVerificationExpire = data.email_verification_expire;
     this.preferences = data.preferences || {};
+    this.videoPresentation = data.video_presentation || null;
     this.stripeCustomerId = data.stripe_customer_id;
     this.stripeSubscriptionId = data.stripe_subscription_id;
     this.subscriptionStatus = data.subscription_status || 'none';
@@ -135,6 +136,7 @@ class User {
       isActive: this.isActive,
       lastLogin: this.lastLogin,
       preferences: this.preferences,
+      videoPresentation: this.videoPresentation,
       stripeCustomerId: this.stripeCustomerId,
       subscriptionStatus: this.subscriptionStatus,
       createdAt: this.createdAt,
@@ -299,6 +301,7 @@ class UserModel {
     if (updateData.isActive !== undefined) data.is_active = updateData.isActive;
     if (updateData.lastLogin) data.last_login = updateData.lastLogin;
     if (updateData.preferences) data.preferences = updateData.preferences;
+    if (updateData.videoPresentation !== undefined) data.video_presentation = updateData.videoPresentation;
     if (updateData.stripeCustomerId !== undefined) data.stripe_customer_id = updateData.stripeCustomerId;
     if (updateData.subscriptionStatus) data.subscription_status = updateData.subscriptionStatus;
 
