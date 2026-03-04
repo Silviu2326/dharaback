@@ -4,15 +4,19 @@ const { User, Client } = require('../models');
 const { AppError, asyncHandler } = require('../middleware/errorHandler');
 
 // Generate JWT token
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
+const generateToken = (id, type = null) => {
+  const payload = { id };
+  if (type) payload.type = type;
+  return jwt.sign(payload, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRE || '7d'
   });
 };
 
 // Generate refresh token
-const generateRefreshToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_REFRESH_SECRET, {
+const generateRefreshToken = (id, type = null) => {
+  const payload = { id };
+  if (type) payload.type = type;
+  return jwt.sign(payload, process.env.JWT_REFRESH_SECRET, {
     expiresIn: process.env.JWT_REFRESH_EXPIRE || '30d'
   });
 };
@@ -92,10 +96,10 @@ const register = asyncHandler(async (req, res, next) => {
 // @access  Public
 const login = asyncHandler(async (req, res, next) => {
   console.log('🚀 LOGIN CONTROLLER CALLED');
-  const { email, password, rememberMe } = req.body;
+  const { email, password, rememberMe, userType } = req.body;
 
   console.log('=== LOGIN DEBUG ===');
-  console.log('Request body:', { email, password: password ? '***' : 'missing', rememberMe });
+  console.log('Request body:', { email, password: password ? '***' : 'missing', rememberMe, userType });
 
   // Validate input
   if (!email || !password) {
@@ -103,21 +107,43 @@ const login = asyncHandler(async (req, res, next) => {
     return next(new AppError('Please provide email and password', 400));
   }
 
-  // Check for user (password is always included in Supabase model)
-  let user = await User.findOne({ email: email.toLowerCase() });
-  console.log('User found:', user ? 'YES' : 'NO');
-
+  let user = null;
   let isClient = false;
   let client = null;
 
-  // If not found in users, check in clients
-  if (!user) {
-    console.log('User not found, checking clients...');
+  // Si se especifica userType, buscar solo en la tabla correspondiente
+  if (userType === 'terapeuta' || userType === 'profesional') {
+    console.log('Searching only in USERS (therapists)...');
+    user = await User.findOne({ email: email.toLowerCase() });
+    console.log('User found:', user ? 'YES' : 'NO');
+    
+    if (!user) {
+      return next(new AppError('Usuario no encontrado. Por favor, verifica tus credenciales o regístrate.', 401));
+    }
+  } else if (userType === 'cliente') {
+    console.log('Searching only in CLIENTS...');
     client = await Client.findOne({ email: email.toLowerCase() });
     console.log('Client found:', client ? 'YES' : 'NO');
     
     if (client) {
       isClient = true;
+    } else {
+      return next(new AppError('Cliente no encontrado. Por favor, verifica tus credenciales o regístrate.', 401));
+    }
+  } else {
+    // Si no se especifica userType, mantener comportamiento anterior (fallback)
+    console.log('No userType specified, searching in both tables...');
+    user = await User.findOne({ email: email.toLowerCase() });
+    console.log('User found:', user ? 'YES' : 'NO');
+
+    if (!user) {
+      console.log('User not found, checking clients...');
+      client = await Client.findOne({ email: email.toLowerCase() });
+      console.log('Client found:', client ? 'YES' : 'NO');
+      
+      if (client) {
+        isClient = true;
+      }
     }
   }
 
@@ -170,10 +196,9 @@ const login = asyncHandler(async (req, res, next) => {
     );
   }
 
-  // Generate token
-  const token = jwt.sign({ id: entity.id || entity._id }, process.env.JWT_SECRET, {
-    expiresIn: rememberMe ? '7d' : '24h'
-  });
+  // Generate token with type for clients
+  const tokenType = isClient ? 'client' : null;
+  const token = generateToken(entity.id || entity._id, tokenType);
 
   entity.password = undefined;
 
@@ -456,6 +481,9 @@ const changePassword = asyncHandler(async (req, res, next) => {
 const registerCliente = asyncHandler(async (req, res, next) => {
   const { nombre, apellidos, email, telefono, password } = req.body;
 
+  console.log('=== REGISTER CLIENTE DEBUG ===');
+  console.log('Received password:', password ? `Length: ${password.length}` : 'undefined');
+
   // Validate input
   if (!nombre || !apellidos || !email || !password) {
     return next(new AppError('Por favor proporciona todos los campos requeridos', 400));
@@ -480,6 +508,7 @@ const registerCliente = asyncHandler(async (req, res, next) => {
   }
 
   // Create client
+  console.log('Creating client with password...');
   const client = await Client.create({
     name,
     email: email.toLowerCase().trim(),
@@ -487,10 +516,12 @@ const registerCliente = asyncHandler(async (req, res, next) => {
     phone: telefono || undefined,
     status: 'active'
   });
+  
+  console.log('Client created with password hash:', client.password ? client.password.substring(0, 20) : 'none');
 
-  // Generate token for client
-  const token = generateToken(client.id);
-  const refreshToken = generateRefreshToken(client.id);
+  // Generate token for client with type 'client'
+  const token = generateToken(client.id, 'client');
+  const refreshToken = generateRefreshToken(client.id, 'client');
 
   res.status(201).json({
     success: true,

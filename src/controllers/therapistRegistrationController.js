@@ -2,6 +2,249 @@ const asyncHandler = require('../middleware/asyncHandler');
 const stripeService = require('../services/stripeService');
 const fs = require('fs').promises;
 const path = require('path');
+const { supabase } = require('../config/supabase');
+
+/**
+ * @desc    Registrar terapeuta completo (Auth + Perfil + Stripe)
+ * @route   POST /api/terapeutas/registrar
+ * @access  Public
+ */
+const registerTherapist = asyncHandler(async (req, res) => {
+  const {
+    email,
+    password,
+    nombre,
+    apellidos,
+    telefono,
+    especialidades,
+    titulacion,
+    numeroColegiado,
+    experiencia,
+    sobreMi,
+    plan = 'avanzado'
+  } = req.body;
+
+  // Validaciones
+  if (!email || !password || !nombre || !apellidos) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email, contraseña, nombre y apellidos son requeridos'
+    });
+  }
+
+  if (!especialidades || especialidades.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Debes seleccionar al menos una especialidad'
+    });
+  }
+
+  if (!titulacion || !sobreMi) {
+    return res.status(400).json({
+      success: false,
+      message: 'Titulación y descripción son requeridos'
+    });
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email inválido'
+    });
+  }
+
+  if (password.length < 8) {
+    return res.status(400).json({
+      success: false,
+      message: 'La contraseña debe tener al menos 8 caracteres'
+    });
+  }
+
+  let authUser = null;
+
+  try {
+    // 1. Verificar si el email ya está registrado
+    const { data: existingUsers, error: checkError } = await supabase
+      .from('users')
+      .select('email')
+      .eq('email', email)
+      .limit(1);
+
+    if (existingUsers && existingUsers.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'Este email ya está registrado. Por favor, inicia sesión o usa otro email.'
+      });
+    }
+
+    // 2. Crear usuario en Supabase Auth (como admin)
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: false, // El usuario debe confirmar su email
+      user_metadata: {
+        nombre: `${nombre} ${apellidos}`,
+        telefono,
+        tipo_usuario: 'terapeuta'
+      }
+    });
+
+    if (authError) {
+      console.error('❌ Error creating Supabase Auth user:', authError);
+      
+      if (authError.message?.includes('already been registered')) {
+        return res.status(409).json({
+          success: false,
+          message: 'Este email ya está registrado. Por favor, inicia sesión o usa otro email.'
+        });
+      }
+      
+      throw new Error('Error al crear el usuario: ' + authError.message);
+    }
+
+    authUser = authData.user;
+    console.log('✅ Supabase Auth user created:', authUser.id);
+
+    // 3. Crear usuario en la tabla users
+    const { error: profileError } = await supabase.from('users').insert([
+      {
+        id: authUser.id,
+        email,
+        name: `${nombre} ${apellidos}`,
+        supabase_id: authUser.id,
+        verification_status: 'pending',
+        role: 'therapist',
+        subscription_status: plan === 'avanzado-pro' ? 'active' : 'trial',
+        email_verified: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+    ]);
+
+    if (profileError) {
+      console.error('❌ Error creating user profile:', profileError);
+      throw new Error('Error al crear el perfil de usuario: ' + profileError.message);
+    }
+
+    console.log('✅ User profile created');
+
+    // 4. Crear perfil profesional
+    const { error: professionalError } = await supabase
+      .from('professional_profiles')
+      .insert([
+        {
+          user_id: authUser.id,
+          about: sobreMi,
+          therapies: especialidades,
+          specializations: especialidades.map((esp) => ({
+            name: esp,
+            verified: false
+          })),
+          education: [
+            {
+              degree: titulacion,
+              institution: '',
+              license_number: numeroColegiado || null,
+              verified: false
+            }
+          ],
+          experience: experiencia
+            ? [
+                {
+                  years: experiencia,
+                  description: ''
+                }
+              ]
+            : [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      ]);
+
+    if (professionalError) {
+      console.error('❌ Error creating professional profile:', professionalError);
+      throw new Error('Error al crear el perfil profesional: ' + professionalError.message);
+    }
+
+    console.log('✅ Professional profile created');
+
+    // 5. Crear suscripción en Stripe
+    const trialDays = plan === 'avanzado-pro' ? 0 : 90;
+    
+    const planConfig = {
+      basico: {
+        priceId: process.env.STRIPE_PLAN_BASICO_PRICE_ID || 'price_basico_placeholder',
+        defaultTrialDays: 90
+      },
+      avanzado: {
+        priceId: process.env.STRIPE_PLAN_AVANZADO_PRICE_ID || 'price_1T1BngECp38q24a3IczRTdHW',
+        defaultTrialDays: 90
+      },
+      'avanzado-pro': {
+        priceId: process.env.STRIPE_PLAN_AVANZADO_PRO_PRICE_ID || 'price_avanzado_pro_placeholder',
+        defaultTrialDays: 0
+      }
+    };
+
+    const selectedPlan = planConfig[plan] || planConfig['avanzado'];
+    const finalTrialDays = trialDays !== undefined ? trialDays : selectedPlan.defaultTrialDays;
+    const frontendUrl = process.env.FRONTEND_URL || 'https://dhara-peach.vercel.app';
+
+    const session = await stripeService.createSubscriptionCheckout({
+      priceId: selectedPlan.priceId,
+      email,
+      name: `${nombre} ${apellidos}`,
+      trialDays: finalTrialDays,
+      successUrl: `${frontendUrl}/registro-exitoso?session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${frontendUrl}/registro-terapeuta?cancelled=true`,
+      metadata: {
+        userId: authUser.id,
+        email,
+        nombre: `${nombre} ${apellidos}`,
+        plan: plan,
+        tipo: 'registro_terapeuta',
+        trialDays: finalTrialDays.toString()
+      }
+    });
+
+    console.log('✅ Therapist registration complete:', {
+      userId: authUser.id,
+      email,
+      plan,
+      stripeSessionId: session.id
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Usuario registrado correctamente',
+      data: {
+        userId: authUser.id,
+        email,
+        checkoutUrl: session.url,
+        sessionId: session.id
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error in therapist registration:', error);
+    
+    // Rollback: eliminar usuario de Auth si se creó
+    if (authUser) {
+      try {
+        await supabase.auth.admin.deleteUser(authUser.id);
+        console.log('✅ Rollback: Auth user deleted');
+      } catch (deleteError) {
+        console.error('❌ Error deleting auth user during rollback:', deleteError);
+      }
+    }
+
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error al registrar el terapeuta'
+    });
+  }
+});
 
 /**
  * @desc    Crear sesión de checkout para registro de terapeuta con trial
@@ -9,6 +252,8 @@ const path = require('path');
  * @access  Public
  */
 const createTherapistSubscription = asyncHandler(async (req, res) => {
+  // Este endpoint ahora es solo para casos donde el usuario ya existe
+  // y solo necesita crear/actualizar la suscripción
   const { email, nombre, userId, plan = 'avanzado', trialDays } = req.body;
 
   if (!email || !nombre) {
@@ -28,12 +273,12 @@ const createTherapistSubscription = asyncHandler(async (req, res) => {
 
   // Configuración de planes
   const planConfig = {
-    'basico': {
+    basico: {
       priceId: process.env.STRIPE_PLAN_BASICO_PRICE_ID || 'price_basico_placeholder',
       defaultTrialDays: 90,
       nombre: 'Básico'
     },
-    'avanzado': {
+    avanzado: {
       priceId: process.env.STRIPE_PLAN_AVANZADO_PRICE_ID || 'price_1T1BngECp38q24a3IczRTdHW',
       defaultTrialDays: 90,
       nombre: 'Avanzado'
@@ -118,6 +363,36 @@ const verifyRegistration = asyncHandler(async (req, res) => {
       subscriptionId: session.subscriptionId
     });
 
+    // Verificar que el usuario existe en la base de datos
+    const userId = session.metadata?.userId;
+    let userExists = false;
+    let userData = null;
+
+    if (userId) {
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (!userError && user) {
+        userExists = true;
+        userData = user;
+        console.log('✅ User found in database:', user.id);
+      } else {
+        console.error('❌ User not found in database:', userId);
+      }
+    }
+
+    // Si el pago fue exitoso pero el usuario no existe, retornar error
+    if (session.paymentStatus === 'paid' && !userExists) {
+      console.error('❌ Payment succeeded but user does not exist in database');
+      return res.status(404).json({
+        success: false,
+        message: 'El pago se procesó correctamente pero no se encontró el usuario. Por favor, contacta con soporte.'
+      });
+    }
+
     res.status(200).json({
       success: true,
       data: {
@@ -126,7 +401,9 @@ const verifyRegistration = asyncHandler(async (req, res) => {
         subscriptionId: session.subscriptionId,
         customerId: session.customerId,
         email: session.customerEmail,
-        nombre: session.customerName
+        nombre: session.customerName,
+        userExists,
+        user: userData ? { id: userData.id, email: userData.email, name: userData.name } : null
       }
     });
 
@@ -210,6 +487,7 @@ const processDegreeDocuments = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  registerTherapist,
   createTherapistSubscription,
   verifyRegistration,
   processDegreeDocuments

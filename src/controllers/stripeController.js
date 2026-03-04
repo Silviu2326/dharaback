@@ -179,6 +179,10 @@ const handleWebhook = asyncHandler(async (req, res) => {
         await handleRefund(event.data.object);
         break;
 
+      case 'checkout.session.completed':
+        await handleCheckoutSessionCompleted(event.data.object);
+        break;
+
       default:
         console.log(`⚠️  Unhandled event type: ${event.type}`);
     }
@@ -378,6 +382,65 @@ const createRefund = asyncHandler(async (req, res) => {
     });
   }
 });
+
+/**
+ * Manejar checkout session completada (para registro de terapeutas)
+ */
+async function handleCheckoutSessionCompleted(session) {
+  try {
+    console.log('📥 Checkout session completed:', session.id);
+    
+    // Verificar si es un registro de terapeuta
+    if (session.metadata?.tipo !== 'registro_terapeuta') {
+      console.log('ℹ️  Not a therapist registration, skipping');
+      return;
+    }
+
+    const userId = session.metadata?.userId;
+    const email = session.metadata?.email;
+    const nombre = session.metadata?.nombre;
+    const plan = session.metadata?.plan;
+
+    if (!userId || !email) {
+      console.error('❌ Missing userId or email in session metadata');
+      return;
+    }
+
+    // Verificar si el usuario existe en la base de datos
+    const { data: existingUser, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !existingUser) {
+      console.error('❌ User not found in database:', userId);
+      console.error('⚠️  Payment was successful but user record is missing!');
+      // Aquí podríamos enviar una notificación al admin o intentar recuperar
+      return;
+    }
+
+    // Actualizar el estado de suscripción del usuario
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({
+        subscription_status: plan === 'avanzado-pro' ? 'active' : 'trial',
+        stripe_customer_id: session.customer,
+        stripe_subscription_id: session.subscription,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId);
+
+    if (updateError) {
+      console.error('❌ Error updating user subscription status:', updateError);
+    } else {
+      console.log('✅ User subscription status updated:', userId);
+    }
+
+  } catch (error) {
+    console.error('❌ Error handling checkout session completed:', error);
+  }
+}
 
 module.exports = {
   createPaymentIntent,
