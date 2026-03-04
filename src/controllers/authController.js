@@ -36,6 +36,10 @@ const sendTokenResponse = (user, statusCode, res) => {
   // Remove password from output
   user.password = undefined;
 
+  // Normalizar el rol para el frontend
+  const role = user.role || 'therapist';
+  const normalizedRole = (role === 'therapist' || role === 'user') ? 'terapeuta' : role;
+
   res.status(statusCode)
     .cookie('token', token, options)
     .cookie('refreshToken', refreshToken, options)
@@ -47,7 +51,7 @@ const sendTokenResponse = (user, statusCode, res) => {
         id: user.id || user._id,
         name: user.name,
         email: user.email,
-        role: user.role,
+        role: normalizedRole,
         isVerified: user.isVerified,
         verificationStatus: user.verificationStatus,
         avatar: user.avatar
@@ -203,6 +207,16 @@ const login = asyncHandler(async (req, res, next) => {
   entity.password = undefined;
 
   // Build response
+  // Normalizar el rol: 'therapist' o 'user' -> 'terapeuta', 'client' -> 'cliente'
+  let normalizedRole;
+  if (isClient) {
+    normalizedRole = 'cliente';
+  } else {
+    // Para terapeutas, normalizar el rol a 'terapeuta'
+    const role = entity.role || 'therapist';
+    normalizedRole = (role === 'therapist' || role === 'user') ? 'terapeuta' : role;
+  }
+
   const responseData = {
     success: true,
     accessToken: token,
@@ -210,7 +224,7 @@ const login = asyncHandler(async (req, res, next) => {
       id: entity.id || entity._id,
       name: entity.name,
       email: entity.email,
-      role: isClient ? 'cliente' : entity.role,
+      role: normalizedRole,
       avatar: entity.avatar
     }
   };

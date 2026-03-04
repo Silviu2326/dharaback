@@ -75,7 +75,9 @@ const getProfile = asyncHandler(async (req, res, next) => {
 const updateProfile = asyncHandler(async (req, res, next) => {
   const allowedFields = [
     'name',
-    'preferences'
+    'preferences',
+    'avatar',
+    'banner'
   ];
 
   // Filter out disallowed fields

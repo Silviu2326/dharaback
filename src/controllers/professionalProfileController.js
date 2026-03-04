@@ -76,7 +76,8 @@ const updateProfile = asyncHandler(async (req, res, next) => {
     'pricingPackages',
     'preferences',
     'legalInfo',
-    'credentials' // Allow credentials from frontend
+    'credentials', // Allow credentials from frontend
+    'banner' // Allow banner field from frontend
   ];
 
   // Filter allowed fields

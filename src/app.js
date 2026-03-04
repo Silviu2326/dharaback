@@ -46,6 +46,7 @@ const dashboardRoutes = require("./routes/dashboardRoutes");
 const terapiasRoutes = require("./routes/terapiasRoutes");
 const autoResponseRoutes = require("./routes/autoResponseRoutes");
 const healthRoutes = require("./routes/health");
+const storageRoutes = require("./routes/storageRoutes");
 
 // Import middleware
 const { errorHandler } = require("./middleware/errorHandler");
@@ -191,6 +192,7 @@ app.use("/api/favorites", favoriteRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/terapias", terapiasRoutes);
 app.use("/api/auto-responses", autoResponseRoutes);
+app.use("/api/storage", storageRoutes);
 
 // Test endpoints for debugging (BEFORE 404 handler)
 app.get("/test", (req, res) => {
