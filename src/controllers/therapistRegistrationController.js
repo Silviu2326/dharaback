@@ -3,6 +3,7 @@ const stripeService = require('../services/stripeService');
 const fs = require('fs').promises;
 const path = require('path');
 const { supabase } = require('../config/supabase');
+const bcrypt = require('bcryptjs');
 
 /**
  * @desc    Registrar terapeuta completo (Auth + Perfil + Stripe)
@@ -106,11 +107,16 @@ const registerTherapist = asyncHandler(async (req, res) => {
     authUser = authData.user;
     console.log('✅ Supabase Auth user created:', authUser.id);
 
-    // 3. Crear usuario en la tabla users
+    // 3. Hashear el password para guardarlo en la tabla users
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // 4. Crear usuario en la tabla users
     const { error: profileError } = await supabase.from('users').insert([
       {
         id: authUser.id,
         email,
+        password: hashedPassword,
         name: `${nombre} ${apellidos}`,
         supabase_id: authUser.id,
         verification_status: 'pending',
