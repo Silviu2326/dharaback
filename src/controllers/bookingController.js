@@ -877,6 +877,85 @@ const requestReschedule = asyncHandler(async (req, res, next) => {
   });
 });
 
+// Create booking by client
+const createClientBooking = asyncHandler(async (req, res, next) => {
+  const {
+    therapistId,
+    date,
+    startTime,
+    endTime,
+    therapyType,
+    therapyDuration,
+    amount,
+    currency = 'EUR',
+    location,
+    notes,
+    meetingLink
+  } = req.body;
+
+  // Validate required fields
+  if (!therapistId || !date || !startTime || !endTime || !therapyType || !amount || !location) {
+    return next(new AppError('All required fields must be provided', 400));
+  }
+
+  // Get client ID from authenticated user
+  const clientId = req.user.id || req.user._id;
+
+  // Check for time conflicts
+  const conflicts = await Booking.findConflicts(
+    therapistId,
+    date,
+    startTime,
+    endTime
+  );
+
+  if (conflicts.length > 0) {
+    return next(new AppError('Time slot conflicts with existing booking', 400));
+  }
+
+  // Validate time logic
+  const startDateTime = new Date(`${date}T${startTime}`);
+  const endDateTime = new Date(`${date}T${endTime}`);
+
+  if (startDateTime >= endDateTime) {
+    return next(new AppError('End time must be after start time', 400));
+  }
+
+  // Check if booking is in the past
+  if (startDateTime < new Date()) {
+    return next(new AppError('Cannot create booking in the past', 400));
+  }
+
+  const booking = await Booking.create({
+    date: new Date(date),
+    startTime,
+    endTime,
+    clientId,
+    therapistId,
+    therapyType,
+    therapyDuration: therapyDuration || 60,
+    amount,
+    currency,
+    location,
+    notes,
+    meetingLink,
+    status: 'upcoming'
+  });
+
+  // Send confirmation email
+  try {
+    await emailService.sendBookingConfirmation(booking);
+  } catch (emailError) {
+    console.error('Failed to send booking confirmation email:', emailError);
+  }
+
+  res.status(201).json({
+    success: true,
+    data: booking.toJSON(),
+    message: 'Booking created successfully'
+  });
+});
+
 module.exports = {
   getBookings,
   getBooking,
@@ -893,5 +972,6 @@ module.exports = {
   getClientBooking,
   getClientUpcomingBookings,
   cancelClientBooking,
-  requestReschedule
+  requestReschedule,
+  createClientBooking
 };

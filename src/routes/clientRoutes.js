@@ -13,6 +13,7 @@ const {
   registerClient,
   loginClient,
   getAvailableTherapists,
+  getTherapistById,
   generateInvitationCode,
   sendInvitationEmail,
   validateInvitationCode,
@@ -29,6 +30,7 @@ const router = express.Router();
 router.post('/register', registerClient);
 router.post('/login', loginClient);
 router.get('/available-therapists', getAvailableTherapists);
+router.get('/therapists/:id', getTherapistById);
 
 // All other routes are protected
 router.use(protect);

@@ -657,6 +657,71 @@ const getAvailableTherapists = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Get therapist by ID (public profile)
+// @route   GET /api/clients/therapists/:id
+// @access  Public
+const getTherapistById = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+
+  // Get therapist
+  const therapist = await User.findById(id);
+  
+  if (!therapist) {
+    return next(new AppError('Therapist not found', 404));
+  }
+
+  if (therapist.role !== 'therapist') {
+    return next(new AppError('User is not a therapist', 400));
+  }
+
+  // Get professional profile
+  const profile = await ProfessionalProfile.findOne({ user_id: id });
+  
+  // Get rates
+  const { supabase } = require('../config/supabase');
+  const { data: rates } = await supabase
+    .from('rates')
+    .select('*')
+    .eq('therapist_id', id)
+    .eq('is_active', true)
+    .single();
+
+  // Get work locations
+  const { data: workLocations } = await supabase
+    .from('work_locations')
+    .select('*')
+    .eq('therapist_id', id);
+
+  // Build response
+  const therapistData = {
+    id: therapist.id || therapist._id,
+    name: therapist.name,
+    email: therapist.email,
+    avatar: therapist.avatar,
+    isVerified: therapist.isVerified,
+    isActive: therapist.isActive,
+    joinedAt: therapist.createdAt,
+    bio: profile?.about || '',
+    specialties: profile?.therapies?.map(t => t.name) || [],
+    languages: profile?.languages || [],
+    rating: profile?.rating || 0,
+    clientsCount: profile?.clientsCount || 0,
+    yearsExperience: profile?.yearsExperience || 0,
+    education: profile?.education || [],
+    videoPresentation: profile?.videoPresentation,
+    sessionPrice: rates?.session_price || profile?.basePrice || 0,
+    workLocations: workLocations || [],
+    isAvailable: profile?.isAvailable || false,
+    banner: profile?.banner
+  };
+
+  res.status(200).json({
+    success: true,
+    data: therapistData,
+    message: 'Therapist profile retrieved successfully'
+  });
+});
+
 // @desc    Generate invitation code for client
 // @route   POST /api/clients/invitation-code
 // @access  Private
@@ -984,6 +1049,7 @@ module.exports = {
   registerClient,
   loginClient,
   getAvailableTherapists,
+  getTherapistById,
   generateInvitationCode,
   sendInvitationEmail,
   validateInvitationCode,

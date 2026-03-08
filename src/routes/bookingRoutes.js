@@ -15,13 +15,15 @@ const {
   getClientBooking,
   getClientUpcomingBookings,
   cancelClientBooking,
-  requestReschedule
+  requestReschedule,
+  createClientBooking
 } = require('../controllers/bookingController');
 const { protect, protectClient } = require('../middleware/auth');
 
 const router = express.Router();
 
 // Client specific routes - use protectClient middleware only (no general protect middleware)
+router.post('/client/book', protectClient, createClientBooking);
 router.get('/client/upcoming', protectClient, getClientUpcomingBookings);
 router.route('/client')
   .get(protectClient, getClientBookings);

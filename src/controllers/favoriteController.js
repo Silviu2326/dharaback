@@ -13,21 +13,24 @@ const getFavorites = asyncHandler(async (req, res, next) => {
 
   const { data: favorites, error, count } = await supabase
     .from('favorites')
-    .select('*, therapist:therapist_id(*)', { count: 'exact' })
+    .select('*, therapist:user_id(*)', { count: 'exact' })
     .eq('client_id', clientId)
-    .order(sortBy, { ascending: sortOrder === 'asc' })
+    .order('created_at', { ascending: sortOrder === 'asc' })
     .range(offset, offset + parseInt(limit) - 1);
 
   if (error) throw new Error(error.message);
 
-  // Get professional profiles for therapists
+  // Get professional profiles for therapists and add therapist_id field
   const enrichedFavorites = await Promise.all(
     (favorites || []).map(async (fav) => {
+      // Add therapist_id for easier access in frontend
+      fav.therapist_id = fav.user_id;
+      
       if (fav.therapist) {
         const { data: profile } = await supabase
           .from('professional_profiles')
           .select('*')
-          .eq('user_id', fav.therapistId)
+          .eq('user_id', fav.user_id)
           .single();
         
         fav.therapist.profile = profile || null;
@@ -65,26 +68,40 @@ const addToFavorites = asyncHandler(async (req, res, next) => {
     return next(new AppError('User is not a therapist', 400));
   }
 
-  if (!therapist.is_active) {
+  if (!therapist.isActive) {
     return next(new AppError('Therapist is not available', 400));
   }
 
-  // Check if already in favorites
-  const existingFavorite = await Favorite.findOne({
-    client_id: clientId,
-    therapistId: therapistId
-  });
+  // Check if already in favorites using Supabase directly
+  const { data: existingFavorite, error: checkError } = await supabase
+    .from('favorites')
+    .select('id')
+    .eq('client_id', clientId)
+    .eq('user_id', therapistId)
+    .single();
+  
+  if (checkError && checkError.code !== 'PGRST116') {
+    throw new Error(checkError.message);
+  }
   
   if (existingFavorite) {
     return next(new AppError('Therapist is already in your favorites', 409));
   }
 
-  // Create favorite
-  const favorite = await Favorite.create({
-    clientId,
-    therapistId,
-    notes: notes?.trim()
-  });
+  // Create favorite using Supabase service directly
+  const { data: favorite, error: createError } = await supabase
+    .from('favorites')
+    .insert({
+      client_id: clientId,
+      user_id: therapistId,
+      notes: notes?.trim()
+    })
+    .select()
+    .single();
+  
+  if (createError) {
+    throw new Error(createError.message);
+  }
 
   // Get therapist details
   const { data: profile } = await supabase
@@ -113,16 +130,32 @@ const removeFromFavorites = asyncHandler(async (req, res, next) => {
   const { therapistId } = req.params;
   const clientId = req.user.id;
 
-  const favorite = await Favorite.findOne({
-    client_id: clientId,
-    therapistId: therapistId
-  });
-
-  if (!favorite) {
+  // Use Supabase directly to find and delete favorite
+  // Find the favorite first
+  const { data: favorite, error: findError } = await supabase
+    .from('favorites')
+    .select('id')
+    .eq('client_id', clientId)
+    .eq('user_id', therapistId)
+    .single();
+  
+  if (findError && findError.code === 'PGRST116') {
     return next(new AppError('Therapist not found in favorites', 404));
   }
+  
+  if (findError) {
+    throw new Error(findError.message);
+  }
 
-  await Favorite.findByIdAndDelete(favorite.id);
+  // Delete the favorite
+  const { error: deleteError } = await supabase
+    .from('favorites')
+    .delete()
+    .eq('id', favorite.id);
+  
+  if (deleteError) {
+    throw new Error(deleteError.message);
+  }
 
   res.status(200).json({
     success: true,
@@ -137,13 +170,23 @@ const checkIsFavorite = asyncHandler(async (req, res, next) => {
   const { therapistId } = req.params;
   const clientId = req.user.id;
 
-  const isFavorite = await Favorite.isFavorite(clientId, therapistId);
+  // Use Supabase directly to check if favorite exists
+  const { data, error } = await supabase
+    .from('favorites')
+    .select('id')
+    .eq('client_id', clientId)
+    .eq('user_id', therapistId)
+    .single();
+  
+  if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+    throw new Error(error.message);
+  }
 
   res.status(200).json({
     success: true,
     data: {
       therapistId,
-      isFavorite
+      isFavorite: !!data
     }
   });
 });
@@ -156,18 +199,34 @@ const updateFavoriteNotes = asyncHandler(async (req, res, next) => {
   const { notes } = req.body;
   const clientId = req.user.id;
 
-  const favorite = await Favorite.findOne({
-    client_id: clientId,
-    therapistId: therapistId
-  });
-
-  if (!favorite) {
+  // Use Supabase directly
+  // Find the favorite
+  const { data: favorite, error: findError } = await supabase
+    .from('favorites')
+    .select('id')
+    .eq('client_id', clientId)
+    .eq('user_id', therapistId)
+    .single();
+  
+  if (findError && findError.code === 'PGRST116') {
     return next(new AppError('Favorite not found', 404));
   }
+  
+  if (findError) {
+    throw new Error(findError.message);
+  }
 
-  const updatedFavorite = await Favorite.findByIdAndUpdate(favorite.id, {
-    notes: notes?.trim()
-  });
+  // Update the favorite
+  const { data: updatedFavorite, error: updateError } = await supabase
+    .from('favorites')
+    .update({ notes: notes?.trim() })
+    .eq('id', favorite.id)
+    .select()
+    .single();
+  
+  if (updateError) {
+    throw new Error(updateError.message);
+  }
 
   // Get therapist details
   const therapist = await User.findById(therapistId);
@@ -211,8 +270,8 @@ const getFavoriteStats = asyncHandler(async (req, res, next) => {
   const { count: recentFavorites } = await supabase
     .from('favorites')
     .select('*', { count: 'exact', head: true })
-    .eq('therapist_id', therapistId)
-    .gte('added_at', thirtyDaysAgo.toISOString());
+    .eq('user_id', therapistId)
+    .gte('created_at', thirtyDaysAgo.toISOString());
 
   res.status(200).json({
     success: true,
@@ -233,16 +292,16 @@ const getPopularTherapists = asyncHandler(async (req, res, next) => {
 
   let query = supabase
     .from('favorites')
-    .select('therapistId, added_at');
+    .select('user_id, created_at');
 
   if (period === '30days') {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    query = query.gte('added_at', thirtyDaysAgo.toISOString());
+    query = query.gte('created_at', thirtyDaysAgo.toISOString());
   } else if (period === '7days') {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    query = query.gte('added_at', sevenDaysAgo.toISOString());
+    query = query.gte('created_at', sevenDaysAgo.toISOString());
   }
 
   const { data: favorites, error } = await query;
@@ -252,7 +311,7 @@ const getPopularTherapists = asyncHandler(async (req, res, next) => {
   // Count favorites per therapist
   const therapistCounts = {};
   (favorites || []).forEach(fav => {
-    therapistCounts[fav.therapistId] = (therapistCounts[fav.therapistId] || 0) + 1;
+    therapistCounts[fav.user_id] = (therapistCounts[fav.user_id] || 0) + 1;
   });
 
   // Sort and get top therapists
@@ -331,12 +390,12 @@ const bulkManageFavorites = asyncHandler(async (req, res, next) => {
       .from('favorites')
       .delete()
       .eq('client_id', clientId)
-      .in('therapistId', therapistIds);
+      .in('user_id', therapistIds);
 
     // Create new favorites
     const favorites = therapistIds.map(therapistId => ({
       client_id: clientId,
-      therapistId: therapistId,
+      user_id: therapistId,
       notes: notes?.trim()
     }));
 
@@ -357,7 +416,7 @@ const bulkManageFavorites = asyncHandler(async (req, res, next) => {
       .from('favorites')
       .delete()
       .eq('client_id', clientId)
-      .in('therapistId', therapistIds)
+      .in('user_id', therapistIds)
       .select();
 
     res.status(200).json({
