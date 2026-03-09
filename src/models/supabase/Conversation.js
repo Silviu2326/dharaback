@@ -306,18 +306,16 @@ class ConversationModel {
    * Buscar una conversación por filtros
    */
   async findOne(filters, options = {}) {
-    const { logger } = require('../../utils/logger');
-    
     try {
       const result = await this.service.findOne(filters, options);
       return result ? new Conversation(result) : null;
     } catch (error) {
       // If table doesn't exist, return null instead of throwing
       if (error.message && error.message.includes('relation "conversations" does not exist')) {
-        logger.warn('Conversations table does not exist in database, returning null');
+        console.warn('⚠️  Conversations table does not exist in database, returning null');
         return null;
       }
-      logger.error('Error in findOne:', { error: error.message, filters });
+      console.error('❌ Error in Conversation.findOne:', error.message);
       throw error;
     }
   }

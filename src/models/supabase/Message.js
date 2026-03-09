@@ -361,7 +361,6 @@ class MessageModel {
    */
   async findByConversation(conversationId, options = {}) {
     const supabase = require('../../config/supabase').supabase;
-    const { logger } = require('../../utils/logger');
 
     try {
       let query = supabase
@@ -383,7 +382,7 @@ class MessageModel {
       if (error) {
         // If table doesn't exist, return empty array instead of throwing
         if (error.message && error.message.includes('relation "messages" does not exist')) {
-          logger.warn('Messages table does not exist in database, returning empty array');
+          console.warn('⚠️  Messages table does not exist in database, returning empty array');
           return [];
         }
         throw new Error(error.message);
@@ -392,7 +391,7 @@ class MessageModel {
       return (data || []).map(d => new Message(d));
     } catch (error) {
       // Log error but return empty array to avoid breaking the frontend
-      logger.error('Error in findByConversation:', { error: error.message, conversationId });
+      console.error('❌ Error in findByConversation:', error.message, { conversationId });
       return [];
     }
   }
