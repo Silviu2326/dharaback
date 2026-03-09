@@ -54,7 +54,8 @@ const sendTokenResponse = (user, statusCode, res) => {
         role: normalizedRole,
         isVerified: user.isVerified,
         verificationStatus: user.verificationStatus,
-        avatar: user.avatar
+        avatar: user.avatar,
+        createdAt: user.createdAt
       }
     });
 };

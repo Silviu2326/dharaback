@@ -183,11 +183,122 @@ router.get('/therapist/:therapistId', (req, res) => {
   });
 });
 
-router.get('/exceptions', (req, res) => {
-  res.json({
-    success: true,
-    data: []
-  });
+router.get('/exceptions', protect, async (req, res) => {
+  const therapistId = req.user.id || req.user._id;
+  const { startDate, endDate } = req.query;
+  const supabase = require('../config/supabase').supabase;
+
+  try {
+    let query = supabase
+      .from('availability_slots')
+      .select('*')
+      .eq('therapist_id', therapistId)
+      .eq('is_available', false);
+
+    if (startDate && endDate) {
+      query = query
+        .or(`and(valid_from.is.null,valid_until.is.null),and(valid_from.lte.${endDate},valid_until.is.null),and(valid_from.is.null,valid_until.gte.${startDate}),and(valid_from.lte.${endDate},valid_until.gte.${startDate})`);
+    }
+
+    const { data, error } = await query.order('valid_from', { ascending: true });
+
+    if (error) return res.status(500).json({ success: false, error: error.message });
+
+    res.json({
+      success: true,
+      data: (data || []).map(row => ({
+        id: row.id,
+        title: row.title || 'Ausencia',
+        startDate: row.valid_from,
+        endDate: row.valid_until,
+        startTime: row.start_time,
+        endTime: row.end_time,
+        allDay: !row.start_time,
+        absenceType: row.notes || 'other',
+        type: 'absence',
+        color: row.color || 'red',
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post('/exceptions', protect, async (req, res) => {
+  const therapistId = req.user.id || req.user._id;
+  const { title, startDate, endDate, startTime, endTime, allDay, absenceType, type, notes } = req.body;
+  const supabase = require('../config/supabase').supabase;
+
+  if (!startDate || !endDate) {
+    return res.status(400).json({ success: false, error: 'startDate and endDate are required' });
+  }
+
+  const baseData = {
+    therapist_id: therapistId,
+    is_available: false,
+    valid_from: startDate,
+    valid_until: endDate,
+    start_time: allDay ? null : (startTime || null),
+    end_time: allDay ? null : (endTime || null),
+    day_of_week: new Date(startDate).getDay(),
+    location: 'absence',
+    slot_duration: 0,
+  };
+
+  try {
+    const fullData = {
+      ...baseData,
+      title: title || 'Ausencia',
+      color: 'red',
+      notes: absenceType || notes || 'other',
+    };
+
+    const { data, error } = await supabase
+      .from('availability_slots')
+      .insert(fullData)
+      .select()
+      .single();
+
+    if (error) {
+      // Retry with minimal fields if extra columns don't exist
+      const { data: data2, error: error2 } = await supabase
+        .from('availability_slots')
+        .insert(baseData)
+        .select()
+        .single();
+
+      if (error2) {
+        return res.status(500).json({ success: false, error: error2.message });
+      }
+
+      return res.status(201).json({
+        id: data2.id,
+        title: title || 'Ausencia',
+        startDate: data2.valid_from,
+        endDate: data2.valid_until,
+        startTime: data2.start_time,
+        endTime: data2.end_time,
+        allDay: !data2.start_time,
+        absenceType: absenceType || 'other',
+        type: 'absence',
+      });
+    }
+
+    res.status(201).json({
+      id: data.id,
+      title: data.title || 'Ausencia',
+      startDate: data.valid_from,
+      endDate: data.valid_until,
+      startTime: data.start_time,
+      endTime: data.end_time,
+      allDay: !data.start_time,
+      absenceType: absenceType || 'other',
+      type: 'absence',
+      color: data.color || 'red',
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 router.get('/:therapistId/external-calendar-status', (req, res) => {

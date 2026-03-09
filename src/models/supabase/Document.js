@@ -287,7 +287,7 @@ class Document {
       humanFileSize: this.humanFileSize,
       extension: this.extension,
       path: this.path,
-      supabaseUrl: this.supabaseUrl,
+      supabaseUrl: this.supabaseUrl || this.metadata?.supabaseUrl,
       isPublic: this.isPublic,
       isExpired: this.isExpired,
       category: this.category,
