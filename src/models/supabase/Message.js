@@ -361,25 +361,40 @@ class MessageModel {
    */
   async findByConversation(conversationId, options = {}) {
     const supabase = require('../../config/supabase').supabase;
+    const { logger } = require('../../utils/logger');
 
-    let query = supabase
-      .from('messages')
-      .select(options.select || '*')
-      .eq('conversationId', conversationId)
-      .order('created_at', { ascending: options.ascending !== false });
+    try {
+      let query = supabase
+        .from('messages')
+        .select(options.select || '*')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: options.ascending !== false });
 
-    if (options.limit) {
-      query = query.limit(options.limit);
+      if (options.limit) {
+        query = query.limit(options.limit);
+      }
+
+      if (options.offset) {
+        query = query.range(options.offset, options.offset + (options.limit || 10) - 1);
+      }
+
+      const { data, error } = await query;
+      
+      if (error) {
+        // If table doesn't exist, return empty array instead of throwing
+        if (error.message && error.message.includes('relation "messages" does not exist')) {
+          logger.warn('Messages table does not exist in database, returning empty array');
+          return [];
+        }
+        throw new Error(error.message);
+      }
+
+      return (data || []).map(d => new Message(d));
+    } catch (error) {
+      // Log error but return empty array to avoid breaking the frontend
+      logger.error('Error in findByConversation:', { error: error.message, conversationId });
+      return [];
     }
-
-    if (options.offset) {
-      query = query.range(options.offset, options.offset + (options.limit || 10) - 1);
-    }
-
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
-
-    return (data || []).map(d => new Message(d));
   }
 
   /**
