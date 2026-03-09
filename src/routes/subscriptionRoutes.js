@@ -5,11 +5,11 @@ const { protect, authorize } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Test route without authentication
-router.get('/payout-data', subscriptionController.getPayoutData);
-
-// Apply authentication to all other routes
+// Apply authentication to all routes
 router.use(protect);
+
+// Test route with authentication
+router.get('/payout-data', subscriptionController.getPayoutData);
 
 // Validation rules
 const createValidation = [

@@ -20,6 +20,7 @@ const createPaymentValidation = [
     .isIn(['card', 'transfer', 'cash', 'paypal', 'stripe', 'other'])
     .withMessage('Invalid payment method'),
   body('clientId')
+    .optional({ nullable: true })
     .matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
     .withMessage('Client ID must be a valid UUID'),
   body('bookingId')

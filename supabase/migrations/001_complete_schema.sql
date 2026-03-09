@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     date DATE NOT NULL,
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
-    client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+    client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
     therapist_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     therapy_type VARCHAR(100) NOT NULL,
     therapy_duration INTEGER DEFAULT 60 CHECK (therapy_duration >= 15 AND therapy_duration <= 240),

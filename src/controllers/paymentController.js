@@ -44,10 +44,26 @@ const paymentController = {
 
       const payments = (data || []).map(p => new Payment.Payment(p));
 
+      // Transform payments to include external client data if applicable
+      const transformedPayments = payments.map(p => {
+        const paymentJson = p.toJSON();
+        
+        // If no client but has metadata with client info (external client)
+        if (!paymentJson.clientId && paymentJson.metadata?.clientName) {
+          paymentJson.externalClient = {
+            name: paymentJson.metadata.clientName,
+            email: paymentJson.metadata.clientEmail,
+            isExternal: true
+          };
+        }
+        
+        return paymentJson;
+      });
+
       res.json({
         success: true,
         data: {
-          payments: payments.map(p => p.toJSON()),
+          payments: transformedPayments,
           pagination: {
             current: parseInt(page),
             pages: Math.ceil((count || 0) / parseInt(limit)),
@@ -77,22 +93,37 @@ const paymentController = {
 
       // Get related data
       const [client, booking, therapist] = await Promise.all([
-        Client.findById(payment.clientId),
+        payment.clientId ? Client.findById(payment.clientId) : null,
         payment.bookingId ? Booking.findById(payment.bookingId) : null,
         User.findById(payment.therapistId)
       ]);
 
+      const paymentData = payment.toJSON();
+      
+      // Build client data (from client table or external from metadata)
+      let clientData = null;
+      if (client) {
+        clientData = {
+          id: client.id,
+          name: client.name,
+          email: client.email,
+          phone: client.phone,
+          avatar: client.avatar
+        };
+      } else if (paymentData.metadata?.clientName) {
+        // External client from metadata
+        clientData = {
+          name: paymentData.metadata.clientName,
+          email: paymentData.metadata.clientEmail,
+          isExternal: true
+        };
+      }
+
       res.json({
         success: true,
         data: {
-          ...payment.toJSON(),
-          client: client ? {
-            id: client.id,
-            name: client.name,
-            email: client.email,
-            phone: client.phone,
-            avatar: client.avatar
-          } : null,
+          ...paymentData,
+          client: clientData,
           booking: booking ? {
             id: booking.id,
             date: booking.date,
@@ -132,10 +163,13 @@ const paymentController = {
         metadata = {}
       } = req.body;
 
-      // Verify client exists
-      const client = await Client.findById(clientId);
-      if (!client) {
-        return next(new AppError('Client not found', 404));
+      // Verify client exists (optional for external clients)
+      let client = null;
+      if (clientId) {
+        client = await Client.findById(clientId);
+        if (!client) {
+          return next(new AppError('Client not found', 404));
+        }
       }
 
       // Verify booking if provided

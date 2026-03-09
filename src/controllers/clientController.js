@@ -145,14 +145,14 @@ const createClient = asyncHandler(async (req, res, next) => {
   }
 
   // Validate required fields
-  if (!name || !email || !phone) {
-    return next(new AppError('Name, email, and phone are required', 400));
+  if (!name || !email) {
+    return next(new AppError('Name and email are required', 400));
   }
 
   const client = await Client.create({
     name: name.trim(),
     email: email.toLowerCase().trim(),
-    phone: phone.trim(),
+    phone: phone?.trim() || null,
     age,
     address: address?.trim(),
     emergencyContact,
