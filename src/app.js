@@ -93,6 +93,7 @@ app.use(
       "Content-Type",
       "Authorization",
       "X-Request-ID",
+      "X-Requested-With",
       "X-Timestamp",
       "X-Client-Version",
       "Accept",
