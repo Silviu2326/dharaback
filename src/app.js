@@ -89,6 +89,15 @@ app.use(
     },
     credentials: true,
     optionsSuccessStatus: 200,
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Request-ID",
+      "X-Client-Version",
+      "Accept",
+      "Origin",
+    ],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   }),
 );
 

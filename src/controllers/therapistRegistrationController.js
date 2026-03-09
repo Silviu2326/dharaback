@@ -516,7 +516,9 @@ const verifyRegistration = asyncHandler(async (req, res) => {
         email: session.customerEmail,
         nombre: session.customerName,
         userExists,
-        user: userData ? { id: userData.id, email: userData.email, name: userData.name } : null
+        user: userData ? { id: userData.id, email: userData.email, name: userData.name } : null,
+        plan: session.metadata?.plan || 'avanzado',
+        trialDays: parseInt(session.metadata?.trialDays || '90')
       }
     });
 
