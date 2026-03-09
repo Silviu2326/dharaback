@@ -291,6 +291,7 @@ class Document {
       isPublic: this.isPublic,
       isExpired: this.isExpired,
       category: this.category,
+      title: this.description,
       description: this.description,
       metadata: this.metadata,
       accessLog: this.accessLog,
