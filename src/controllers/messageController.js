@@ -492,6 +492,139 @@ const messageController = {
     } catch (error) {
       next(error);
     }
+  },
+
+  // Get messages directly (alternative endpoint for frontend compatibility)
+  async getMessagesDirect(req, res, next) {
+    try {
+      const therapistId = req.user.id;
+      const { conversation_id, limit = 50, offset = 0, date_from, date_to, message_type, search } = req.query;
+
+      if (!conversation_id) {
+        return next(new AppError('conversation_id is required', 400));
+      }
+
+      // Verify conversation access
+      const conversation = await Conversation.findOne({
+        id: conversation_id,
+        therapistId: therapistId
+      });
+
+      if (!conversation) {
+        return next(new AppError('Conversation not found', 404));
+      }
+
+      const messages = await Message.findByConversation(conversation_id, {
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        ascending: false
+      });
+
+      // Populate sender details for each message
+      const populatedMessages = await Promise.all(
+        messages.map(async (message) => {
+          const sender = message.senderType === 'therapist'
+            ? await User.findById(message.senderId)
+            : await Client.findById(message.senderId);
+
+          return {
+            ...message.toJSON(),
+            sender: sender ? {
+              id: sender.id,
+              name: sender.name,
+              avatar: sender.avatar
+            } : null
+          };
+        })
+      );
+
+      res.json({
+        messages: populatedMessages,
+        pagination: {
+          limit: parseInt(limit),
+          offset: parseInt(offset),
+          total: messages.length,
+          hasMore: messages.length === parseInt(limit)
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  // Send message directly (alternative endpoint for frontend compatibility)
+  async sendMessageDirect(req, res, next) {
+    try {
+      const therapistId = req.user.id;
+      const { conversationId, senderId, type = 'text', content, attachment, messageId, status, sentAt } = req.body;
+
+      if (!conversationId) {
+        return next(new AppError('conversationId is required', 400));
+      }
+
+      // Verify conversation exists and therapist has access
+      const conversation = await Conversation.findOne({
+        id: conversationId,
+        therapistId: therapistId
+      });
+
+      if (!conversation) {
+        return next(new AppError('Conversation not found', 404));
+      }
+
+      // Create message data
+      const messageData = {
+        conversationId,
+        senderId: senderId || therapistId,
+        senderType: 'therapist',
+        content,
+        type,
+        status: status || 'sent',
+        metadata: {
+          platform: 'web',
+          userAgent: req.get('User-Agent'),
+          ipAddress: req.ip
+        }
+      };
+
+      // Add optional fields
+      if (messageId) messageData.id = messageId;
+      if (sentAt) messageData.createdAt = new Date(sentAt);
+      if (attachment) messageData.attachments = [attachment];
+
+      const message = await Message.create(messageData);
+
+      // Populate sender details
+      const sender = await User.findById(therapistId);
+
+      // Update conversation last activity
+      await Conversation.update(conversationId, {
+        lastActivity: new Date(),
+        lastMessage: {
+          id: message.id,
+          content: content,
+          senderId: therapistId,
+          timestamp: new Date()
+        }
+      });
+
+      res.status(201).json({
+        id: message.id,
+        conversationId: message.conversationId,
+        senderId: message.senderId,
+        type: message.type,
+        content: message.content,
+        status: message.status,
+        sentAt: message.createdAt,
+        deliveredAt: null,
+        readAt: null,
+        editedAt: null,
+        isEdited: false,
+        createdAt: message.createdAt
+      });
+    } catch (error) {
+      next(error);
+    }
   }
 };
 

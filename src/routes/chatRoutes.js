@@ -10,6 +10,21 @@ const router = express.Router();
 
 router.use(protect);
 
+// Moderate content endpoint (compatibility with frontend)
+router.post('/moderate', async (req, res) => {
+  // Simple moderation - always approve for now
+  // In production, implement actual content moderation
+  res.json({
+    approved: true,
+    violations: [],
+    confidence: 1.0
+  });
+});
+
+// Direct message endpoints (alternative to nested routes)
+router.get('/messages', messageController.getMessagesDirect);
+router.post('/messages', messageController.sendMessageDirect);
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {

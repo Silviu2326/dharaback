@@ -46,15 +46,43 @@ const conversationController = {
         );
       }
 
+      // Format conversations for frontend compatibility
+      const formattedConversations = filteredConversations.map(c => {
+        const conv = c.toJSON();
+        return {
+          id: conv.id,
+          client: {
+            id: conv.client?.id,
+            name: conv.client?.name || 'Cliente',
+            email: conv.client?.email,
+            phone: conv.client?.phone,
+            avatar: conv.client?.avatar,
+            isOnline: conv.client?.is_online || false,
+            status: conv.client?.status,
+            rating: conv.client?.rating,
+            tags: conv.client?.tags || [],
+            sessionsCount: conv.client?.sessions_count || 0
+          },
+          lastMessage: conv.lastMessage ? {
+            id: conv.lastMessage.id,
+            content: conv.lastMessage.content,
+            timestamp: conv.lastMessage.created_at || conv.lastMessage.timestamp,
+            senderId: conv.lastMessage.sender_id
+          } : null,
+          unreadCount: conv.unreadCount || 0,
+          createdAt: conv.createdAt,
+          type: conv.type || 'therapy_session',
+          status: conv.status || 'active'
+        };
+      });
+
       res.json({
-        success: true,
-        data: {
-          conversations: filteredConversations.map(c => c.toJSON()),
-          pagination: {
-            current: parseInt(page),
-            pages: Math.ceil((count || 0) / parseInt(limit)),
-            total: count || 0
-          }
+        conversations: formattedConversations,
+        pagination: {
+          limit: parseInt(limit),
+          offset: (parseInt(page) - 1) * parseInt(limit),
+          total: count || 0,
+          hasMore: formattedConversations.length === parseInt(limit)
         }
       });
     } catch (error) {
@@ -122,22 +150,44 @@ const conversationController = {
       }
 
       const therapistId = req.user.id;
-      const { clientId } = req.body;
+      const { clientId, participants, type, createdBy, title, metadata } = req.body;
+
+      let actualClientId = clientId;
+
+      // Handle new format with participants array
+      if (!clientId && participants && Array.isArray(participants)) {
+        const clientParticipant = participants.find(p => p.role === 'client');
+        if (clientParticipant) {
+          actualClientId = clientParticipant.id;
+        }
+      }
+
+      // Also check metadata for clientId
+      if (!actualClientId && metadata?.clientId) {
+        actualClientId = metadata.clientId;
+      }
+
+      if (!actualClientId) {
+        return next(new AppError('Client ID is required', 400));
+      }
 
       // Check if client exists
-      const client = await Client.findById(clientId);
+      const client = await Client.findById(actualClientId);
       if (!client) {
         return next(new AppError('Client not found', 404));
       }
 
       // Find or create conversation
-      let conversation = await Conversation.findBetweenUsers(clientId, therapistId);
+      let conversation = await Conversation.findBetweenUsers(actualClientId, therapistId);
       
       if (!conversation) {
         conversation = await Conversation.create({
-          clientId,
+          clientId: actualClientId,
           therapistId,
-          status: 'active'
+          status: 'active',
+          type: type || 'therapy_session',
+          title: title || `Chat con ${client.name}`,
+          metadata: metadata || {}
         });
       } else if (conversation.isArchived) {
         // Reactivate if archived
@@ -145,16 +195,24 @@ const conversationController = {
       }
 
       res.status(201).json({
-        success: true,
-        data: {
-          ...conversation.toJSON(),
-          client: {
-            id: client.id,
-            name: client.name,
-            email: client.email,
-            avatar: client.avatar
-          }
-        }
+        id: conversation.id,
+        participants: participants || [
+          { id: therapistId, role: 'therapist' },
+          { id: actualClientId, role: 'client' }
+        ],
+        type: conversation.type || 'therapy_session',
+        status: conversation.status,
+        title: conversation.title || `Chat con ${client.name}`,
+        metadata: conversation.metadata || metadata || {},
+        client: {
+          id: client.id,
+          name: client.name,
+          email: client.email,
+          avatar: client.avatar
+        },
+        createdAt: conversation.createdAt,
+        lastActivity: conversation.lastActivity || conversation.createdAt,
+        messageCount: conversation.messageCount || 0
       });
     } catch (error) {
       next(error);
