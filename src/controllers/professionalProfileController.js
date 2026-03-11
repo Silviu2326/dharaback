@@ -99,6 +99,10 @@ const getProfile = asyncHandler(async (req, res, next) => {
 const updateProfile = asyncHandler(async (req, res, next) => {
   const userId = req.user.id || req.user._id;
   
+  // DEBUG: Log incoming request data
+  console.log('🔍 [DEBUG] UpdateProfile - Request body:', JSON.stringify(req.body, null, 2));
+  console.log('🔍 [DEBUG] UpdateProfile - User ID:', userId);
+  
   const allowedFields = [
     'about',
     'therapies',
@@ -127,6 +131,9 @@ const updateProfile = asyncHandler(async (req, res, next) => {
       updateData[key] = req.body[key];
     }
   });
+
+  // DEBUG: Log filtered update data
+  console.log('🔍 [DEBUG] UpdateProfile - Filtered updateData:', JSON.stringify(updateData, null, 2));
 
   // Map specialties to therapies for backend compatibility
   if (req.body.specialties) {
@@ -161,6 +168,9 @@ const updateProfile = asyncHandler(async (req, res, next) => {
       { new: true }
     );
   }
+
+  // DEBUG: Log saved profile data
+  console.log('🔍 [DEBUG] UpdateProfile - Saved profile rates:', JSON.stringify(profile.rates, null, 2));
 
   // Get user data separately
   const user = await User.findById(userId);

@@ -289,7 +289,10 @@ class ProfessionalProfileModel {
     if (updateData.languages) data.languages = updateData.languages;
     if (updateData.education) data.education = updateData.education;
     if (updateData.experience) data.experience = updateData.experience;
-    if (updateData.rates) data.rates = updateData.rates;
+    if (updateData.rates !== undefined) {
+      console.log('🔍 [MODEL] Saving rates:', JSON.stringify(updateData.rates, null, 2));
+      data.rates = updateData.rates;
+    }
     if (updateData.workLocations) data.work_locations = updateData.workLocations;
     if (updateData.socialMedia) data.social_media = updateData.socialMedia;
     if (updateData.externalLinks) data.external_links = updateData.externalLinks;
@@ -297,7 +300,11 @@ class ProfessionalProfileModel {
     if (updateData.preferences) data.preferences = updateData.preferences;
     if (updateData.legalInfo) data.legal_info = updateData.legalInfo;
 
+    console.log('🔍 [MODEL] Data to update in Supabase:', JSON.stringify(data, null, 2));
+    
     const result = await this.service.update(id, data);
+    
+    console.log('🔍 [MODEL] Result from Supabase:', JSON.stringify(result, null, 2));
     return options.new !== false ? new ProfessionalProfile(result) : null;
   }
 
