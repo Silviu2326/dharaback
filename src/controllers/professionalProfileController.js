@@ -36,6 +36,46 @@ const getProfile = asyncHandler(async (req, res, next) => {
     }));
   }
 
+  // Map rates data for frontend compatibility
+  // Ensure rates has the structure expected by the frontend
+  if (!profileData.rates) {
+    profileData.rates = {};
+  }
+  
+  // Ensure customRates exists within rates
+  if (!profileData.rates.customRates) {
+    profileData.rates.customRates = {
+      currency: profileData.rates.currency || 'EUR',
+      sessions: [],
+      packages: []
+    };
+  }
+
+  // If sessions are stored in rates.sessions, move them to rates.customRates.sessions
+  if (profileData.rates.sessions && !profileData.rates.customRates.sessions) {
+    profileData.rates.customRates.sessions = profileData.rates.sessions;
+  }
+
+  // If packages are stored in rates.packages, move them to rates.customRates.packages
+  if (profileData.rates.packages && !profileData.rates.customRates.packages) {
+    profileData.rates.customRates.packages = profileData.rates.packages;
+  }
+
+  // Ensure pricing structure exists for frontend compatibility
+  if (!profileData.pricing) {
+    profileData.pricing = {};
+  }
+  
+  // Map customRates.sessions to pricing.sessions for backwards compatibility
+  if (profileData.rates?.customRates?.sessions) {
+    profileData.pricing.sessions = profileData.rates.customRates.sessions;
+  }
+  
+  // Map customRates.packages to pricing.packages for backwards compatibility
+  if (profileData.rates?.customRates?.packages) {
+    profileData.pricing.packages = profileData.rates.customRates.packages;
+  }
+
   // Add user data
   profileData.user = user ? {
     id: user.id || user._id,
@@ -140,6 +180,39 @@ const updateProfile = asyncHandler(async (req, res, next) => {
       year: edu.year,
       description: edu.description || ''
     }));
+  }
+
+  // Map rates data for frontend compatibility (same as in getProfile)
+  if (!profileData.rates) {
+    profileData.rates = {};
+  }
+  
+  if (!profileData.rates.customRates) {
+    profileData.rates.customRates = {
+      currency: profileData.rates.currency || 'EUR',
+      sessions: [],
+      packages: []
+    };
+  }
+
+  if (profileData.rates.sessions && !profileData.rates.customRates.sessions) {
+    profileData.rates.customRates.sessions = profileData.rates.sessions;
+  }
+
+  if (profileData.rates.packages && !profileData.rates.customRates.packages) {
+    profileData.rates.customRates.packages = profileData.rates.packages;
+  }
+
+  if (!profileData.pricing) {
+    profileData.pricing = {};
+  }
+  
+  if (profileData.rates?.customRates?.sessions) {
+    profileData.pricing.sessions = profileData.rates.customRates.sessions;
+  }
+  
+  if (profileData.rates?.customRates?.packages) {
+    profileData.pricing.packages = profileData.rates.customRates.packages;
   }
 
   // Add user data
