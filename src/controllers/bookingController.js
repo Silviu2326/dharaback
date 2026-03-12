@@ -1,4 +1,4 @@
-const { Booking, Client, User } = require('../models');
+const { Booking, Client, User, Conversation } = require('../models');
 const { AppError, asyncHandler } = require('../middleware/errorHandler');
 const emailService = require('../services/emailService');
 
@@ -942,16 +942,86 @@ const createClientBooking = asyncHandler(async (req, res, next) => {
     status: 'upcoming'
   });
 
+  // Create or reactivate conversation between client and therapist
+  let conversation = null;
+  try {
+    console.log(`🔍 Buscando conversación entre cliente ${clientId} y terapeuta ${therapistId}...`);
+    
+    // Check if conversation already exists
+    conversation = await Conversation.findBetweenUsers(clientId, therapistId);
+    console.log(`🔍 Resultado búsqueda:`, conversation ? `Encontrada: ${conversation.id}` : 'No encontrada');
+    
+    if (!conversation) {
+      // Get client and therapist info for the title
+      console.log(`🔍 Obteniendo info de cliente y terapeuta...`);
+      const [client, therapist] = await Promise.all([
+        Client.findById(clientId),
+        User.findById(therapistId)
+      ]);
+      
+      console.log(`✅ Cliente: ${client?.name}, Terapeuta: ${therapist?.name}`);
+      
+      const conversationData = {
+        clientId: clientId,
+        therapistId: therapistId,
+        status: 'active',
+        metadata: {
+          title: `Chat con ${therapist?.name || 'Terapeuta'}`,
+          type: 'therapy_session',
+          bookingId: booking.id,
+          therapyType: therapyType,
+          createdFromBooking: true
+        }
+      };
+      
+      console.log(`📝 Creando conversación con datos:`, conversationData);
+      
+      conversation = await Conversation.create(conversationData);
+      console.log(`✅ Chat creado para la cita: ${conversation?.id}`);
+    } else if (conversation.isArchived) {
+      // Reactivate if archived
+      await conversation.reactivate();
+      console.log(`✅ Chat reactivado: ${conversation.id}`);
+    } else {
+      console.log(`ℹ️ Chat ya existe: ${conversation.id}`);
+    }
+  } catch (chatError) {
+    // Don't fail the booking creation if chat creation fails
+    console.error('❌ Failed to create/reactivate conversation:', chatError);
+    console.error('Stack:', chatError.stack);
+  }
+
   // Send confirmation email
   try {
-    await emailService.sendBookingConfirmation(booking);
+    // Get client and therapist info for the email
+    const [client, therapist] = await Promise.all([
+      Client.findById(clientId),
+      User.findById(therapistId)
+    ]);
+
+    await emailService.sendAppointmentConfirmation({
+      to: client?.email,
+      clientName: client?.name,
+      therapistName: therapist?.name,
+      date: booking.date,
+      time: booking.startTime,
+      location: booking.location
+    });
+    console.log('✅ Booking confirmation email sent');
   } catch (emailError) {
-    console.error('Failed to send booking confirmation email:', emailError);
+    console.error('❌ Failed to send booking confirmation email:', emailError);
   }
 
   res.status(201).json({
     success: true,
-    data: booking.toJSON(),
+    data: {
+      ...booking.toJSON(),
+      conversation: conversation ? {
+        id: conversation.id,
+        status: conversation.status,
+        title: conversation.title
+      } : null
+    },
     message: 'Booking created successfully'
   });
 });

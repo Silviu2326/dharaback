@@ -10,13 +10,17 @@ class Conversation {
   constructor(data = {}) {
     this.id = data.id;
     this.clientId = data.client_id;
-    this.therapistId = data.therapistId;
+    this.therapistId = data.therapist_id;
     this.status = data.status || 'active';
     this.lastMessageAt = data.last_message_at;
     this.unreadCount = data.unread_count || 0;
     this.metadata = data.metadata || {};
     this.createdAt = data.created_at;
     this.updatedAt = data.updated_at;
+
+    // Include related data if present (from joins)
+    this.client = data.client || null;
+    this.therapist = data.therapist || null;
 
     // Campos raw de la base de datos
     this._data = data;
@@ -245,7 +249,9 @@ class Conversation {
       unreadCount: this.unreadCount,
       metadata: this.metadata,
       createdAt: this.createdAt,
-      updatedAt: this.updatedAt
+      updatedAt: this.updatedAt,
+      client: this.client,
+      therapist: this.therapist
     };
   }
 }
@@ -273,13 +279,18 @@ class ConversationModel {
       return existing;
     }
 
+    // Solo incluir campos que existen en la base de datos
     const conversationData = {
       client_id: data.clientId,
-      therapistId: data.therapistId,
+      therapist_id: data.therapistId,
       status: data.status || 'active',
-      last_message_at: data.lastMessageAt,
+      last_message_at: data.lastMessageAt || new Date(),
       unread_count: data.unreadCount || 0,
-      metadata: data.metadata || {}
+      metadata: {
+        ...(data.metadata || {}),
+        title: data.title || null,
+        type: data.type || 'therapy_session'
+      }
     };
 
     const result = await this.service.create(conversationData);
@@ -307,7 +318,17 @@ class ConversationModel {
    */
   async findOne(filters, options = {}) {
     try {
-      const result = await this.service.findOne(filters, options);
+      // Convert camelCase filters to snake_case for database
+      const dbFilters = {};
+      if (filters.id) dbFilters.id = filters.id;
+      if (filters.clientId || filters.client_id) dbFilters.client_id = filters.clientId || filters.client_id;
+      if (filters.therapistId || filters.therapist_id) dbFilters.therapist_id = filters.therapistId || filters.therapist_id;
+      if (filters.status) dbFilters.status = filters.status;
+      
+      console.log('🔍 DEBUG Conversation.findOne - input filters:', filters);
+      console.log('🔍 DEBUG Conversation.findOne - DB filters:', dbFilters);
+      
+      const result = await this.service.findOne(dbFilters, options);
       return result ? new Conversation(result) : null;
     } catch (error) {
       // If table doesn't exist, return null instead of throwing

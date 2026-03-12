@@ -4,17 +4,31 @@ const { supabase } = require('../config/supabase');
 const { AppError } = require('../middleware/errorHandler');
 
 const conversationController = {
-  // Get all conversations for a therapist
+  // Get all conversations for a therapist or client
   async getConversations(req, res, next) {
     try {
-      const therapistId = req.user.id;
+      const userId = req.user.id;
+      const userRole = req.user.role;
       const { status = 'all', hasUnread = false, search = '', page = 1, limit = 20 } = req.query;
 
-      // Build query
+      // Determine if user is a client (no role property means it's a client)
+      const isClient = !userRole || userRole === 'client';
+
+      // Build query with explicit field selection for therapist to ensure name is included
       let query = supabase
         .from('conversations')
-        .select('*, client:client_id(*)', { count: 'exact' })
-        .eq('therapist_id', therapistId);
+        .select(`
+          *,
+          client:client_id(*),
+          therapist:therapist_id(id, name, email, avatar)
+        `, { count: 'exact' });
+
+      // Filter by client_id for clients, therapist_id for therapists
+      if (isClient) {
+        query = query.eq('client_id', userId);
+      } else {
+        query = query.eq('therapist_id', userId);
+      }
 
       if (status !== 'all') {
         query = query.eq('status', status);
@@ -34,34 +48,130 @@ const conversationController = {
 
       if (error) throw new Error(error.message);
 
+      console.log(`🔍 DEBUG: Found ${data?.length || 0} conversations`);
+      if (data && data.length > 0) {
+        console.log(`🔍 DEBUG: First conversation raw data:`, JSON.stringify(data[0], null, 2));
+      }
+
       const conversations = (data || []).map(c => new Conversation.Conversation(c));
+
+      // If client, fetch therapist names separately if join didn't work
+      // If therapist, fetch client names separately if join didn't work
+      let therapistMap = new Map();
+      let clientMap = new Map();
+      
+      if (conversations.length > 0) {
+        if (isClient) {
+          // Client view: need therapist info
+          const therapistIds = [...new Set(conversations.map(c => c.therapistId).filter(Boolean))];
+          if (therapistIds.length > 0) {
+            const { data: therapistsData, error: therapistsError } = await supabase
+              .from('users')
+              .select('id, name, email, avatar')
+              .in('id', therapistIds);
+            
+            if (!therapistsError && therapistsData) {
+              therapistsData.forEach(t => therapistMap.set(t.id, t));
+              console.log(`🔍 DEBUG: Fetched ${therapistsData.length} therapists:`, therapistsData.map(t => ({ id: t.id, name: t.name })));
+            }
+          }
+        } else {
+          // Therapist view: need client info
+          const clientIds = [...new Set(conversations.map(c => c.clientId).filter(Boolean))];
+          if (clientIds.length > 0) {
+            const { data: clientsData, error: clientsError } = await supabase
+              .from('clients')
+              .select('id, name, email, phone, avatar, is_online, status, rating, tags, sessions_count')
+              .in('id', clientIds);
+            
+            if (!clientsError && clientsData) {
+              clientsData.forEach(c => clientMap.set(c.id, c));
+              console.log(`🔍 DEBUG: Fetched ${clientsData.length} clients:`, clientsData.map(c => ({ id: c.id, name: c.name })));
+            }
+          }
+        }
+      }
+
+      // Debug: log first conversation object
+      if (conversations.length > 0) {
+        console.log(`🔍 DEBUG: First conversation object:`, {
+          id: conversations[0].id,
+          therapistId: conversations[0].therapistId,
+          therapist: conversations[0].therapist,
+          client: conversations[0].client
+        });
+      }
 
       // Filter by search term if provided
       let filteredConversations = conversations;
       if (search.trim()) {
         const searchLower = search.toLowerCase();
-        filteredConversations = conversations.filter(c => 
-          c.client?.name?.toLowerCase().includes(searchLower) ||
-          c.metadata?.lastMessage?.toLowerCase().includes(searchLower)
-        );
+        filteredConversations = conversations.filter(c => {
+          const otherParty = isClient ? c.therapist : c.client;
+          return otherParty?.name?.toLowerCase().includes(searchLower) ||
+            c.metadata?.lastMessage?.toLowerCase().includes(searchLower);
+        });
       }
 
       // Format conversations for frontend compatibility
-      const formattedConversations = filteredConversations.map(c => {
+      const formattedConversations = filteredConversations.map((c, index) => {
         const conv = c.toJSON();
+        
+        // For clients, get therapist info from join or separate query
+        // For therapists, get client info from join or separate query
+        let therapistInfo = conv.therapist;
+        let clientInfo = conv.client;
+        
+        if (isClient) {
+          // Client view: get therapist info if join didn't work
+          if (!therapistInfo && conv.therapistId) {
+            therapistInfo = therapistMap.get(conv.therapistId);
+          }
+          
+          // Debug first conversation
+          if (index === 0) {
+            console.log(`🔍 DEBUG: conv.therapist =`, conv.therapist);
+            console.log(`🔍 DEBUG: therapistInfo from map =`, therapistInfo);
+            console.log(`🔍 DEBUG: Final name =`, therapistInfo?.name || 'Terapeuta');
+          }
+        } else {
+          // Therapist view: get client info if join didn't work
+          if (!clientInfo && conv.clientId) {
+            clientInfo = clientMap.get(conv.clientId);
+          }
+          
+          // Debug first conversation
+          if (index === 0) {
+            console.log(`🔍 DEBUG: conv.client =`, conv.client);
+            console.log(`🔍 DEBUG: clientInfo from map =`, clientInfo);
+            console.log(`🔍 DEBUG: Final name =`, clientInfo?.name || 'Cliente');
+          }
+        }
+        
         return {
           id: conv.id,
-          client: {
-            id: conv.client?.id,
-            name: conv.client?.name || 'Cliente',
-            email: conv.client?.email,
-            phone: conv.client?.phone,
-            avatar: conv.client?.avatar,
-            isOnline: conv.client?.is_online || false,
-            status: conv.client?.status,
-            rating: conv.client?.rating,
-            tags: conv.client?.tags || [],
-            sessionsCount: conv.client?.sessions_count || 0
+          // For clients, show therapist info as "client" (the other party)
+          // For therapists, show client info
+          client: isClient ? {
+            id: therapistInfo?.id || conv.therapistId,
+            name: therapistInfo?.name || 'Terapeuta',
+            email: therapistInfo?.email,
+            phone: therapistInfo?.phone,
+            avatar: therapistInfo?.avatar,
+            isOnline: false, // TODO: implement therapist online status
+            status: 'active',
+            isTherapist: true // Flag to identify this is the therapist
+          } : {
+            id: clientInfo?.id || conv.clientId,
+            name: clientInfo?.name || 'Cliente',
+            email: clientInfo?.email,
+            phone: clientInfo?.phone,
+            avatar: clientInfo?.avatar,
+            isOnline: clientInfo?.is_online || false,
+            status: clientInfo?.status,
+            rating: clientInfo?.rating,
+            tags: clientInfo?.tags || [],
+            sessionsCount: clientInfo?.sessions_count || 0
           },
           lastMessage: conv.lastMessage ? {
             id: conv.lastMessage.id,

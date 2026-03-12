@@ -2,13 +2,13 @@ const express = require('express');
 const { body, param, query } = require('express-validator');
 const conversationController = require('../controllers/conversationController');
 const messageController = require('../controllers/messageController');
-const { protect } = require('../middleware/auth');
+const { protect, protectMixed } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
 
 const router = express.Router();
 
-router.use(protect);
+router.use(protectMixed);
 
 // Moderate content endpoint (compatibility with frontend)
 router.post('/moderate', async (req, res) => {

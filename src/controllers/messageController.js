@@ -86,19 +86,36 @@ const messageController = {
   async getMessages(req, res, next) {
     try {
       const { conversationId } = req.params;
-      const therapistId = req.user.id;
+      const userId = req.user.id;
+      const userRole = req.user.role;
+      const isClient = !userRole || userRole === 'client';
       const { page = 1, limit = 50, beforeMessageId, afterMessageId } = req.query;
 
+      console.log('🔍 DEBUG getMessages - user:', { userId, userRole, isClient, conversationId });
+
       // Verify conversation access
-      const conversation = await Conversation.findOne({
-        id: conversationId,
-        therapistId: therapistId
-      });
+      let conversation;
+      if (isClient) {
+        conversation = await Conversation.findOne({
+          id: conversationId,
+          clientId: userId
+        });
+      } else {
+        conversation = await Conversation.findOne({
+          id: conversationId,
+          therapistId: userId
+        });
+      }
 
       if (!conversation) {
+        console.log('🔍 DEBUG getMessages - Conversation not found');
         return next(new AppError('Conversation not found', 404));
       }
 
+      console.log('🔍 DEBUG getMessages - Conversation found:', conversation.id);
+
+      console.log('🔍 DEBUG getMessages - Loading messages for conversation:', conversationId);
+      
       const messages = await Message.findByConversation(conversationId, {
         limit: parseInt(limit),
         offset: (parseInt(page) - 1) * parseInt(limit),
@@ -122,6 +139,9 @@ const messageController = {
           };
         })
       );
+
+      console.log('🔍 DEBUG getMessages - Messages found:', messages.length);
+      console.log('🔍 DEBUG getMessages - Populated messages:', populatedMessages.length);
 
       res.json({
         success: true,
@@ -497,11 +517,15 @@ const messageController = {
   // Get messages directly (alternative endpoint for frontend compatibility)
   async getMessagesDirect(req, res, next) {
     try {
-      const therapistId = req.user.id;
+      const userId = req.user.id;
+      const userRole = req.user.role;
+      const isClient = !userRole || userRole === 'client';
       const { conversation_id, limit = 50, offset = 0, date_from, date_to, message_type, search } = req.query;
 
       console.log('📨 getMessagesDirect called:', {
-        therapistId,
+        userId,
+        userRole,
+        isClient,
         conversation_id,
         limit,
         offset
@@ -514,10 +538,19 @@ const messageController = {
       // Verify conversation access
       let conversation;
       try {
-        conversation = await Conversation.findOne({
-          id: conversation_id,
-          therapistId: therapistId
-        });
+        if (isClient) {
+          // For clients, search by client_id
+          conversation = await Conversation.findOne({
+            id: conversation_id,
+            clientId: userId
+          });
+        } else {
+          // For therapists, search by therapist_id
+          conversation = await Conversation.findOne({
+            id: conversation_id,
+            therapistId: userId
+          });
+        }
       } catch (convError) {
         console.error('❌ Error finding conversation:', convError.message);
         // Return empty messages array if conversation table doesn't exist
@@ -599,11 +632,15 @@ const messageController = {
   // Send message directly (alternative endpoint for frontend compatibility)
   async sendMessageDirect(req, res, next) {
     try {
-      const therapistId = req.user.id;
+      const userId = req.user.id;
+      const userRole = req.user.role;
+      const isClient = !userRole || userRole === 'client';
       const { conversationId, senderId, type = 'text', content, attachment, messageId, status, sentAt } = req.body;
 
       console.log('📤 sendMessageDirect called:', {
-        therapistId,
+        userId,
+        userRole,
+        isClient,
         conversationId,
         type,
         hasContent: !!content,
@@ -614,13 +651,22 @@ const messageController = {
         return next(new AppError('conversationId is required', 400));
       }
 
-      // Verify conversation exists and therapist has access
+      // Verify conversation exists and user has access
       let conversation;
       try {
-        conversation = await Conversation.findOne({
-          id: conversationId,
-          therapistId: therapistId
-        });
+        if (isClient) {
+          // For clients, search by client_id
+          conversation = await Conversation.findOne({
+            id: conversationId,
+            clientId: userId
+          });
+        } else {
+          // For therapists, search by therapist_id
+          conversation = await Conversation.findOne({
+            id: conversationId,
+            therapistId: userId
+          });
+        }
       } catch (convError) {
         console.error('❌ Error finding conversation:', convError.message);
         // If conversations table doesn't exist, we can't verify, but we'll try to create message anyway
@@ -634,8 +680,8 @@ const messageController = {
       // Create message data
       const messageData = {
         conversationId,
-        senderId: senderId || therapistId,
-        senderType: 'therapist',
+        senderId: senderId || userId,
+        senderType: isClient ? 'client' : 'therapist',
         content,
         type,
         status: status || 'sent',
@@ -682,20 +728,26 @@ const messageController = {
       // Populate sender details
       let sender = null;
       try {
-        sender = await User.findById(therapistId);
+        if (isClient) {
+          sender = await Client.findById(userId);
+        } else {
+          sender = await User.findById(userId);
+        }
       } catch (senderError) {
         console.warn('⚠️  Error getting sender details:', senderError.message);
       }
 
       // Update conversation last activity
       try {
-        await Conversation.update(conversationId, {
-          lastActivity: new Date(),
-          lastMessage: {
-            id: message.id,
-            content: content,
-            senderId: therapistId,
-            timestamp: new Date()
+        await Conversation.findByIdAndUpdate(conversationId, {
+          lastMessageAt: new Date(),
+          metadata: {
+            lastMessage: {
+              id: message.id,
+              content: content,
+              senderId: userId,
+              timestamp: new Date().toISOString()
+            }
           }
         });
       } catch (updateError) {

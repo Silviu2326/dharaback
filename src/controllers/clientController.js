@@ -3,6 +3,7 @@ const { Client, User, Booking, ProfessionalProfile } = require('../models');
 const { InvitationCodeModel } = require('../models/InvitationCode');
 const InvitationCode = new InvitationCodeModel();
 const { AppError, asyncHandler } = require('../middleware/errorHandler');
+const { supabase } = require('../config/supabase');
 
 // @desc    Get all clients for therapist
 // @route   GET /api/clients
@@ -17,8 +18,16 @@ const getClients = asyncHandler(async (req, res, next) => {
   // Build filters
   const filters = { therapist_id: req.user.id || req.user._id };
 
-  if (status && status !== 'all') {
+  // Handle status filter - never show deleted (inactive) clients by default
+  if (status === 'inactive') {
+    // Explicitly requesting inactive (deleted) clients
+    filters.status = 'inactive';
+  } else if (status && status !== 'all') {
+    // Specific status requested (active, demo, etc.)
     filters.status = status;
+  } else {
+    // Default and 'all': show only active and demo clients, exclude inactive (deleted)
+    filters.status = { in: ['active', 'demo'] };
   }
 
   if (tags) {
@@ -239,9 +248,12 @@ const updateClient = asyncHandler(async (req, res, next) => {
 // @route   DELETE /api/clients/:id
 // @access  Private
 const deleteClient = asyncHandler(async (req, res, next) => {
+  const clientId = req.params.id;
+  const therapistId = req.user.id || req.user._id;
+  
   const client = await Client.findOne({
-    id: req.params.id,
-    therapist_id: req.user.id || req.user._id
+    id: clientId,
+    therapist_id: therapistId
   });
 
   if (!client) {
@@ -251,7 +263,7 @@ const deleteClient = asyncHandler(async (req, res, next) => {
   // Check if client has upcoming bookings
   const upcomingBookings = await Booking.find({
     filters: {
-      client_id: req.params.id,
+      client_id: clientId,
       status: { in: ['upcoming', 'pending'] },
       date: { gte: new Date().toISOString().split('T')[0] }
     }
@@ -261,19 +273,65 @@ const deleteClient = asyncHandler(async (req, res, next) => {
     return next(new AppError('Cannot delete client with upcoming bookings. Please cancel all upcoming bookings first.', 400));
   }
 
-  // Soft delete - change status to inactive instead of deleting
+  // Delete all client's bookings (citas) from database
+  const { error: bookingsError } = await supabase
+    .from('bookings')
+    .delete()
+    .eq('client_id', clientId);
+  
+  if (bookingsError) {
+    console.error('Error deleting client bookings:', bookingsError);
+    // Continue with deletion even if bookings deletion fails
+  }
+
+  // Delete all client's payments from database
+  const { error: paymentsError } = await supabase
+    .from('payments')
+    .delete()
+    .eq('client_id', clientId);
+  
+  if (paymentsError) {
+    console.error('Error deleting client payments:', paymentsError);
+    // Continue with deletion even if payments deletion fails
+  }
+
+  // Delete all client's notes from database
+  const { error: notesError } = await supabase
+    .from('notes')
+    .delete()
+    .eq('client_id', clientId);
+  
+  if (notesError) {
+    console.error('Error deleting client notes:', notesError);
+    // Continue with deletion even if notes deletion fails
+  }
+
+  // Delete all client's session notes from database
+  const { error: sessionNotesError } = await supabase
+    .from('session_notes')
+    .delete()
+    .eq('client_id', clientId);
+  
+  if (sessionNotesError) {
+    console.error('Error deleting client session notes:', sessionNotesError);
+    // Continue with deletion even if session notes deletion fails
+  }
+
+  // Soft delete - change status to inactive and anonymize email
   await Client.findByIdAndUpdate(
-    req.params.id,
+    clientId,
     {
       status: 'inactive',
-      email: `deleted_${Date.now()}_${client.email}`
+      email: `deleted_${Date.now()}_${client.email}`,
+      phone: null,
+      name: 'Usuario Eliminado'
     },
     { new: false }
   );
 
   res.status(200).json({
     success: true,
-    message: 'Client deleted successfully'
+    message: 'Client and all associated data deleted successfully'
   });
 });
 
@@ -692,7 +750,36 @@ const getTherapistById = asyncHandler(async (req, res, next) => {
     .select('*')
     .eq('therapist_id', id);
 
-  // Build response
+  // Build response with services/packages
+  // Buscar en múltiples ubicaciones donde pueden estar los datos
+  // Los datos pueden estar en: profile.pricing, profile.rates, profile.pricingPackages
+  
+  const pricing = profile?.pricing || {};
+  const customRates = pricing?.customRates || {};
+  const profileRates = profile?.rates || {};
+  const pricingPackages = profile?.pricingPackages || {};
+  
+  // Los servicios pueden estar en diferentes ubicaciones según el formato
+  const sessions = customRates?.sessions || 
+                   pricing?.sessions || 
+                   profileRates?.customRates?.sessions ||
+                   profileRates?.sessions ||
+                   rates?.customRates?.sessions || 
+                   [];
+  
+  const packages = customRates?.packages || 
+                   pricing?.packages || 
+                   pricingPackages?.packages ||
+                   profileRates?.customRates?.packages ||
+                   rates?.customRates?.packages || 
+                   [];
+  
+  console.log('🔍 Backend - profile.pricing:', JSON.stringify(pricing, null, 2));
+  console.log('🔍 Backend - profile.rates:', JSON.stringify(profileRates, null, 2));
+  console.log('🔍 Backend - profile.pricingPackages:', JSON.stringify(pricingPackages, null, 2));
+  console.log('🔍 Backend - sessions found:', sessions?.length || 0);
+  console.log('🔍 Backend - packages found:', packages?.length || 0);
+  
   const therapistData = {
     id: therapist.id || therapist._id,
     name: therapist.name,
@@ -712,7 +799,15 @@ const getTherapistById = asyncHandler(async (req, res, next) => {
     sessionPrice: rates?.session_price || profile?.basePrice || 0,
     workLocations: workLocations || [],
     isAvailable: profile?.isAvailable || false,
-    banner: profile?.banner
+    banner: profile?.banner,
+    // Incluir servicios y paquetes
+    services: sessions,
+    packages: packages,
+    pricing: {
+      currency: customRates?.currency || pricing?.currency || rates?.customRates?.currency || 'EUR',
+      sessions: sessions,
+      packages: packages
+    }
   };
 
   res.status(200).json({

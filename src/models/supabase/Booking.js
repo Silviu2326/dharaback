@@ -176,7 +176,7 @@ class BookingModel {
       start_time: data.startTime,
       end_time: data.endTime,
       client_id: data.clientId,
-      therapistId: data.therapistId,
+      therapist_id: data.therapistId,
       therapy_type: data.therapyType,
       therapy_duration: data.therapyDuration || 60,
       status: data.status || 'upcoming',

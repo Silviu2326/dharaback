@@ -303,7 +303,7 @@ class MessageModel {
    */
   async create(data) {
     const messageData = {
-      conversationId: data.conversationId,
+      conversation_id: data.conversationId,
       sender_id: data.senderId,
       sender_type: data.senderType || 'therapist',
       content: data.content,
@@ -313,6 +313,8 @@ class MessageModel {
       read_at: data.readAt || null,
       metadata: data.metadata || {}
     };
+
+    console.log('🔍 DEBUG Message.create - data:', messageData);
 
     const result = await this.service.create(messageData);
     const message = new Message(result);
@@ -363,6 +365,9 @@ class MessageModel {
     const supabase = require('../../config/supabase').supabase;
 
     try {
+      console.log('🔍 DEBUG Message.findByConversation - conversationId:', conversationId);
+      console.log('🔍 DEBUG Message.findByConversation - options:', options);
+      
       let query = supabase
         .from('messages')
         .select(options.select || '*')
@@ -379,6 +384,8 @@ class MessageModel {
 
       const { data, error } = await query;
       
+      console.log('🔍 DEBUG Message.findByConversation - Query result:', { dataLength: data?.length, error });
+      
       if (error) {
         // If table doesn't exist, return empty array instead of throwing
         if (error.message && error.message.includes('relation "messages" does not exist')) {
@@ -388,7 +395,11 @@ class MessageModel {
         throw new Error(error.message);
       }
 
-      return (data || []).map(d => new Message(d));
+      const messages = (data || []).map(d => new Message(d));
+      console.log('🔍 DEBUG Message.findByConversation - Returning messages:', messages.length);
+      console.log('🔍 DEBUG Message.findByConversation - Message sender types:', messages.map(m => ({ id: m.id, senderId: m.senderId, senderType: m.senderType })));
+      
+      return messages;
     } catch (error) {
       // Log error but return empty array to avoid breaking the frontend
       console.error('❌ Error in findByConversation:', error.message, { conversationId });
