@@ -290,7 +290,35 @@ class ClientModel {
    * Buscar uno
    */
   async findOne(filters, options = {}) {
-    const result = await this.service.findOne(filters, options);
+    // Convert camelCase to snake_case for Supabase columns
+    const convertedFilters = {};
+    for (const [key, value] of Object.entries(filters)) {
+      if (key === 'therapistId') {
+        convertedFilters['therapist_id'] = value;
+      } else if (key === 'emergencyContact') {
+        convertedFilters['emergency_contact'] = value;
+      } else if (key === 'lastSession') {
+        convertedFilters['last_session'] = value;
+      } else if (key === 'sessionsCount') {
+        convertedFilters['sessions_count'] = value;
+      } else if (key === 'paymentsCount') {
+        convertedFilters['payments_count'] = value;
+      } else if (key === 'documentsCount') {
+        convertedFilters['documents_count'] = value;
+      } else if (key === 'messagesCount') {
+        convertedFilters['messages_count'] = value;
+      } else if (key === 'gdprConsent') {
+        convertedFilters['gdpr_consent'] = value;
+      } else if (key === 'createdAt') {
+        convertedFilters['created_at'] = value;
+      } else if (key === 'updatedAt') {
+        convertedFilters['updated_at'] = value;
+      } else {
+        convertedFilters[key] = value;
+      }
+    }
+    
+    const result = await this.service.findOne(convertedFilters, options);
     return result ? new Client(result) : null;
   }
 

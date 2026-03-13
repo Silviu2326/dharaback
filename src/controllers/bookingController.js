@@ -160,7 +160,7 @@ const createBooking = asyncHandler(async (req, res, next) => {
   // Verify client belongs to therapist
   const client = await Client.findOne({
     id: clientId,
-    therapistId: req.user.id || req.user._id,
+    therapist_id: req.user.id || req.user._id,
     status: 'active'
   });
 
