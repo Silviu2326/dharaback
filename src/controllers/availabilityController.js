@@ -508,6 +508,88 @@ const getTherapistTimeBlocks = asyncHandler(async (req, res, next) => {
   res.status(200).json((data || []).map(formatSlot));
 });
 
+// @desc  Bulk update time blocks
+// @route POST /api/availability/bulk-update
+// @access Private
+const bulkUpdateTimeBlocks = asyncHandler(async (req, res, next) => {
+  const { ids, updates } = req.body;
+
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return next(new AppError('No block IDs provided for bulk update', 400));
+  }
+
+  if (!updates || typeof updates !== 'object') {
+    return next(new AppError('No updates provided', 400));
+  }
+
+  console.log('📝 Bulk updating time blocks:', { count: ids.length, updates });
+
+  const results = {
+    successful: [],
+    failed: []
+  };
+
+  // Build update data with only allowed fields
+  const updateData = {};
+  
+  // Map frontend field names to database column names
+  if (updates.startTime !== undefined) updateData.start_time = updates.startTime;
+  if (updates.endTime !== undefined) updateData.end_time = updates.endTime;
+  if (updates.location !== undefined) updateData.location = updates.location;
+  if (updates.color !== undefined) updateData.color = updates.color;
+  if (updates.notes !== undefined) updateData.notes = updates.notes;
+  if (updates.isActive !== undefined) updateData.is_available = updates.isActive;
+  
+  // Update all blocks in parallel
+  const updatePromises = ids.map(async (id) => {
+    try {
+      // Verify block exists
+      const { data: existing } = await supabase
+        .from('availability_slots')
+        .select('id, therapist_id')
+        .eq('id', id)
+        .single();
+
+      if (!existing) {
+        results.failed.push({ id, error: 'Block not found' });
+        return;
+      }
+
+      // Update the block
+      const { data, error } = await supabase
+        .from('availability_slots')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error(`❌ Failed to update block ${id}:`, error.message);
+        results.failed.push({ id, error: error.message });
+      } else {
+        console.log(`✅ Block updated:`, data.id);
+        results.successful.push(formatSlot(data));
+      }
+    } catch (err) {
+      console.error(`❌ Error updating block ${id}:`, err.message);
+      results.failed.push({ id, error: err.message });
+    }
+  });
+
+  await Promise.all(updatePromises);
+
+  console.log('✅ Bulk update completed:', {
+    successful: results.successful.length,
+    failed: results.failed.length
+  });
+
+  res.status(200).json({
+    success: true,
+    message: `Updated ${results.successful.length} blocks`,
+    data: results
+  });
+});
+
 module.exports = {
   getTherapistAvailability,
   getAvailableSlotsForDate,
@@ -519,5 +601,6 @@ module.exports = {
   getTimeBlockById,
   updateTimeBlock,
   deleteTimeBlock,
-  getTherapistTimeBlocks
+  getTherapistTimeBlocks,
+  bulkUpdateTimeBlocks
 };

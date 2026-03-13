@@ -16,7 +16,8 @@ const {
   getTimeBlockById,
   updateTimeBlock,
   deleteTimeBlock,
-  getTherapistTimeBlocks
+  getTherapistTimeBlocks,
+  bulkUpdateTimeBlocks
 } = availabilityController;
 
 // ========================================
@@ -163,12 +164,7 @@ router.post('/exceptions/:id/sync-external', protect, (req, res) => {
   });
 });
 
-router.post('/bulk-update', protect, (req, res) => {
-  res.json({
-    successful: [],
-    failed: []
-  });
-});
+router.post('/bulk-update', protect, bulkUpdateTimeBlocks);
 
 // Frontend compatibility routes - provide mock responses for missing endpoints
 router.get('/therapist/:therapistId', (req, res) => {
