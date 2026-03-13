@@ -2,7 +2,8 @@
   "metadata": {
     "total_terapias": 108,
     "fuente": "Diccionario Excel.xlsx - Hoja1.csv",
-    "formato": "JSON estructurado"
+    "formato": "JSON estructurado",
+    "fecha_generacion": "2026-03-12T12:14:12.827Z"
   },
   "terapias": [
     {
@@ -25,7 +26,7 @@
       "fundamento": "Alivio del dolor crónico (lumbalgia, cervicales), migrañas, insomnio, ansiedad, náuseas (quimioterapia/postoperatorio), trastornos digestivos, respiratorios, menopausia, etc.",
       "que_trata": "Personas con dolor crónico, estrés, síntomas funcionales o en busca de alivio complementario. Debe acompañar diagnóstico médico.",
       "publico_recomendado": "No sustituye atención médica. Riesgos mínimos si se realiza por profesional con agujas estériles. Posibles efectos adversos: infecciones, neumotórax. Precaución en embarazo, coagulación, enfermedades graves.",
-      "contraindicaciones": "Se insertan agujas estériles en puntos específicos, a veces se aplican calor (moxa) o corriente eléctrica (electroacupuntura). Duración entre 20–60 min, número de sesiones según necesidad.",
+      "contraindicaciones": "Se insertan agujas estériles en puntos específicos, a veces se aplican calor (moxa) o corriente eléctrica (electroacupuntura). Duración entre 20–60 min, número de sesiones según necesidad.",
       "como_es_una_sesion": "Moxibustión, masaje Tui Na, fitoterapia china, acupresión, qi-gong, reiki, yoga restaurativo.",
       "complementaria_con": ""
     },
@@ -61,7 +62,7 @@
       "fundamento": "Bloqueos emocionales, conflictos repetitivos, relaciones interpersonales, sentido de propósito, etapas de transición o crisis vitales.",
       "que_trata": "Personas en búsqueda de autoconocimiento simbólico, acompañamiento emocional, o que desean integrar la astrología con terapias como gestalt, coaching o mindfulness.",
       "publico_recomendado": "No sustituye psicoterapia clínica o tratamiento médico. Puede reforzar creencias sin base científica (pseudoterapia). Requiere enfoque crítico y profesionalidad.",
-      "contraindicaciones": "Interpretación de carta natal (posición planetaria del nacimiento), tránsitos actuales (revolución solar), sinastría (relaciones), y diálogo para re-significar patrones. Duración ~60-90 min.",
+      "contraindicaciones": "Interpretación de carta natal (posición planetaria del nacimiento), tránsitos actuales (revolución solar), sinastría (relaciones), y diálogo para re-significar patrones. Duración ~60-90 min.",
       "como_es_una_sesion": "Terapia gestalt, coaching emocional, mindfulness, arteterapia, constelaciones familiares, terapia floral y otras terapias simbólico-energéticas.",
       "complementaria_con": ""
     },
@@ -80,9 +81,9 @@
     {
       "id": 7,
       "nombre": "Ayurveda",
-      "descripcion_corta": "Sistema tradicional holístico de la India con más de 4 000 años de antigüedad que busca el equilibrio del ser mediante doshas (vata, pitta, kapha), dieta, hierbas, yoga, masajes y purificación (Panchakarma)",
+      "descripcion_corta": "Sistema tradicional holístico de la India con más de 4 000 años de antigüedad que busca el equilibrio del ser mediante doshas (vata, pitta, kapha), dieta, hierbas, yoga, masajes y purificación (Panchakarma)",
       "definicion": "Basado en los elementos (aire, fuego, agua, tierra y éter) y su combinación en los doshas. Diagnóstico a partir de lengua, pulso y estilo de vida, seguido de tratamientos personalizados",
-      "fundamento": "Desequilibrios digestivos, estrés, ansiedad, insomnio, dolor crónico (artritis, fibromialgia), desequilibrios metabólicos (diabetes tipo 2, colesterol), fatiga crónica, problemas inmunitarios",
+      "fundamento": "Desequilibrios digestivos, estrés, ansiedad, insomnio, dolor crónico (artritis, fibromialgia), desequilibrios metabólicos (diabetes tipo 2, colesterol), fatiga crónica, problemas inmunitarios",
       "que_trata": "Personas sanas para prevenir, o con síntomas funcionales en busca de enfoque integral con dieta, rutina, recursos de autocuidado y estilo de vida.",
       "publico_recomendado": "No sustituye la medicina convencional. Riesgo potencial por productos herbales con metales pesados (plomo, mercurio, arsénico). Precaución en embarazo o enfermedades graves.",
       "contraindicaciones": "Evaluación del dosha, historia, pulso y lengua. Plan personalizado con dieta, hierbas, rutinas diarias y estacionales, prácticas como yoga, meditación, masajes ayurvédicos (abhyanga, shirodhara), y desintoxicación (Panchakarma, enemas, lavados nasales)",
@@ -97,7 +98,7 @@
       "fundamento": "Estrés, ansiedad, irritabilidad, insomnio, fatiga mental, presión arterial alta, problemas inmunitarios, depresión leve. También fortalece sistema cardiovascular y metabólico.",
       "que_trata": "Personas urbanas con estrés crónico, ansiedad, fatiga mental; también quienes buscan reconectar con la naturaleza o realizar turismo consciente. Apto para todas las edades y niveles físicos.",
       "publico_recomendado": "Limitada: elegir rutas accesibles para movilidad reducida; evitar terrenos resbaladizos o condiciones meteorológicas extremas. No sustituye tratamientos médicos.",
-      "contraindicaciones": "Paseo lento y consciente por bosque (~1–2 h) con ejercicios guiados de respiración, contemplación, escucha, tacto y meditación; final con compartir experiencias o té.",
+      "contraindicaciones": "Paseo lento y consciente por bosque (~1–2 h) con ejercicios guiados de respiración, contemplación, escucha, tacto y meditación; final con compartir experiencias o té.",
       "como_es_una_sesion": "Mindfulness, meditación, yoga de bosque (Shinrin yoga), coaching ecológico, journaling sensitivo, senderos caminata, respiración consciente.",
       "complementaria_con": ""
     },
@@ -109,7 +110,7 @@
       "fundamento": "Estrés, ansiedad, baja autoestima, dolor fibromiálgico, insomnio, dificultades relacionales o emocionales, falta de conexión con uno mismo o el grupo.",
       "que_trata": "Personas adultas y jóvenes que buscan crecimiento personal, gestión emocional, renovación vital, o alivio complementario de malestares como dolor o ansiedad. También útil en estrategias comunitarias.",
       "publico_recomendado": "No sustituye atención médica. No apto para quienes necesiten intervenciones clínicas. Algunas posiciones físicas pueden resultar incómodas para problemas músculo-esqueléticos.",
-      "contraindicaciones": "Grupo guiado por facilitador: se combinan ejercicios individuales, en pareja o grupales con música específica. Duración habitual: 90–150 min. Introducción pausada, pico energético y cierre reflexivo.",
+      "contraindicaciones": "Grupo guiado por facilitador: se combinan ejercicios individuales, en pareja o grupales con música específica. Duración habitual: 90–150 min. Introducción pausada, pico energético y cierre reflexivo.",
       "como_es_una_sesion": "Psicoterapia, coaching, mindfulness, journaling, trabajo corporal (yoga, tai chi), terapias de movimiento, arteterapia.",
       "complementaria_con": ""
     },
@@ -169,7 +170,7 @@
       "fundamento": "Estrés, ansiedad, insomnio, fatiga crónica, dolores musculares leves, hipertensión, problemas digestivos funcionales, equilibrio emocional y mejora del sistema inmunológico.",
       "que_trata": "Personas de cualquier edad que buscan autocuidado suave y consciente, con movilidad limitada o en procesos de recuperación física/emocional; también adecuado para quienes practican yoga, pilates o terapias energéticas.",
       "publico_recomendado": "Precaución en casos de lesiones articulares o musculares agudas; se recomienda adaptación de los ejercicios. No sustituye tratamiento médico en enfermedades severas.",
-      "contraindicaciones": "Sesión grupal o individual con movimientos lentos y coordinados con la respiración: posturas estáticas o dinámicas (como guardia del árbol, ondas de brazos, balanceo). Duración típica: 45–60 min. También incluye ejercicios de respiración y visualización.",
+      "contraindicaciones": "Sesión grupal o individual con movimientos lentos y coordinados con la respiración: posturas estáticas o dinámicas (como guardia del árbol, ondas de brazos, balanceo). Duración típica: 45–60 min. También incluye ejercicios de respiración y visualización.",
       "como_es_una_sesion": "Tai Chi, yoga terapéutico, respiración consciente, mindfulness, acupresión/acupuntura, reiki, masaje terapéutico, coaching de salud.",
       "complementaria_con": ""
     },
@@ -181,7 +182,7 @@
       "fundamento": "Claridad de objetivos, autoconocimiento, toma de decisiones, habilidades profesionales (liderazgo, comunicación, gestión emocional), equilibrio vital y rendimiento.",
       "que_trata": "Personas o equipos que quieren avanzar en áreas específicas: liderazgo, transición vocacional, equilibrio trabajo–vida, emprendimiento, rendimiento profesional o personal.",
       "publico_recomendado": "No es adecuado para tratar patologías mentales ni trastornos clínicos. No sustituye terapia psicológica o psiquiátrica. Coaching no regulado legalmente en España: cuidado con certificaciones y ética profesional.",
-      "contraindicaciones": "Conversación estructurada guiada por coach: exploración, establecimiento de meta, plan de acción, seguimiento. Duración típica: 60 min, frecuencia semanal o quincenal.",
+      "contraindicaciones": "Conversación estructurada guiada por coach: exploración, establecimiento de meta, plan de acción, seguimiento. Duración típica: 60 min, frecuencia semanal o quincenal.",
       "como_es_una_sesion": "PNL, mindfulness, coaching emocional, terapias corporales, psicoterapia humanista, arteterapia, liderazgo sistémico.",
       "complementaria_con": ""
     },
@@ -229,7 +230,7 @@
       "fundamento": "Estrés, ansiedad, insomnio, dolores leves, bloqueos emocionales, desequilibrio energético general; se indica también en prácticas espirituales o meditación guiada.",
       "que_trata": "Personas interesadas en herramientas energéticas suaves o simbólicas, abiertas a prácticas espirituales o de autocuidado holístico.",
       "publico_recomendado": "No sustituye tratamiento médico. Los efectos son atribuibles al placebo. Riesgo potencial: uso en lugar de atención médica adecuada.",
-      "contraindicaciones": "El terapeuta coloca cristales sobre chakras o zonas energéticas del cuerpo o los dispone alrededor. Puede incluir visualización, meditación, péndulos, aceites de cristal o elixires minerales. Sesión suele durar entre 30 y 60 min.",
+      "contraindicaciones": "El terapeuta coloca cristales sobre chakras o zonas energéticas del cuerpo o los dispone alrededor. Puede incluir visualización, meditación, péndulos, aceites de cristal o elixires minerales. Sesión suele durar entre 30 y 60 min.",
       "como_es_una_sesion": "Reiki, sanación pránica, aromaterapia, meditación, mindfulness, masaje terapéutico, coaching espiritual, terapias simbólicas.",
       "complementaria_con": ""
     },
@@ -241,7 +242,7 @@
       "fundamento": "Estrés, ansiedad, insomnio, fatiga mental, dolores leves, trastornos emocionales, desequilibrios energéticos, presión arterial alta o bajo ánimo, según el color aplicado.",
       "que_trata": "Personas que buscan autocuidado emocional o simbólico, interesadas en bienestar no invasivo; terapias complementarias suaves.",
       "publico_recomendado": "No sustituye salud o tratamiento médico. Puede generar falsas expectativas o uso en lugar del tratamiento adecuado. Carece de regulación formal.",
-      "contraindicaciones": "Empleo de lámparas de colores, filtros, baños de luz, agua teñida, o espacios pintados; sesión de 10 a 60 min, según protocolo. Se selecciona color según el objetivo emocional/físico.",
+      "contraindicaciones": "Empleo de lámparas de colores, filtros, baños de luz, agua teñida, o espacios pintados; sesión de 10 a 60 min, según protocolo. Se selecciona color según el objetivo emocional/físico.",
       "como_es_una_sesion": "Meditación, aromaterapia, masaje terapéutico, reiki, visualización guiada, mindfulness. Puede integrarse en protocolos de bienestar con otras terapias.",
       "complementaria_con": ""
     },
@@ -253,7 +254,7 @@
       "fundamento": "Dolor musculoesquelético crónico (espalda, cuello), fibromialgia, osteoartritis, herpes zóster, acné, biosíndrome metabólico, hipertensión leve, fatiga, estrés.",
       "que_trata": "Personas con molestias musculares crónicas o sintomatología funcional leve que buscan alivio complementario. A menudo usada por atletas como estrategia de recuperación física (ej. Michael Phelps, tenis profesional).",
       "publico_recomendado": "No aplicar en piel lesionada, quemaduras, eczemas, embarazo (zona abdominal/lumbar), trastornos hemorrágicos, problemas cardíacos o epilépticos. Riesgo: hematomas, quemaduras, infección, cicatrices, reacciones cutáneas.",
-      "contraindicaciones": "Publicación de ventosas sobre zonas específicas por 5–20 min (ventosas secas, húmedas o deslizantes). Se genera succión que puede dejar marcas circulares visibles. Algunas variantes incluyen microsangrado superficial.",
+      "contraindicaciones": "Publicación de ventosas sobre zonas específicas por 5–20 min (ventosas secas, húmedas o deslizantes). Se genera succión que puede dejar marcas circulares visibles. Algunas variantes incluyen microsangrado superficial.",
       "como_es_una_sesion": "Masaje terapéutico, fisioterapia, acupuntura, Tui Na, yoga terapéutico, mindfulness, coaching de salud. Uso frecuente en protocolos integrativos deportivos.",
       "complementaria_con": ""
     },
@@ -265,14 +266,14 @@
       "fundamento": "Estrés, ansiedad, depresión, autoestima baja, bloqueos emocionales, disociación corporal, trastornos del desarrollo, dolor crónico, situaciones traumáticas y aislamiento social.",
       "que_trata": "Personas de todas las edades, incluidas personas mayores, con trastornos emocionales, déficit motor o cognitivo, trastornos del espectro autista, adicciones, crisis existenciales o dependencia emocional.",
       "publico_recomendado": "No sustituye psicoterapia clínica o tratamiento médico. Personas con trastornos psicóticos agudos o inestabilidad emocional severa deben ser conducidas por profesionales clínicos.",
-      "contraindicaciones": "Grupo o sesión individual guiada por danzaterapeuta. Se trabaja con música, movimientos exploratorios, improvisación, expresión y reflexión posterior. Duración típica: 60–90 min.",
+      "contraindicaciones": "Grupo o sesión individual guiada por danzaterapeuta. Se trabaja con música, movimientos exploratorios, improvisación, expresión y reflexión posterior. Duración típica: 60–90 min.",
       "como_es_una_sesion": "Arteterapia, musicoterapia, somatic experiencing, psicoterapia humanista, mindfulness, coaching, movimiento corporal.",
       "complementaria_con": ""
     },
     {
       "id": 23,
       "nombre": "EFT (Tapping, técnica de liberación emocional)",
-      "descripcion_corta": "Técnica de psicología energética que combina tapping (golpeteo con los dedos) en puntos de acupresión y afirmaciones verbalizadas para liberar emociones atrapadas. Fue desarrollada por Gary Craig a finales de los años 90.",
+      "descripcion_corta": "Técnica de psicología energética que combina tapping (golpeteo con los dedos) en puntos de acupresión y afirmaciones verbalizadas para liberar emociones atrapadas. Fue desarrollada por Gary Craig a finales de los años 90.",
       "definicion": "Basada en una mezcla de programación neurolingüística, acupresión, exposición emocional y conceptos de qi. No existe evidencia empírica de los meridianos energéticos.",
       "fundamento": "Estrés, ansiedad, duelo, traumas, dolor físico, fobias, adicciones, síndrome premenstrual y otros síntomas emocionales o psicosomáticos.",
       "que_trata": "Personas abiertas al autocuidado emocional expresivo y complementario; útil también para coaches, terapeutas y quienes buscan herramientas sencillas de autoaplicación.",
@@ -313,7 +314,7 @@
       "fundamento": "Dolores musculoesqueléticos crónicos (espalda, cuello), rigidez, alteraciones posturales, estrés, falta de coordinación, recuperación de lesiones, aprendizaje motor, problemas neurológicos como parkinson o esclerosis múltiple.",
       "que_trata": "Personas de todas las edades, incluidas mayores, deportistas, artistas, personas en rehabilitación y quienes buscan mejorar movimiento, reducir tensión y aumentar calma interna.",
       "publico_recomendado": "No tiene contraindicaciones conocidas serias; es muy suave y practicable en embarazadas o mayores si se adapta correctamente. No sustituye orientación médica en patologías graves.",
-      "contraindicaciones": "En ATM (grupo): se guía verbalmente una secuencia de movimientos suaves. En IF (individual): el practicante mueve al alumno con contacto manual leve para explorar nuevas posibilidades de movimiento. Las sesiones suelen durar entre 45 y 60 min.",
+      "contraindicaciones": "En ATM (grupo): se guía verbalmente una secuencia de movimientos suaves. En IF (individual): el practicante mueve al alumno con contacto manual leve para explorar nuevas posibilidades de movimiento. Las sesiones suelen durar entre 45 y 60 min.",
       "como_es_una_sesion": "Yoga terapéutico, coaching corporal, fisioterapia, somatic experiencing, mindfulness, movimiento consciente, neurodanza.",
       "complementaria_con": ""
     },
@@ -325,7 +326,7 @@
       "fundamento": "Estrés, insomnio, falta de armonía, baja energía vital, relaciones tensas, bloqueo profesional o falta de enfoque personal. Busca mejorar la sensación de bienestar mediante el entorno.",
       "que_trata": "Personas que desean crear un hogar o espacio de trabajo equilibrado, reducir el estrés ambiental, mejorar el descanso o aumentar sensación de paz. Adecuado para quienes buscan un enfoque simbólico-spiritual con impacto visual y estético.",
       "publico_recomendado": "No sustituye tratamiento médico ni ayuda psicológica clínica. Riesgo de expectativas exageradas o distracción frente a problemas reales. Considerada pseudoterapia por falta de evidencia empírica.",
-      "contraindicaciones": "Evaluación presencial (hogar/oficina): análisis de plano, proporciones, orientaciones, colores, materiales y flujo de puertas. Incluye recomendaciones prácticas de decoración, color, mobiliario y orden. Sesiones de 60-90 min.",
+      "contraindicaciones": "Evaluación presencial (hogar/oficina): análisis de plano, proporciones, orientaciones, colores, materiales y flujo de puertas. Incluye recomendaciones prácticas de decoración, color, mobiliario y orden. Sesiones de 60-90 min.",
       "como_es_una_sesion": "Psicoterapia, mindfulness, meditación, coaching ecológico, terapia floral, diseño consciente, terapia ambiental. El orden físico puede fomentar calma emocional.",
       "complementaria_con": ""
     },
@@ -361,7 +362,7 @@
       "fundamento": "Desequilibrio emocional o mental, bloqueo creativo, estrés profundo, desconexión interior, entornos residenciales o laborales desequilibrados, búsqueda de orden simbólico y resonancia de bienestar.",
       "que_trata": "Personas interesadas en sanación energética con enfoque simbólico-vibracional, arquitectos, terapeutas energéticos, diseñadores o coaches que desean armonizar espacios o cuerpos con geometría.",
       "publico_recomendado": "No sustituye atención médica ni terapias clínicas. No está basada en evidencia científica verificable: ata la experiencia al simbolismo o conciencia del practicante. Requiere enfoque crítico.",
-      "contraindicaciones": "Modos variados: trazado en papel o espacio divido con dibujo de mandalas/laberintos; colocación de sólidos platónicos sobre mesa o cuerpo; armonización del espacio mediante símbolos; uso de herramientas como V.A.S. o visualización guiada. Duración entre 30 y 90 min dependiendo del enfoque.",
+      "contraindicaciones": "Modos variados: trazado en papel o espacio divido con dibujo de mandalas/laberintos; colocación de sólidos platónicos sobre mesa o cuerpo; armonización del espacio mediante símbolos; uso de herramientas como V.A.S. o visualización guiada. Duración entre 30 y 90 min dependiendo del enfoque.",
       "como_es_una_sesion": "Feng Shui terapéutico, geobiología del hábitat, mindfulness, coaching consciente, aromaterapia, meditación geométrica, reiki, terapias florales y vibracionales.",
       "complementaria_con": ""
     },
@@ -373,7 +374,7 @@
       "fundamento": "Dolor musculoesquelético (cuello, espalda), tensión, migraña, congestión respiratoria, estancamiento linfático, insomnio, fatiga, edema mamario posparto, ansiedad. También usado para rejuvenecimiento facial y firmeza cutánea.",
       "que_trata": "Adultos sin patologías cutáneas graves que busquen alivio del dolor, recuperación muscular, drenaje linfático o mejora estética facial.",
       "publico_recomendado": "Evitar en hemofilia, trastornos de coagulación, cáncer, embarazo, lesiones cutáneas, cirugía reciente, uso de anticoagulantes, condiciones dermatológicas activas. Precaución si hay baja presión o sensibilidad extrema.",
-      "contraindicaciones": "Aplicación de aceite sobre la piel, raspado con herramienta inclinada (≈ ±15-45°) en dirección al flujo linfático o meridianos. En corporal se busca petequias; en facial presión suave sin hematomas. Dura entre 5 y 30 min según área.",
+      "contraindicaciones": "Aplicación de aceite sobre la piel, raspado con herramienta inclinada (≈ ±15-45°) en dirección al flujo linfático o meridianos. En corporal se busca petequias; en facial presión suave sin hematomas. Dura entre 5 y 30 min según área.",
       "como_es_una_sesion": "Tui Na, acupresión, masaje miofascial, fisioterapia, yoga terapéutico, aromaterapia, mindfulness, coaching corporal.",
       "complementaria_con": ""
     },
@@ -397,7 +398,7 @@
       "fundamento": "Dolor crónico musculoesquelético (espalda, articulaciones, fibromialgia), reumatismos, lesiones ortopédicas, enfermedades neurológicas, estrés, insomnio, movilidad disminuida y fatiga.",
       "que_trata": "Personas con dolor crónico, rehabilitación post-trauma quirúrgico, mayores, pacientes reumáticos/neuro (Parkinson) y quienes buscan autocuidado suave. También usado en centros de spa termal y wellness.",
       "publico_recomendado": "Personas con trombosis, problemas cardíacos severos, presión arterial inestable, infecciones cutáneas, embarazo de riesgo, heridas abiertas o piel sensible. Requiere supervisión profesional.",
-      "contraindicaciones": "Incluye baños tibios o calientes, duchas de presión, contrastes frío/calor, hidromasaje, piscinas termales, chorros dirigidos, saunas, jacuzzis, envolturas, circuitos Kneipp y flujos terapéuticos programados. La sesión completa puede durar entre 30 min y varias horas.",
+      "contraindicaciones": "Incluye baños tibios o calientes, duchas de presión, contrastes frío/calor, hidromasaje, piscinas termales, chorros dirigidos, saunas, jacuzzis, envolturas, circuitos Kneipp y flujos terapéuticos programados. La sesión completa puede durar entre 30 min y varias horas.",
       "como_es_una_sesion": "Fisioterapia acuática, yoga terapéutico, masaje, aromaterapia, mindfulness, coaching de salud, dieta saludable. En balnearios también se combina con talasoterapia, fangoterapia o spa de salud integral.",
       "complementaria_con": ""
     },
@@ -409,19 +410,19 @@
       "fundamento": "Dolor agudo y crónico, insomnio, ansiedad, depresión leve, fobias, tabaquismo, preparación quirúrgica, trastornos gastrointestinales funcionales y manejo postoperatorio, entre otros.",
       "que_trata": "Personas que desean apoyo clínico complementario en condiciones funcionales o emocionales; pacientes con buen nivel de sugestibilidad, bajo guía de profesionales de la salud.",
       "publico_recomendado": "No sustituye tratamientos médicos o psicoterapéuticos formales; cuidado con trauma reciente, trastornos psicóticos o falta de supervisión adecuada. Riesgo de falsos recuerdos en regresiones.",
-      "contraindicaciones": "Evaluación inicial, inducción verbal guiada, sugerencias terapéuticas, visualizaciones o regresiones controladas, y cierre consciente. Duración típica: 45–60 min.",
+      "contraindicaciones": "Evaluación inicial, inducción verbal guiada, sugerencias terapéuticas, visualizaciones o regresiones controladas, y cierre consciente. Duración típica: 45–60 min.",
       "como_es_una_sesion": "Terapia cognitivo-conductual, mindfulness, técnicas de relajación, PNL, coaching emocional, somatic experiencing, gestión del dolor.",
       "complementaria_con": ""
     },
     {
       "id": 35,
       "nombre": "I Ching Yijing",
-      "descripcion_corta": "Oráculo y libro sapiencial chino de casi 4 000 años de antigüedad que utiliza 64 hexagramas como símbolos dinámicos para comprender el cambio y ofrecer guía simbólica en la vida.",
+      "descripcion_corta": "Oráculo y libro sapiencial chino de casi 4 000 años de antigüedad que utiliza 64 hexagramas como símbolos dinámicos para comprender el cambio y ofrecer guía simbólica en la vida.",
       "definicion": "Basado en la dialéctica Yin–Yang, trigramas hexagramas y los ciclos del cambio. Jung lo usó como herramienta terapéutica, relacionándolo con sincronicidad y arquetipos.",
       "fundamento": "Ayuda en toma de decisiones, autoconocimiento, gestión emocional, crisis, simbolización de conflictos y patrones de cambio en la vida como herramienta de reflexión personal.",
       "que_trata": "Personas interesadas en enfoques simbólicos, coaches, terapeutas, quienes buscan guía intuitiva o herramientas complementarias de crecimiento personal o sistémico.",
       "publico_recomendado": "No sustituye terapia clínica ni atención médica. Desaconsejado su uso exclusivo en problemas de salud mental graves o como diagnóstico médico.",
-      "contraindicaciones": "Se formula una pregunta concreta al oráculo. Se usa método de monedas o tallos para construir un hexagrama. Se interpreta el texto del hexagrama y las líneas móviles como guía simbólica. Duración aprox. 60 min.",
+      "contraindicaciones": "Se formula una pregunta concreta al oráculo. Se usa método de monedas o tallos para construir un hexagrama. Se interpreta el texto del hexagrama y las líneas móviles como guía simbólica. Duración aprox. 60 min.",
       "como_es_una_sesion": "Psicoterapia, coaching simbólico, astrología psicológica, arteterapia, mindfulness, constelaciones, terapias transpersonales, I Ching Dao.",
       "complementaria_con": ""
     },
@@ -433,7 +434,7 @@
       "fundamento": "Dolor crónico (espalda, cuello, hombros), desequilibrio postural, escoliosis, movilidad limitada, rigidez, compensaciones corporales por estrés, cicatrices restrictivas o secuelas de traumatismos.",
       "que_trata": "Personas que buscan mejorar postura, aliviar tensiones crónicas o explorar nuevas posibilidades de movimiento consciente. También útil para deportistas, artistas y quienes trabajan corporalmente.",
       "publico_recomendado": "No indicada en inflamación aguda, fiebre, infecciones o cirugía reciente. Precaución en casos de osteoporosis grave, trombosis u osteomielitis. Siempre bajo criterio profesional.",
-      "contraindicaciones": "Evaluación postural inicial (de pie, al andar). Serie de 10–13 sesiones, cada una de 60–90 min, con trabajo corporal manual sobre fascia y ejercicios activos de movimiento; cliente permanece vestido. Evolución progresiva desde tejidos superficiales a profundas.",
+      "contraindicaciones": "Evaluación postural inicial (de pie, al andar). Serie de 10–13 sesiones, cada una de 60–90 min, con trabajo corporal manual sobre fascia y ejercicios activos de movimiento; cliente permanece vestido. Evolución progresiva desde tejidos superficiales a profundas.",
       "como_es_una_sesion": "Técnica Alexander, Feldenkrais, somatic experiencing, fisioterapia miofascial, yoga terapéutico, osteopatía, coaching corporal y mindfulness.",
       "complementaria_con": ""
     },
@@ -457,7 +458,7 @@
       "fundamento": "Estrés, ansiedad, depresión, trauma, duelo, bloqueo emocional, trastornos psicosomáticos, autoconocimiento, regulación emocional y coherencia narrativa personal.",
       "que_trata": "Personas que desean procesar emociones con escritura guiada; útil como complemento en psicoterapia, coaching o procesos de crecimiento personal. Apta para quienes prefieren expresión no verbal.",
       "publico_recomendado": "No sustituye tratamiento médico o terapéutico. Puede ser emocionalmente intenso si se trabaja con traumas sin estructura o contención profesional. Se recomienda supervisión si hay historia de trauma grave.",
-      "contraindicaciones": "Ejercicios guiados: escritura expresiva 15–30 min por 3–5 días sobre temas específicos; técnicas como capturar momentos, cartas no enviadas, diarios de emociones, diálogo interno o listados. Puede usarse como tarea entre sesiones.",
+      "contraindicaciones": "Ejercicios guiados: escritura expresiva 15–30 min por 3–5 días sobre temas específicos; técnicas como capturar momentos, cartas no enviadas, diarios de emociones, diálogo interno o listados. Puede usarse como tarea entre sesiones.",
       "como_es_una_sesion": "Psicoterapia cognitivo-conductual, mindfulness, coaching emocional, narratología, arteterapia, journaling grupal, expresión creativa. Puede combinarse con tareas de reflexión o ejercicios en escritura terapéutica.",
       "complementaria_con": ""
     },
@@ -493,7 +494,7 @@
       "fundamento": "Indicado en fisioterapia como complemento en casos de fracturas, edemas, lesiones deportivas, artrosis, tendinitis, lumbalgias o fibromialgia, especialmente en recuperación osteoarticular y alivio del dolor.",
       "que_trata": "Personas con dolencias musculoesqueléticas crónicas o post-traumáticas que deseen un tratamiento no invasivo. Ideal como complemento supervisado por fisioterapeutas o médicos.",
       "publico_recomendado": "Está contraindicado en personas con marcapasos o implantes electrónicos, tumores activos, embarazo, epilepsia, infecciones agudas, heridas abiertas o crecimiento óseo. Riesgo mínimo, pero requiere supervisión médica.",
-      "contraindicaciones": "Se colocan imanes o emisores sobre zona específica del cuerpo. La sesión suele durar de 30 a 60 min y es necesario un uso regular (varias veces por semana) para apreciar resultados. Puede combinarse con ejercicios o masaje.",
+      "contraindicaciones": "Se colocan imanes o emisores sobre zona específica del cuerpo. La sesión suele durar de 30 a 60 min y es necesario un uso regular (varias veces por semana) para apreciar resultados. Puede combinarse con ejercicios o masaje.",
       "como_es_una_sesion": "Fisioterapia convencional, masaje terapéutico, rehabilitación muscular, ejercicio terapéutico, coaching de salud, yoga terapéutico o mindfulness para aliviar dolor crónico y favorecer recuperación.",
       "complementaria_con": ""
     },
@@ -505,7 +506,7 @@
       "fundamento": "Ansiedad, estrés, baja concentración, desequilibrio emocional, bloqueo creativo o narrativo, traumas, problemas de autoestima o comunicación expresiva. Son útiles en autoconocimiento o rehabilitación cognitiva.",
       "que_trata": "Personas mayores, niños, adolescentes o adultos que desean autocuidado creativo, regulación emocional o quienes prefieren procesos no verbales como arteterapia o mindfulness.",
       "publico_recomendado": "No sustituye evaluación psicológica o psiquiátrica profesional en crisis graves. Puede emerger contenido emocional profundo y requerir contención terapéutica si se trabaja con trauma.",
-      "contraindicaciones": "Actividad individual o grupal: dibujo o coloreado guiado de mandalas (o dibujos propios), con ambientación relajante. Se reflexiona sobre colores, patrones y emociones emergentes al final. Duran entre 30–90 min. Algunos modelos usan mandalas pre-dibujados; otros implican creación propia.",
+      "contraindicaciones": "Actividad individual o grupal: dibujo o coloreado guiado de mandalas (o dibujos propios), con ambientación relajante. Se reflexiona sobre colores, patrones y emociones emergentes al final. Duran entre 30–90 min. Algunos modelos usan mandalas pre-dibujados; otros implican creación propia.",
       "como_es_una_sesion": "Arteterapia, mindfulness, coaching simbólico, psicoterapia expresiva, journaling simbólico, meditación visual, movimientos creativos. Ideal como parte de programas integrativos o talleres grupales.",
       "complementaria_con": ""
     },
@@ -517,7 +518,7 @@
       "fundamento": "Alivia estrés, ansiedad, fatiga, dolor muscular, rigidez articular, desequilibrios energéticos, piel seca, insomnio y bloqueos emocionales. Nutre la piel, tonifica músculos y articula cuerpo y mente.",
       "que_trata": "Personas de cualquier edad que buscan relajación profunda, recuperación física o equilibrio emocional; especialmente quienes siguen Ayurveda o prácticas integrativas.",
       "publico_recomendado": "Evitar si hay fiebre, infecciones, digestión alterada (ama elevada), embarazos de riesgo o condiciones críticas de Kapha, según el diagnóstico ayurvédico. No sustituye atención médica profesional.",
-      "contraindicaciones": "Se aplica aceite herbal caliente según dosha predominante en movimientos largos y fluidos, centrípetos, combinando amasamientos sobre marma. Puede durar de 30 a 90 min según profundidad. Tras el masaje, se realiza tratamiento de calor (svedana) o baño tibio y se sugiere reposo e hidratación.",
+      "contraindicaciones": "Se aplica aceite herbal caliente según dosha predominante en movimientos largos y fluidos, centrípetos, combinando amasamientos sobre marma. Puede durar de 30 a 90 min según profundidad. Tras el masaje, se realiza tratamiento de calor (svedana) o baño tibio y se sugiere reposo e hidratación.",
       "como_es_una_sesion": "Otras terapias ayurvédicas como Panchakarma, yoga, meditación, fitoterapia, masaje champi, coaching de salud, mindfulness y nutrición consciente.",
       "complementaria_con": ""
     },
@@ -525,11 +526,11 @@
       "id": 44,
       "nombre": "Masaje linfático",
       "descripcion_corta": "Técnica manual suave creada por Emil y Estrid Vodder en los años 30, que estimula el sistema linfático superficial mediante movimientos lentos y rítmicos para favorecer el drenaje de líquidos y toxinas hacia zonas linfáticas sanas.",
-      "definicion": "Basado en anatomía y fisiología del sistema linfático; la presión muy ligera (<4 kPa) estimula el flujo linfático, moviliza líquidos intersticiales y proteínas que no se eliminan por otros medios.",
+      "definicion": "Basado en anatomía y fisiología del sistema linfático; la presión muy ligera (<4 kPa) estimula el flujo linfático, moviliza líquidos intersticiales y proteínas que no se eliminan por otros medios.",
       "fundamento": "Edemas linfáticos (postmastectomía, cirugía estética, lesiones traumáticas), retención de líquidos, celulitis, piernas cansadas, acné, estreñimiento, estrés, insomnio, dolor menstrual o postquirúrgico y apoyo en infecciones respiratorias.",
       "que_trata": "Personas con retención de líquidos, edemas, postoperatorio, condiciones circulatorias o autoinmunes; también útil en estética corporal y bienestar emocional. Solo aplicada por profesionales cualificados (fisioterapeutas especializados).",
       "publico_recomendado": "Absolutas: infecciones agudas, trombosis venosa profunda, insuficiencia cardíaca descompensada, cáncer activo, insuficiencia renal grave. Relativas: hipotensión, hipertiroidismo, menstruación abundante, varices avanzadas, diabetes, asma, insuficiencia cardíaca leve, enfermedades autoinmunes.",
-      "contraindicaciones": "Sesión de 45–60 min con maniobras suaves en dirección al flujo linfático: bombeo, barridos y movimientos circulares. Se inicia siempre desde tronco hacia extremidades y se combina con vendaje o prendas compresivas si es necesario. Frecuencia semanal o diaria en casos agudos (5-6 días).",
+      "contraindicaciones": "Sesión de 45–60 min con maniobras suaves en dirección al flujo linfático: bombeo, barridos y movimientos circulares. Se inicia siempre desde tronco hacia extremidades y se combina con vendaje o prendas compresivas si es necesario. Frecuencia semanal o diaria en casos agudos (5-6 días).",
       "como_es_una_sesion": "Quiromasaje, fisioterapia, estiramientos, ejercicio terapéutico, presoterapia, coaching de salud, nutrición, mindfulness. En rehabilitación se integra en programas complejos de drenaje.",
       "complementaria_con": ""
     },
@@ -565,7 +566,7 @@
       "fundamento": "Contraturas musculares, dolor crónico (lumbar, cervical), tendinopatías, esguinces, cicatrices, alteraciones posturales, espasmos, mialgias, fatiga, estrés, insomnio o trastornos emocionales.",
       "que_trata": "Personas con dolor o tensión musculoesquelética leve o crónica, deportistas, pacientes en rehabilitación, con estrés o alteraciones posturales. Ideal complementario a fisioterapia.",
       "publico_recomendado": "No aplicar en trombosis, heridas abiertas, inflamación activa, enfermedades infecciosas, cáncer sin autorización médica, embarazos de riesgo, hipertensión inestable. Debe estar indicado por profesional sanitario.",
-      "contraindicaciones": "Evaluación previa y valoración médica. Maniobras diversas: roce, fricción, percusión, vibración, amasamiento, compresión según objetivo. Duración: 30–60 min. Frecuencia desde semanal a mantenimiento. (",
+      "contraindicaciones": "Evaluación previa y valoración médica. Maniobras diversas: roce, fricción, percusión, vibración, amasamiento, compresión según objetivo. Duración: 30–60 min. Frecuencia desde semanal a mantenimiento. (",
       "como_es_una_sesion": "Fisioterapia, ejercicio terapéutico, estiramiento, mindfulness, coaching corporal, yoga terapéutico, drenaje linfático, masoterapia miofascial.",
       "complementaria_con": ""
     },
@@ -577,7 +578,7 @@
       "fundamento": "Usada como terapia complementaria para dolor (lumbalgia, cervicalgia, artritis), estrés, ansiedad, insomnio, trastornos digestivos, recuperación postictus, fatiga crónica, trastornos inmunes y depresión leve.",
       "que_trata": "Personas que desean abordajes integrativos y holísticos, abiertas a terapias complementarias con supervisión profesional y conciencia crítica.",
       "publico_recomendado": "No sustituye la medicina convencional. Riesgo con uso inadecuado de agujas (infección, neumotórax), plantas tóxicas y desequilibrios sin supervisión profesional. Contraindicada en casos con patologías graves sin seguimiento clínico y con terapistas sin titulación sanitaria.",
-      "contraindicaciones": "Evaluación del pulso, lengua y síntoma; diagnóstico de desequilibrios; aplicación de acupuntura, moxibustión o fitoterapia, masaje tuina y/o receta dietética y ejercicio energético (qigong) según caso. Suele durar 60–90 min, con seguimiento de varias citas.",
+      "contraindicaciones": "Evaluación del pulso, lengua y síntoma; diagnóstico de desequilibrios; aplicación de acupuntura, moxibustión o fitoterapia, masaje tuina y/o receta dietética y ejercicio energético (qigong) según caso. Suele durar 60–90 min, con seguimiento de varias citas.",
       "como_es_una_sesion": "Medicina integrativa, fisioterapia, coaching de salud, mindfulness, nutrición energética, qigong/yoga, arteterapia y psicoterapia somática.",
       "complementaria_con": ""
     },
@@ -589,14 +590,14 @@
       "fundamento": "Amigdalitis, gripe, síntomas gastrointestinales crónicos, síndrome premenopáusico, insomnio, ansiedad, retención líquida, prurito de ancianos, síntomas digestivos en el envejecimiento, efectos sobre la calidad de vida en cáncer.",
       "que_trata": "Personas que buscan terapias herbales integrativas con respaldo clínico o regulación, especialmente en casos funcionales difíciles o que combinan con medicina convencional.",
       "publico_recomendado": "Riesgo de efectos adversos (e.g., pseudoaldosteronismo con Glycyrrhiza) en usos prolongados o en personas con condiciones cardíacas, hipertensión o problemas renales; debe supervisarse médicamente.",
-      "contraindicaciones": "Consulta médica o herborista que prescriba fórmula Kampō específica: preparado estandarizado en forma de gránulos o extractos. Dosis diario dividida (2.5–7.5 g), seguimiento clínico. Opcional combinación con acupuntura u otras técnicas integradas.",
+      "contraindicaciones": "Consulta médica o herborista que prescriba fórmula Kampō específica: preparado estandarizado en forma de gránulos o extractos. Dosis diario dividida (2.5–7.5 g), seguimiento clínico. Opcional combinación con acupuntura u otras técnicas integradas.",
       "como_es_una_sesion": "Nutrición consciente, fitoterapia occidental, acupuntura, coaching de salud, qigong/taichi, fisioterapia post-ictus.",
       "complementaria_con": ""
     },
     {
       "id": 50,
       "nombre": "Meditación",
-      "descripcion_corta": "Práctica mental y emocional que entrena la atención y la conciencia para alcanzar un estado de calma, claridad y presencia. Puede incluir enfoques de concentración, observación, visualización, recitación de mantras, o movimientos suaves. Sus raíces están en tradiciones espirituales de oriente y occidente, pero hoy también se emplea con fines terapéuticos y de bienestar general. Existen más de 10 tipos de meditación : Mindfulness (Atención plena): observa sin juzgar, útil para reducir estrés y ansiedad. Meditación de concentración: enfoca la mente en un objeto o sonido, mejora la atención. Meditación trascendental: uso de mantras, útil para relajación profunda. Vipassana: observación de sensaciones y pensamientos, promueve autoconocimiento y ecuanimidad. Metta Bhavana (amor bondadoso): cultiva compasión, útil para mejorar relaciones y reducir hostilidad. Zazen (zen): postura sentada y atención a la respiración, promueve calma y presencia. Meditación guiada: con voz o música, útil para principiantes o relajación. Meditación en movimiento: incluye Tai Chi, Chi Kung, yoga meditativo. Meditación de sonido (mantras, cuencos, gongs): útil para inducir estados de calma y armonía. Meditación de visualización creativa: imaginando escenarios positivos, útil en objetivos personales o sanación. Meditación de escaneo corporal: recorre mentalmente el cuerpo para soltar tensión. Meditación activa (Osho, danza, respiración): combina actividad física y descarga emocional. Meditación cristiana/contemplativa: repetición de oraciones o lecturas sagradas para conexión espiritual. Meditación chakra: enfoque en centros energéticos, usada en tradiciones tántricas y kundalini.",
+      "descripcion_corta": "Práctica mental y emocional que entrena la atención y la conciencia para alcanzar un estado de calma, claridad y presencia. Puede incluir enfoques de concentración, observación, visualización, recitación de mantras, o movimientos suaves. Sus raíces están en tradiciones espirituales de oriente y occidente, pero hoy también se emplea con fines terapéuticos y de bienestar general. Existen más de 10 tipos de meditación : Mindfulness (Atención plena): observa sin juzgar, útil para reducir estrés y ansiedad.  Meditación de concentración: enfoca la mente en un objeto o sonido, mejora la atención.  Meditación trascendental: uso de mantras, útil para relajación profunda. Vipassana: observación de sensaciones y pensamientos, promueve autoconocimiento y ecuanimidad.  Metta Bhavana (amor bondadoso): cultiva compasión, útil para mejorar relaciones y reducir hostilidad.  Zazen (zen): postura sentada y atención a la respiración, promueve calma y presencia.  Meditación guiada: con voz o música, útil para principiantes o relajación. Meditación en movimiento: incluye Tai Chi, Chi Kung, yoga meditativo. Meditación de sonido (mantras, cuencos, gongs): útil para inducir estados de calma y armonía.  Meditación de visualización creativa: imaginando escenarios positivos, útil en objetivos personales o sanación.  Meditación de escaneo corporal: recorre mentalmente el cuerpo para soltar tensión.  Meditación activa (Osho, danza, respiración): combina actividad física y descarga emocional.  Meditación cristiana/contemplativa: repetición de oraciones o lecturas sagradas para conexión espiritual.  Meditación chakra: enfoque en centros energéticos, usada en tradiciones tántricas y kundalini.",
       "definicion": "Se basa en la regulación de la atención y la respiración, la reducción del diálogo interno y el cultivo de estados mentales positivos. Tradicionalmente se asocia con caminos espirituales (budismo, hinduismo, taoísmo), pero en contextos modernos se ha adaptado como herramienta laica para el manejo del estrés y la mejora del bienestar.",
       "fundamento": "Estrés, ansiedad, depresión leve, insomnio, déficit de atención, dolor crónico, fatiga, baja resiliencia emocional, falta de concentración. También apoya procesos de autoconocimiento y desarrollo personal.",
       "que_trata": "Personas de cualquier edad, nivel físico y cultural que busquen reducir el estrés, mejorar su bienestar emocional o desarrollar mayor claridad mental.",
@@ -637,7 +638,7 @@
       "fundamento": "Bloqueos emocioneles, traumas, disociación corporal, patrones inconscientes, búsqueda de autoconocimiento profundo o sanación simbólica. Favorece la liberación corporal y la emergencia consciente de material psíquico encarnado.",
       "que_trata": "Personas con experiencia en terapias somáticas o psicológicas, interesadas en trabajo profundo de cuerpo-mente, creativos, terapeutas o coaches que buscan desarrollar intuición y sensibilidad corporal. Es útil si ya se cuenta con cierta estabilidad emocional.",
       "publico_recomendado": "No recomendado en crisis emocionales recientes sin contención profesional, traumatismos no procesados, o personas vulnerables emocionalmente. Debe haber buena capacidad de recontención y estructura de soporte.",
-      "contraindicaciones": "El mover se sitúa en espacio seguro, cierra ojos y se deja llevar por impulsos sensoriales internos. Un testigo observa desde la presencia receptiva (sin juzgar). Tras el tiempo de movimiento, suele seguir un espacio de verbalización, dibujo o escritura para integrar lo emergente. Dura entre 20–60 min.",
+      "contraindicaciones": "El mover se sitúa en espacio seguro, cierra ojos y se deja llevar por impulsos sensoriales internos. Un testigo observa desde la presencia receptiva (sin juzgar). Tras el tiempo de movimiento, suele seguir un espacio de verbalización, dibujo o escritura para integrar lo emergente. Dura entre 20–60 min.",
       "como_es_una_sesion": "Terapia somática (Somatic Experiencing), Danza Movimiento Terapia (DMT), journaling, arteterapia, trabajo junguiano, mindfulness, coaching corporal, respiración consciente.",
       "complementaria_con": ""
     },
@@ -661,7 +662,7 @@
       "fundamento": "Reduce ansiedad, estrés, depresión; mejora comunicación, habilidades sociales, atención, memoria, motricidad, autoestima, calidad de vida y bienestar emocional. Especialmente útil en autismo, demencia, Parkinson, daño cerebral y cáncer.",
       "que_trata": "Pacientes pediátricos, adultos mayores, personas con TEA, daño neurológico, depresión o enfermedades crónicas, también acompañamiento emocional en situaciones avanzadas o paliativas.",
       "publico_recomendado": "Puede ser emocionalmente intensa; requiere profesional con acreditación y supervisión. No sustituye tratamientos médicos o psicoterapéuticos formales.",
-      "contraindicaciones": "Intervención individual o grupal, puede incluir canto, instrumentos, improvisación o escucha guiada. Sesiones de 30–60 min adaptadas, integradas en programas terapéuticos.",
+      "contraindicaciones": "Intervención individual o grupal, puede incluir canto, instrumentos, improvisación o escucha guiada. Sesiones de 30–60 min adaptadas, integradas en programas terapéuticos.",
       "como_es_una_sesion": "Psicoterapia, fisioterapia, arteterapia, mindfulness, coaching emocional, intervención multidisciplinar en paliativos o neurorehabilitación.",
       "complementaria_con": ""
     },
@@ -684,8 +685,8 @@
       "definicion": "Se basa en la neuroplasticidad: cuando el cerebro alcanza una actividad electrofisiológica óptima, recibe retroalimentación visual o auditiva que refuerza ese estado. Protocolos habituales incluyen theta/beta, SMR, alfa/theta y Z-score.",
       "fundamento": "Trastornos como TDAH, ansiedad, depresión, insomnio, TOC, epilepsia, fibromialgia, dolor crónico, TEA o dificultades cognitivas. También se usa como entrenamiento cerebral en personas sanas.",
       "que_trata": "Personas con síntomas de autorregulación emocional, atención o estado de ánimo inestables; adultos o niños que buscan apoyo complementario a tratamientos convencionales.",
-      "publico_recomendado": "No indicada en algunos tipos de trauma intenso sin supervisión cualificada. Aproximadamente el 30 % puede no aprender a autorregular. Puede provocar efectos emocionales adversos si no se ajustan los protocolos.",
-      "contraindicaciones": "El paciente ve o escucha señales que representan su actividad cerebral y trata de mantenerla dentro de un rango meta. Cada sesión dura entre 20 y 60 min; suelen aplicarse 20–40 sesiones durante semanas.",
+      "publico_recomendado": "No indicada en algunos tipos de trauma intenso sin supervisión cualificada. Aproximadamente el 30 % puede no aprender a autorregular. Puede provocar efectos emocionales adversos si no se ajustan los protocolos.",
+      "contraindicaciones": "El paciente ve o escucha señales que representan su actividad cerebral y trata de mantenerla dentro de un rango meta. Cada sesión dura entre 20 y 60 min; suelen aplicarse 20–40 sesiones durante semanas.",
       "como_es_una_sesion": "Psicoterapia cognitivo-conductual, mindfulness, coaching emocional, biofeedback cardiovascular, rehabilitación neurológica, neuropsicología y enfoques integrativos.",
       "complementaria_con": ""
     },
@@ -693,7 +694,7 @@
       "id": 58,
       "nombre": "Nutrición holística",
       "descripcion_corta": "Enfoque integral que considera cuerpo, mente y espíritu: utiliza alimentos naturales, enteros y poco procesados, y adapta la alimentación a la persona en su contexto vital. No se trata solo de calorías, sino de calidad, contexto y propósito nutricional.",
-      "definicion": "Basado en los principios de bio-individualidad, alimentación consciente y alimentos como medicina. Prioriza alimentos frescos, locales, orgánicos si es posible, y evita procesados; integra prácticas como el mindful eating.",
+      "definicion": "Basado en los principios de bio-individualidad, alimentación consciente y alimentos como medicina. Prioriza alimentos frescos, locales, orgánicos si es posible, y evita procesados; integra prácticas como el mindful eating.",
       "fundamento": "Problemas digestivos, fatiga, desequilibrios inmunitarios, inflamación crónica, estrés, alteraciones hormonales o metabólicas. Busca crear bienestar a largo plazo, no soluciones rápidas.",
       "que_trata": "Personas que desean una alimentación adaptada a su individualidad, mejorar salud física y emocional, o prevenir enfermedades mediante estilo de vida personalizado.",
       "publico_recomendado": "No sustituye atención médica profesional. Riesgo si se usa como único recurso en enfermedades graves o rechaza tratamientos convencionales. La falta de regulación permite prácticas poco rigurosas.",
@@ -709,7 +710,7 @@
       "fundamento": "Dolor muscular o articular (cervical, espalda, hombros), restricciones de movimiento, estrés, ansiedad, fibromialgia, lesiones deportivas, tensiones posturales, alteraciones viscerales o emocionales.",
       "que_trata": "Personas con molestias crónicas o funcionales leves-moderadas que buscan procesos suaves, no dolorosos, adecuados para todas las edades (incluidos niños y mayores). Ideal como complemento a otras terapias integrativas.",
       "publico_recomendado": "Evitación en trauma agudo sin supervisión. No debe interpretar manipulación forzada. Algunas personas podrían no responder bien si no sienten confort en el cuerpo.",
-      "contraindicaciones": "El cliente permanece con ropa y en posición cómoda (sobre camilla, sentado o de pie). Tras una breve entrevista, el terapeuta guía movimientos pasivos, balanceos o posicionamientos de máxima comodidad. Se fomenta la retroalimentación continua. Frecuentemente se recomienda automanejo entre sesiones. Duración: 45–60 min.",
+      "contraindicaciones": "El cliente permanece con ropa y en posición cómoda (sobre camilla, sentado o de pie). Tras una breve entrevista, el terapeuta guía movimientos pasivos, balanceos o posicionamientos de máxima comodidad. Se fomenta la retroalimentación continua. Frecuentemente se recomienda automanejo entre sesiones. Duración: 45–60 min.",
       "como_es_una_sesion": "Fisioterapia manual, osteopatía, reeducación postural, yoga terapéutico, técnicas somáticas, somatic experiencing, coaching corporal, mindfulness, reiki.",
       "complementaria_con": ""
     },
@@ -721,7 +722,7 @@
       "fundamento": "Dolor musculoesquelético, especialmente lumbar y cervical inespecíficos, cefaleas, rigidez postural, recuperación postoperatoria, restricciones viscerales.",
       "que_trata": "Personas con dolor crónico leve-moderado, disfunción estructural o movilidad limitada que buscan tratamiento manual complementario supervisado.",
       "publico_recomendado": "No indicada en presencia de infecciones activas, trombosis, fracturas agudas, enfermedades graves sin evaluación médica; riesgo en manipulación visceral craneal sin formación adecuada.",
-      "contraindicaciones": "Evaluación postural seguida de técnica OMT adecuada: movilizaciones suaves, liberación fascial, maniobras viscerales o craneales. Duración entre 30 y 60 min, con pauta y seguimiento progresivo.",
+      "contraindicaciones": "Evaluación postural seguida de técnica OMT adecuada: movilizaciones suaves, liberación fascial, maniobras viscerales o craneales. Duración entre 30 y 60 min, con pauta y seguimiento progresivo.",
       "como_es_una_sesion": "Fisioterapia, ejercicio terapéutico, Pilates, técnica Alexander, mindfulness, coaching corporal o entrenamiento postural.",
       "complementaria_con": ""
     },
@@ -776,12 +777,12 @@
     {
       "id": 65,
       "nombre": "Psicodrama",
-      "descripcion_corta": "Terapia experiencial creada por Jacob L. Moreno en los años 20. Utiliza dramatizaciones espontáneas, juegos de rol y presentaciones escénicas en grupo para investigar y explorar la vida interior de los participantes.",
+      "descripcion_corta": "Terapia experiencial creada por Jacob L. Moreno en los años 20. Utiliza dramatizaciones espontáneas, juegos de rol y presentaciones escénicas en grupo para investigar y explorar la vida interior de los participantes.",
       "definicion": "Basado en la teoría de la espontaneidad-creatividad de Moreno. El director guía a los protagonistas a través de roles dramáticos reales o simbólicos. Se emplean técnicas como role reversal, doubling o espejo para promover insight emocional y transformación.",
       "fundamento": "Traumas, ansiedad, depresión, conflictos relacionales, adicciones, autoestima, déficit de comunicación, dificultades emocionales o situaciones vitales no resueltas. También útil en equipos e instituciones.",
       "que_trata": "Personas con capacidad emocional y psicológica estable. Apto en terapia de grupo, entornos educativos, sociales y organizativos. Requiere suficiente madurez emocional y soporte grupal.",
       "publico_recomendado": "Personas en crisis aguda (psicosis, trauma reciente sin contención). Riesgo si no hay buen encuadre terapéutico o profesional experimentado.",
-      "contraindicaciones": "Sesión grupal (8–12 personas): fases de calentamiento, acción (enactment) y compartición. Un protagonista representa escenas personales mientras otros asisten como auxiliares o audiencia. Luego se integra colectivamente la experiencia. Duración típica: 90–120 min.",
+      "contraindicaciones": "Sesión grupal (8–12 personas): fases de calentamiento, acción (enactment) y compartición. Un protagonista representa escenas personales mientras otros asisten como auxiliares o audiencia. Luego se integra colectivamente la experiencia. Duración típica: 90–120 min.",
       "como_es_una_sesion": "Terapia Gestalt, Somatic Experiencing, coaching grupal, arteterapia, mindfulness, constelaciones, journaling expresivo y dinámicas vivenciales.",
       "complementaria_con": ""
     },
@@ -805,7 +806,7 @@
       "fundamento": "Crisis existenciales, búsqueda de sentido, ansiedad, depresión, adicciones, duelo, trastornos funcionales con componente espiritual o transpersonal, bloqueo creativo, conexión interior y experiencias noéticas.",
       "que_trata": "Personas con inquietudes espirituales o existenciales, en etapas de transformación personal, o interesadas en terapias que integren lo psicológico y lo transpersonal.",
       "publico_recomendado": "No sustituye psicoterapia clínica si hay riesgo suicida, psicosis o trauma sin contención. Carece de regulación profesional estricta. Puede desencadenar crisis emocionales si no hay un marco terapeútico robusto.",
-      "contraindicaciones": "Sesiones individuales o grupales. Emplea técnicas como respiración holotrópica, visualización guiada, meditación, trabajo con símbolos, sueños, arte, movimiento, regresiones profundas o trabajo con arquetipos. Duración variable según técnica (individual 60-90 min; grupos intensivos o jornadas más largas).",
+      "contraindicaciones": "Sesiones individuales o grupales. Emplea técnicas como respiración holotrópica, visualización guiada, meditación, trabajo con símbolos, sueños, arte, movimiento, regresiones profundas o trabajo con arquetipos. Duración variable según técnica (individual 60-90 min; grupos intensivos o jornadas más largas).",
       "como_es_una_sesion": "Terapias somáticas (Somatic Experiencing), coaching espiritual, arteterapia, mindfulness, constelaciones, dream work, journaling simbólico, yoga terapéutico y medicina integrativa.",
       "complementaria_con": ""
     },
@@ -829,7 +830,7 @@
       "fundamento": "Se emplea para detectar bloqueos energéticos, desequilibrios emocionales, sensibilidad a alimentos, armonización de chakras o aura, diagnóstico energético y selección de terapias vibracionales.",
       "que_trata": "Personas abiertas a terapias energéticas, autoconocimiento, sanación vibracional o diagnóstico holístico. También utilizada en espacios y animales.",
       "publico_recomendado": "No sustituye asistencia médica ni psicológica. Riesgo de retracción completa si se usa como diagnóstico exclusivo. La precisión depende del operador y no es reproducible.",
-      "contraindicaciones": "Se utiliza el péndulo o varilla sobre el cuerpo o tablas radiestésicas. Se formula una pregunta o se recorre el espacio. El movimiento del instrumento se interpreta como respuesta afirmativa o negación, según el sistema utilizado. Puede incluir seguimiento de sesiones. Dura habitualmente entre 45 y 90 min.",
+      "contraindicaciones": "Se utiliza el péndulo o varilla sobre el cuerpo o tablas radiestésicas. Se formula una pregunta o se recorre el espacio. El movimiento del instrumento se interpreta como respuesta afirmativa o negación, según el sistema utilizado. Puede incluir seguimiento de sesiones. Dura habitualmente entre 45 y 90 min.",
       "como_es_una_sesion": "Reiki, terapias florales, sanación energética, geobiología, péndulo hebreo, coaching vibracional, armonización de espacios.",
       "complementaria_con": ""
     },
