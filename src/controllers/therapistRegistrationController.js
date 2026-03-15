@@ -231,10 +231,6 @@ const registerTherapist = asyncHandler(async (req, res) => {
 
           const fileUrl = publicUrlData.publicUrl;
 
-          // Calcular checksum
-          const crypto = require('crypto');
-          const checksum = crypto.createHash('sha256').update(fileBuffer).digest('hex');
-
           // Eliminar archivo temporal del bucket
           const { error: deleteError } = await supabase.storage
             .from(bucketName)
@@ -247,33 +243,31 @@ const registerTherapist = asyncHandler(async (req, res) => {
           console.log(`✅ Document moved in bucket: ${tempPath} → ${storagePath}`);
 
           // Crear registro en verification_documents
+          // NOTA: Solo usamos campos que existen en la tabla
           const documentData = {
             user_id: authUser.id,
             type: 'degree',
-            name: originalName || 'Documento de titulación',
             file_url: fileUrl,
             document_number: numeroColegiado || null,
             issuing_body: aiAnalysis?.entidadEmisora || '',
             status: 'pending',
-            checksum: checksum,
-            metadata: {
-              aiAnalysis: aiAnalysis || {},
-              storagePath: storagePath,
-              bucket: bucketName,
-              originalName: originalName
-            },
+            notes: `Documento: ${originalName || 'Documento de titulación'}\nAI Analysis: ${aiAnalysis ? JSON.stringify(aiAnalysis) : 'N/A'}`,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           };
 
-          const { error: docError } = await supabase
+          console.log('📝 Intentando guardar documento:', documentData);
+
+          const { data: docResult, error: docError } = await supabase
             .from('verification_documents')
-            .insert([documentData]);
+            .insert([documentData])
+            .select();
 
           if (docError) {
             console.error('❌ Error saving verification document record:', docError);
+            console.error('❌ Error details:', JSON.stringify(docError, null, 2));
           } else {
-            console.log(`✅ Verification document record created: ${originalName || tempId}`);
+            console.log(`✅ Verification document record created: ${originalName || tempId}`, docResult);
           }
         } catch (docProcessError) {
           console.error('❌ Error processing document:', docProcessError);

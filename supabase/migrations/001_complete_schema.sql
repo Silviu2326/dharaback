@@ -857,6 +857,49 @@ ON CONFLICT (rating) DO NOTHING;
 
 ALTER TABLE auto_responses ENABLE ROW LEVEL SECURITY;
 
+-- =====================================================
+-- 18. TABLA: verification_documents (Documentos de Verificación)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS verification_documents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type VARCHAR(50) NOT NULL DEFAULT 'other' CHECK (type IN ('degree', 'license', 'certification', 'insurance', 'id', 'background_check', 'other')),
+    document_number VARCHAR(255),
+    issuing_body VARCHAR(255),
+    issue_date DATE,
+    expiry_date DATE,
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'expired')),
+    file_url TEXT,
+    notes TEXT,
+    reviewed_by UUID REFERENCES users(id),
+    reviewed_at TIMESTAMPTZ,
+    rejection_reason TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_verification_docs_user_id ON verification_documents(user_id);
+CREATE INDEX idx_verification_docs_status ON verification_documents(status);
+CREATE INDEX idx_verification_docs_type ON verification_documents(type);
+CREATE INDEX idx_verification_docs_user_status ON verification_documents(user_id, status);
+
+-- Trigger para actualizar updated_at
+CREATE OR REPLACE FUNCTION update_verification_docs_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS update_verification_docs_updated_at ON verification_documents;
+CREATE TRIGGER update_verification_docs_updated_at
+    BEFORE UPDATE ON verification_documents
+    FOR EACH ROW
+    EXECUTE FUNCTION update_verification_docs_updated_at();
+
+ALTER TABLE verification_documents ENABLE ROW LEVEL SECURITY;
+
 -- Nota: Las políticas específicas RLS se crearán en un archivo separado
 -- para permitir configuración más granular según los requisitos de la app
 
