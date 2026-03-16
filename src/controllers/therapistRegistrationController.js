@@ -244,6 +244,10 @@ const registerTherapist = asyncHandler(async (req, res) => {
 
           // Crear registro en verification_documents
           // NOTA: Solo usamos campos que existen en la tabla
+          // Extraer terapias detectadas del análisis AI
+          const terapiasDetectadas = doc.aiAnalysis?.terapiasDetectadas || [];
+          const terapiasCoinciden = doc.aiAnalysis?.terapiasCoincidenConDeclaradas || false;
+          
           const documentData = {
             user_id: authUser.id,
             type: 'degree',
@@ -251,12 +255,14 @@ const registerTherapist = asyncHandler(async (req, res) => {
             document_number: numeroColegiado || null,
             issuing_body: aiAnalysis?.entidadEmisora || '',
             status: 'pending',
-            notes: `Documento: ${originalName || 'Documento de titulación'}\nAI Analysis: ${aiAnalysis ? JSON.stringify(aiAnalysis) : 'N/A'}`,
+            notes: `Documento: ${originalName || 'Documento de titulación'}\nTerapias detectadas: ${terapiasDetectadas.join(', ') || 'Ninguna'}\nCoinciden con declaradas: ${terapiasCoinciden ? 'Sí' : 'No'}\nAI Analysis: ${aiAnalysis ? JSON.stringify(aiAnalysis) : 'N/A'}`,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           };
 
           console.log('📝 Intentando guardar documento:', documentData);
+          console.log('🔍 Terapias detectadas en documento:', terapiasDetectadas);
+          console.log('✅ Coinciden con especialidad declarada:', terapiasCoinciden);
 
           const { data: docResult, error: docError } = await supabase
             .from('verification_documents')
