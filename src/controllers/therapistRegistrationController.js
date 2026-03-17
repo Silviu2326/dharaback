@@ -4,6 +4,8 @@ const fs = require('fs').promises;
 const path = require('path');
 const { supabase } = require('../config/supabase');
 const bcrypt = require('bcryptjs');
+const VerificationDocument = require('../models/VerificationDocument');
+const crypto = require('crypto');
 
 /**
  * @desc    Registrar terapeuta completo (Auth + Perfil + Stripe)
@@ -242,38 +244,69 @@ const registerTherapist = asyncHandler(async (req, res) => {
 
           console.log(`✅ Document moved in bucket: ${tempPath} → ${storagePath}`);
 
-          // Crear registro en verification_documents
-          // NOTA: Solo usamos campos que existen en la tabla
+          // Crear registro en verification_documents usando MongoDB
           // Extraer terapias detectadas del análisis AI
           const terapiasDetectadas = doc.aiAnalysis?.terapiasDetectadas || [];
           const terapiasCoinciden = doc.aiAnalysis?.terapiasCoincidenConDeclaradas || false;
           
+          // Calcular checksum del archivo
+          const fileChecksum = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+          
+          // Verificar si ya existe un documento con el mismo checksum
+          const existingDoc = await VerificationDocument.findOne({
+            checksum: fileChecksum
+          });
+          
+          if (existingDoc) {
+            console.log(`⚠️ Document already exists with checksum: ${fileChecksum.substring(0, 16)}...`);
+            continue;
+          }
+          
+          // Crear el documento en MongoDB
           const documentData = {
-            user_id: authUser.id,
-            type: 'degree',
-            file_url: fileUrl,
-            document_number: numeroColegiado || null,
-            issuing_body: aiAnalysis?.entidadEmisora || '',
+            therapistId: authUser.id, // MongoDB usará el string ID de Supabase
+            type: 'diploma', // 'degree' no está en el enum, usar 'diploma'
+            name: originalName || `Documento de titulación - ${newFilename}`,
+            filename: newFilename,
+            originalName: originalName || tempId,
+            url: fileUrl,
             status: 'pending',
-            notes: `Documento: ${originalName || 'Documento de titulación'}\nTerapias detectadas: ${terapiasDetectadas.join(', ') || 'Ninguna'}\nCoinciden con declaradas: ${terapiasCoinciden ? 'Sí' : 'No'}\nAI Analysis: ${aiAnalysis ? JSON.stringify(aiAnalysis) : 'N/A'}`,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            mimeType: mimeType,
+            fileSize: fileBuffer.length,
+            documentNumber: numeroColegiado || null,
+            issuingAuthority: aiAnalysis?.entidadEmisora || '',
+            priority: 'high', // Documentos de titulación son alta prioridad
+            verificationLevel: 'enhanced', // Verificación mejorada para títulos
+            complianceNotes: `Documento: ${originalName || 'Documento de titulación'}\nTerapias detectadas: ${terapiasDetectadas.join(', ') || 'Ninguna'}\nCoinciden con declaradas: ${terapiasCoinciden ? 'Sí' : 'No'}\nAI Analysis: ${aiAnalysis ? JSON.stringify(aiAnalysis) : 'N/A'}`,
+            checksum: fileChecksum,
+            reviewHistory: [{
+              action: 'submitted',
+              date: new Date(),
+              previousStatus: null,
+              newStatus: 'pending'
+            }],
+            metadata: {
+              uploadedFrom: 'web',
+              batchId: `registration-${authUser.id}`
+            }
           };
 
-          console.log('📝 Intentando guardar documento:', documentData);
+          console.log('📝 Intentando guardar documento en MongoDB:', {
+            therapistId: documentData.therapistId,
+            type: documentData.type,
+            name: documentData.name,
+            checksum: documentData.checksum.substring(0, 16) + '...'
+          });
           console.log('🔍 Terapias detectadas en documento:', terapiasDetectadas);
           console.log('✅ Coinciden con especialidad declarada:', terapiasCoinciden);
 
-          const { data: docResult, error: docError } = await supabase
-            .from('verification_documents')
-            .insert([documentData])
-            .select();
-
-          if (docError) {
-            console.error('❌ Error saving verification document record:', docError);
+          try {
+            const newDocument = new VerificationDocument(documentData);
+            await newDocument.save();
+            console.log(`✅ Verification document saved to MongoDB: ${newDocument._id}`);
+          } catch (docError) {
+            console.error('❌ Error saving verification document to MongoDB:', docError);
             console.error('❌ Error details:', JSON.stringify(docError, null, 2));
-          } else {
-            console.log(`✅ Verification document record created: ${originalName || tempId}`, docResult);
           }
         } catch (docProcessError) {
           console.error('❌ Error processing document:', docProcessError);
@@ -321,11 +354,30 @@ const registerTherapist = asyncHandler(async (req, res) => {
       }
     });
 
+    // Guardar el stripe_customer_id en la tabla users
+    if (session.customerId) {
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ 
+          stripe_customer_id: session.customerId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', authUser.id);
+
+      if (updateError) {
+        console.error('❌ Error saving stripe_customer_id:', updateError);
+        // No lanzamos error para no interrumpir el flujo, pero logueamos
+      } else {
+        console.log('✅ Stripe customer ID saved:', session.customerId);
+      }
+    }
+
     console.log('✅ Therapist registration complete:', {
       userId: authUser.id,
       email,
       plan,
-      stripeSessionId: session.id
+      stripeSessionId: session.id,
+      stripeCustomerId: session.customerId
     });
 
     res.status(201).json({
@@ -504,6 +556,26 @@ const verifyRegistration = asyncHandler(async (req, res) => {
         success: false,
         message: 'El pago se procesó correctamente pero no se encontró el usuario. Por favor, contacta con soporte.'
       });
+    }
+
+    // Guardar el stripe_customer_id en la tabla users si no existe
+    if (userExists && session.customerId && userData) {
+      if (!userData.stripe_customer_id) {
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ 
+            stripe_customer_id: session.customerId,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', userId);
+
+        if (updateError) {
+          console.error('❌ Error saving stripe_customer_id during verification:', updateError);
+        } else {
+          console.log('✅ Stripe customer ID saved during verification:', session.customerId);
+          userData.stripe_customer_id = session.customerId;
+        }
+      }
     }
 
     res.status(200).json({

@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { User, Client } = require('../models');
+const { InvitationCodeModel } = require('../models/InvitationCode');
+const InvitationCode = new InvitationCodeModel();
 const { AppError, asyncHandler } = require('../middleware/errorHandler');
 
 // Generate JWT token
@@ -494,10 +496,11 @@ const changePassword = asyncHandler(async (req, res, next) => {
 // @route   POST /api/auth/register-cliente
 // @access  Public
 const registerCliente = asyncHandler(async (req, res, next) => {
-  const { nombre, apellidos, email, telefono, password } = req.body;
+  const { nombre, apellidos, email, telefono, password, invitationCode: invitationCodeInput } = req.body;
 
   console.log('=== REGISTER CLIENTE DEBUG ===');
   console.log('Received password:', password ? `Length: ${password.length}` : 'undefined');
+  console.log('Invitation code:', invitationCodeInput || 'none');
 
   // Validate input
   if (!nombre || !apellidos || !email || !password) {
@@ -522,17 +525,74 @@ const registerCliente = asyncHandler(async (req, res, next) => {
     return next(new AppError('Ya existe un usuario con este email', 400));
   }
 
+  let therapistId = null;
+  let linkedClientId = null;
+
+  // Validate invitation code if provided
+  if (invitationCodeInput) {
+    console.log('Validating invitation code:', invitationCodeInput);
+    
+    const invitation = await InvitationCode.findByCode(invitationCodeInput.toUpperCase());
+    
+    if (!invitation) {
+      return next(new AppError('Código de invitación inválido', 400));
+    }
+
+    if (invitation.isExpired) {
+      return next(new AppError('El código de invitación ha expirado', 400));
+    }
+
+    if (invitation.status !== 'active') {
+      return next(new AppError('El código de invitación ya no es válido', 400));
+    }
+
+    // Check if email matches (if invitation has email restriction)
+    if (invitation.email && invitation.email.toLowerCase() !== email.toLowerCase()) {
+      return next(new AppError('El email no coincide con el código de invitación', 400));
+    }
+
+    therapistId = invitation.therapistId;
+    linkedClientId = invitation.clientId;
+    
+    console.log('Invitation code valid:', {
+      therapistId,
+      linkedClientId,
+      email: invitation.email
+    });
+  }
+
   // Create client
   console.log('Creating client with password...');
-  const client = await Client.create({
+  const clientData = {
     name,
     email: email.toLowerCase().trim(),
     password,
     phone: telefono || undefined,
     status: 'active'
-  });
+  };
+
+  // If invitation code was provided, link to therapist
+  if (therapistId) {
+    clientData.therapist_id = therapistId;
+  }
+
+  const client = await Client.create(clientData);
   
   console.log('Client created with password hash:', client.password ? client.password.substring(0, 20) : 'none');
+
+  // If invitation code was provided, mark it as used
+  if (linkedClientId && invitationCodeInput) {
+    try {
+      const invitation = await InvitationCode.findByCode(invitationCodeInput.toUpperCase());
+      if (invitation) {
+        await invitation.markAsUsed(client.id);
+        console.log('Invitation code marked as used:', invitationCodeInput);
+      }
+    } catch (error) {
+      console.error('Error marking invitation code as used:', error);
+      // Don't fail registration if this step fails
+    }
+  }
 
   // Generate token for client with type 'client'
   const token = generateToken(client.id, 'client');
@@ -548,7 +608,8 @@ const registerCliente = asyncHandler(async (req, res, next) => {
       name: client.name,
       email: client.email,
       phone: client.phone,
-      role: 'cliente'
+      role: 'cliente',
+      therapistId: therapistId || undefined
     }
   });
 });
