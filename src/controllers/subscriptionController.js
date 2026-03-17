@@ -421,38 +421,106 @@ const subscriptionController = {
     }
   },
 
-  // Obtener datos de payout (mock para migración)
+  // Obtener datos de payout basado en pagos reales de la tabla payments
   async getPayoutData(req, res, next) {
     try {
       const userId = req.user.id;
-      const { startDate, endDate } = req.query;
 
-      // Mock data for payout
-      const mockPayouts = [
-        {
-          id: 'po_123',
-          date: '2025-01-15',
-          amount: 450.00,
-          status: 'paid',
-          method: 'bank_transfer',
-          reference: 'INV-2025-001'
-        },
-        {
-          id: 'po_124',
-          date: '2025-01-01',
-          amount: 320.00,
-          status: 'paid',
-          method: 'bank_transfer',
-          reference: 'INV-2024-012'
+      // Calcular saldo disponible basado en pagos completados
+      const { data: completedPayments, error: paymentsError } = await supabase
+        .from('payments')
+        .select('net_amount, platform_fee')
+        .eq('therapist_id', userId)
+        .eq('status', 'completed');
+
+      if (paymentsError) throw new Error(paymentsError.message);
+
+      // Calcular total de pagos completados (net_amount ya tiene la comisión descontada)
+      const totalEarnings = (completedPayments || []).reduce((sum, p) => {
+        return sum + parseFloat(p.net_amount || 0);
+      }, 0);
+
+      // Obtener transferencias ya realizadas (completadas)
+      const { data: completedPayouts, error: completedError } = await supabase
+        .from('payout_requests')
+        .select('amount')
+        .eq('therapist_id', userId)
+        .eq('status', 'completed');
+
+      if (completedError) throw new Error(completedError.message);
+
+      const totalPayouts = (completedPayouts || []).reduce((sum, p) => {
+        return sum + parseFloat(p.amount || 0);
+      }, 0);
+
+      // Obtener transferencias pendientes
+      const { data: pendingPayouts, error: pendingError } = await supabase
+        .from('payout_requests')
+        .select('amount')
+        .eq('therapist_id', userId)
+        .in('status', ['pending', 'processing']);
+
+      if (pendingError) throw new Error(pendingError.message);
+
+      const pendingAmount = (pendingPayouts || []).reduce((sum, p) => {
+        return sum + parseFloat(p.amount || 0);
+      }, 0);
+
+      // Calcular saldo disponible
+      const availableBalance = Math.max(0, totalEarnings - totalPayouts - pendingAmount);
+
+      // Obtener historial de transferencias para mostrar en la tabla
+      const { data: payoutHistory, error: historyError } = await supabase
+        .from('payout_requests')
+        .select('*')
+        .eq('therapist_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (historyError) throw new Error(historyError.message);
+
+      // Formatear historial para el frontend
+      const formattedHistory = (payoutHistory || []).map(payout => ({
+        id: payout.id,
+        date: payout.created_at,
+        amount: parseFloat(payout.amount || 0),
+        status: payout.status === 'completed' ? 'completed' : 
+                payout.status === 'pending' ? 'pending' : 
+                payout.status === 'processing' ? 'pending' : 'failed',
+        type: payout.type || 'automatic',
+        method: payout.method || 'bank_transfer',
+        reference: payout.reference || `PAY-${payout.id?.slice(0, 8)}`
+      }));
+
+      // Calcular próxima fecha de transferencia automática (día 15 del mes siguiente si hay saldo)
+      let nextPayoutDate = null;
+      if (availableBalance >= 10) {
+        const now = new Date();
+        const currentDay = now.getDate();
+        if (currentDay < 15) {
+          // Este mes, día 15
+          nextPayoutDate = new Date(now.getFullYear(), now.getMonth(), 15).toISOString();
+        } else {
+          // Mes siguiente, día 15
+          nextPayoutDate = new Date(now.getFullYear(), now.getMonth() + 1, 15).toISOString();
         }
-      ];
+      }
+
+      // Verificar si puede solicitar transferencia inmediata
+      const canRequestImmediate = availableBalance >= 10;
 
       res.json({
         success: true,
         data: {
-          payouts: mockPayouts,
-          totalPayouts: 770.00,
-          pendingPayout: 0,
+          availableBalance: Math.round(availableBalance * 100) / 100,
+          nextPayoutDate,
+          canRequestImmediate,
+          minimumPayout: 10,
+          processingDays: 2,
+          payoutHistory: formattedHistory,
+          totalEarnings: Math.round(totalEarnings * 100) / 100,
+          totalPayouts: Math.round(totalPayouts * 100) / 100,
+          pendingPayouts: Math.round(pendingAmount * 100) / 100,
           currency: 'EUR'
         }
       });

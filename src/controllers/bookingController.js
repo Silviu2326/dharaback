@@ -1,4 +1,5 @@
 const { Booking, Client, User, Conversation } = require('../models');
+const { supabase } = require('../config/supabase');
 const { AppError, asyncHandler } = require('../middleware/errorHandler');
 const emailService = require('../services/emailService');
 
@@ -110,6 +111,64 @@ const getBooking = asyncHandler(async (req, res, next) => {
     return next(new AppError('Booking not found', 404));
   }
 
+  // Check for associated payments and update payment status
+  let paymentInfo = null;
+  try {
+    const bookingId = booking._id?.toString() || booking.id;
+    console.log('🔍 Checking payments for booking:', bookingId);
+    
+    // Use Supabase to query payments (not Mongoose model)
+    // Buscar cualquier pago asociado a la cita
+    const { data: payments, error } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('booking_id', bookingId)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      console.error('Supabase error:', error.message);
+      throw error;
+    }
+
+    console.log('💰 Found payments:', payments?.length || 0);
+    
+    if (payments && payments.length > 0) {
+      const payment = payments[0];
+      console.log('✅ Payment found:', payment.id, 'Method:', payment.method, 'Status:', payment.status);
+      
+      // Solo marcar como pagado si el pago está completado
+      if (payment.status === 'completed') {
+        paymentInfo = {
+          paymentStatus: 'paid',
+          paymentMethod: payment.method === 'cash' ? 'Efectivo' :
+                        payment.method === 'card' ? 'Tarjeta' :
+                        payment.method === 'transfer' ? 'Bizum' : payment.method,
+          paymentId: payment.id
+        };
+
+        // Update booking if payment info is different
+        if (booking.paymentStatus !== 'paid') {
+          console.log('📝 Updating booking payment status to paid');
+          await Booking.findByIdAndUpdate(
+            booking._id || booking.id,
+            {
+              paymentStatus: 'paid',
+              paymentMethod: paymentInfo.paymentMethod,
+              paymentId: payment.id
+            }
+          );
+        }
+      } else {
+        console.log('⚠️ Payment found but status is:', payment.status);
+      }
+    } else {
+      console.log('❌ No payments found for this booking');
+    }
+  } catch (paymentError) {
+    console.warn('Error checking payments for booking:', paymentError.message);
+  }
+
   // Get related data
   const [client, sessionNotes] = await Promise.all([
     Client.findById(booking.clientId).catch(() => null),
@@ -117,10 +176,19 @@ const getBooking = asyncHandler(async (req, res, next) => {
     Promise.resolve([])
   ]);
 
+  const bookingData = booking.toJSON();
+  
+  // Merge payment info if found
+  if (paymentInfo) {
+    bookingData.paymentStatus = paymentInfo.paymentStatus;
+    bookingData.paymentMethod = paymentInfo.paymentMethod;
+    bookingData.paymentId = paymentInfo.paymentId;
+  }
+
   res.status(200).json({
     success: true,
     data: {
-      ...booking.toJSON(),
+      ...bookingData,
       client: client ? {
         id: client.id || client._id,
         name: client.name,
@@ -249,7 +317,13 @@ const updateBooking = asyncHandler(async (req, res, next) => {
   const now = new Date();
   const bookingDateTime = new Date(`${booking.date}T${booking.startTime}`);
 
-  if (bookingDateTime <= now && booking.status === 'completed') {
+  // Check what fields are being updated
+  const updateKeys = Object.keys(req.body);
+  const paymentFields = ['paymentStatus', 'paymentMethod', 'paymentId'];
+  const isOnlyPaymentUpdate = updateKeys.every(key => paymentFields.includes(key));
+
+  // Only block modification if it's not just a payment update
+  if (bookingDateTime <= now && booking.status === 'completed' && !isOnlyPaymentUpdate) {
     return next(new AppError('Cannot modify completed booking', 400));
   }
 
@@ -293,7 +367,10 @@ const updateBooking = asyncHandler(async (req, res, next) => {
     'notes',
     'meetingLink',
     'status',
-    'planId'
+    'planId',
+    'paymentStatus',
+    'paymentMethod',
+    'paymentId'
   ];
 
   const updateData = {};

@@ -475,6 +475,102 @@ class StripeService {
       throw new Error(`Stripe error: ${error.message}`);
     }
   }
+
+  /**
+   * Obtener métodos de pago de un cliente
+   * @param {string} customerId - ID del cliente en Stripe
+   * @returns {Promise<Array>} Lista de métodos de pago
+   */
+  async getPaymentMethods(customerId) {
+    try {
+      console.log('🔍 [StripeService] Getting payment methods for customer:', customerId);
+      
+      if (!customerId) {
+        throw new Error('Customer ID is required');
+      }
+
+      console.log('📡 [StripeService] Calling Stripe API...');
+      const paymentMethods = await stripe.paymentMethods.list({
+        customer: customerId,
+        type: 'card'
+      });
+
+      console.log('📊 [StripeService] Raw response from Stripe:', {
+        object: paymentMethods.object,
+        count: paymentMethods.data?.length || 0,
+        has_more: paymentMethods.has_more
+      });
+
+      const formattedMethods = paymentMethods.data.map(method => ({
+        id: method.id,
+        type: method.type,
+        brand: method.card?.brand || 'unknown',
+        last4: method.card?.last4 || '****',
+        expMonth: method.card?.exp_month,
+        expYear: method.card?.exp_year,
+        isDefault: method.metadata?.default === 'true'
+      }));
+
+      console.log(`✅ [StripeService] Retrieved ${formattedMethods.length} payment methods:`, JSON.stringify(formattedMethods, null, 2));
+
+      return formattedMethods;
+    } catch (error) {
+      console.error('❌ [StripeService] Error getting payment methods:', error.message);
+      console.error('❌ [StripeService] Error details:', error);
+      throw new Error(`Stripe error: ${error.message}`);
+    }
+  }
+
+  /**
+   * Obtener el método de pago por defecto de un cliente
+   * @param {string} customerId - ID del cliente en Stripe
+   * @returns {Promise<Object|null>} Método de pago por defecto o null
+   */
+  async getDefaultPaymentMethod(customerId) {
+    try {
+      console.log('🔍 [StripeService] Getting default payment method for customer:', customerId);
+      
+      if (!customerId) {
+        console.log('⚠️ [StripeService] No customerId provided');
+        return null;
+      }
+
+      console.log('📡 [StripeService] Fetching customer from Stripe...');
+      const customer = await stripe.customers.retrieve(customerId);
+      console.log('📊 [StripeService] Customer retrieved:', {
+        id: customer.id,
+        hasInvoiceSettings: !!customer.invoice_settings,
+        defaultPaymentMethod: customer.invoice_settings?.default_payment_method
+      });
+
+      const defaultPaymentMethodId = customer.invoice_settings?.default_payment_method;
+
+      if (!defaultPaymentMethodId) {
+        console.log('⚠️ [StripeService] No default payment method set for customer');
+        return null;
+      }
+
+      console.log('📡 [StripeService] Fetching default payment method:', defaultPaymentMethodId);
+      const paymentMethod = await stripe.paymentMethods.retrieve(defaultPaymentMethodId);
+
+      const result = {
+        id: paymentMethod.id,
+        type: paymentMethod.type,
+        brand: paymentMethod.card?.brand || 'unknown',
+        last4: paymentMethod.card?.last4 || '****',
+        expMonth: paymentMethod.card?.exp_month,
+        expYear: paymentMethod.card?.exp_year,
+        isDefault: true
+      };
+
+      console.log('✅ [StripeService] Default payment method found:', JSON.stringify(result, null, 2));
+      return result;
+    } catch (error) {
+      console.error('❌ [StripeService] Error getting default payment method:', error.message);
+      console.error('❌ [StripeService] Error details:', error);
+      return null;
+    }
+  }
 }
 
 module.exports = new StripeService();

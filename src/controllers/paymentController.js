@@ -160,7 +160,8 @@ const paymentController = {
         clientId,
         bookingId,
         description,
-        metadata = {}
+        metadata = {},
+        status: requestedStatus
       } = req.body;
 
       // Verify client exists (optional for external clients)
@@ -173,6 +174,7 @@ const paymentController = {
       }
 
       // Verify booking if provided
+      let bookingObjectId = null;
       if (bookingId) {
         const booking = await Booking.findOne({
           id: bookingId,
@@ -182,12 +184,17 @@ const paymentController = {
         if (!booking) {
           return next(new AppError('Booking not found', 404));
         }
+        // Guardar el ObjectId del booking, no el string id
+        bookingObjectId = booking._id || booking.id;
       }
 
       // Calculate fees and net amount (platform fee: 3%)
       const fees = amount * 0.03;
       const netAmount = amount - fees;
 
+      // Determine status - allow explicit status or default to 'pending'
+      const paymentStatus = requestedStatus || 'pending';
+      
       const paymentData = {
         amount,
         platformFee: fees,
@@ -196,17 +203,21 @@ const paymentController = {
         method,
         clientId,
         therapistId,
-        bookingId,
+        bookingId: bookingObjectId, // Usar el ObjectId, no el string
         description,
+        status: paymentStatus,
+        paidAt: paymentStatus === 'completed' ? new Date().toISOString() : null,
         metadata: {
           ...metadata,
           source: 'web',
           ipAddress: req.ip,
-          userAgent: req.get('User-Agent')
+          userAgent: req.get('user-agent')
         }
       };
 
+      console.log('💳 Creating payment with data:', JSON.stringify(paymentData, null, 2));
       const payment = await Payment.create(paymentData);
+      console.log('✅ Payment created:', payment._id?.toString(), 'bookingId:', payment.bookingId?.toString());
 
       res.status(201).json({
         success: true,
@@ -553,6 +564,104 @@ const paymentController = {
         data: providers
       });
     } catch (error) {
+      next(error);
+    }
+  },
+
+  // Get user's payment methods from Stripe
+  async getPaymentMethods(req, res, next) {
+    try {
+      const userId = req.user.id;
+      console.log('🔍 [getPaymentMethods] User ID:', userId);
+      
+      const { supabase } = require('../config/supabase');
+      const stripeService = require('../services/stripeService');
+
+      // Obtener el usuario de Supabase para obtener el stripe_customer_id
+      console.log('📡 [getPaymentMethods] Fetching user from Supabase...');
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('id, email, name, stripe_customer_id')
+        .eq('id', userId)
+        .single();
+
+      console.log('👤 [getPaymentMethods] User data:', JSON.stringify(user, null, 2));
+      console.log('❌ [getPaymentMethods] User error:', userError);
+
+      if (userError || !user) {
+        console.log('⚠️ [getPaymentMethods] User not found');
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      // Si no tiene stripe_customer_id, devolver array vacío
+      if (!user.stripe_customer_id) {
+        console.log('⚠️ [getPaymentMethods] No stripe_customer_id found for user');
+        return res.json({
+          success: true,
+          data: {
+            methods: [],
+            defaultMethod: null,
+            hasPaymentMethods: false,
+            message: 'No stripe_customer_id found'
+          }
+        });
+      }
+
+      console.log('💳 [getPaymentMethods] Stripe Customer ID:', user.stripe_customer_id);
+
+      // Obtener métodos de pago de Stripe
+      let paymentMethods = [];
+      let defaultMethod = null;
+
+      try {
+        console.log('📡 [getPaymentMethods] Fetching payment methods from Stripe...');
+        // Obtener todos los métodos de pago
+        paymentMethods = await stripeService.getPaymentMethods(user.stripe_customer_id);
+        console.log('✅ [getPaymentMethods] Payment methods from Stripe:', JSON.stringify(paymentMethods, null, 2));
+        
+        // Obtener el método por defecto
+        console.log('📡 [getPaymentMethods] Fetching default payment method...');
+        defaultMethod = await stripeService.getDefaultPaymentMethod(user.stripe_customer_id);
+        console.log('✅ [getPaymentMethods] Default method:', JSON.stringify(defaultMethod, null, 2));
+      } catch (stripeError) {
+        console.error('❌ [getPaymentMethods] Error fetching from Stripe:', stripeError.message);
+        console.error('❌ [getPaymentMethods] Stripe error details:', stripeError);
+        // Si falla Stripe, continuamos con array vacío
+      }
+
+      // Si hay un método por defecto, marcarlo en la lista
+      if (defaultMethod && paymentMethods.length > 0) {
+        paymentMethods = paymentMethods.map(method => ({
+          ...method,
+          isDefault: method.id === defaultMethod.id
+        }));
+      }
+
+      // Si no hay método marcado como default pero hay métodos, marcar el primero
+      if (!defaultMethod && paymentMethods.length > 0) {
+        paymentMethods[0].isDefault = true;
+        defaultMethod = paymentMethods[0];
+      }
+
+      const responseData = {
+        success: true,
+        data: {
+          methods: paymentMethods,
+          defaultMethod: defaultMethod,
+          hasPaymentMethods: paymentMethods.length > 0,
+          customerId: user.stripe_customer_id
+        }
+      };
+
+      console.log('📤 [getPaymentMethods] Sending response:', JSON.stringify(responseData, null, 2));
+      console.log('📊 [getPaymentMethods] Response size:', JSON.stringify(responseData).length, 'bytes');
+
+      res.json(responseData);
+    } catch (error) {
+      console.error('❌ [getPaymentMethods] Error getting payment methods:', error);
       next(error);
     }
   },

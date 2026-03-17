@@ -24,7 +24,7 @@ const createPaymentValidation = [
     .matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
     .withMessage('Client ID must be a valid UUID'),
   body('bookingId')
-    .optional()
+    .optional({ nullable: true })
     .matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
     .withMessage('Booking ID must be a valid UUID'),
   body('description')
@@ -112,6 +112,7 @@ router.get('/stats', paymentController.getPaymentStats);
 router.get('/statistics', paymentController.getPaymentStats);
 router.get('/balance', paymentController.getBalanceSummary);
 router.get('/providers', paymentController.getProviders);
+router.get('/methods', paymentController.getPaymentMethods);
 router.get('/:paymentId', idValidation, paymentController.getPayment);
 router.put('/:paymentId/status', idValidation, updatePaymentStatusValidation, paymentController.updatePaymentStatus);
 router.post('/:paymentId/refund', idValidation, refundValidation, paymentController.processRefund);
