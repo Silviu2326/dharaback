@@ -28,8 +28,8 @@ const reportValidation = [
 
 const createReviewValidation = [
   body('therapistId')
-    .isMongoId()
-    .withMessage('Therapist ID must be valid'),
+    .isUUID()
+    .withMessage('Therapist ID must be a valid UUID'),
   body('rating')
     .isInt({ min: 1, max: 5 })
     .withMessage('Rating must be between 1 and 5'),
@@ -45,8 +45,8 @@ const createReviewValidation = [
     .withMessage('Comment must be between 10 and 1000 characters'),
   body('bookingId')
     .optional()
-    .isMongoId()
-    .withMessage('Booking ID must be valid'),
+    .isUUID()
+    .withMessage('Booking ID must be a valid UUID'),
   body('tags')
     .optional()
     .isArray()
@@ -65,8 +65,8 @@ const visibilityValidation = [
 
 const idValidation = [
   param('reviewId')
-    .isMongoId()
-    .withMessage('Review ID must be valid')
+    .isUUID()
+    .withMessage('Review ID must be a valid UUID')
 ];
 
 // Review management routes

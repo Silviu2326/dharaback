@@ -391,7 +391,6 @@ class StripeService {
           quantity: 1
         }],
         subscription_data: {
-          trial_period_days: trialDays,
           metadata: {
             ...metadata,
             platform: 'dharaterapeutas'
@@ -406,13 +405,19 @@ class StripeService {
         }
       };
 
+      // Solo agregar trial_period_days si es mayor que 0
+      // Stripe no permite 0 días (mínimo es 1), así que para pago inmediato no incluimos el parámetro
+      if (trialDays > 0) {
+        sessionData.subscription_data.trial_period_days = trialDays;
+      }
+
       if (stripeCustomerId) {
         sessionData.customer = stripeCustomerId;
       }
 
       const session = await stripe.checkout.sessions.create(sessionData);
 
-      console.log('✅ Subscription checkout session created:', session.id, 'Trial:', trialDays, 'days');
+      console.log('✅ Subscription checkout session created:', session.id, trialDays > 0 ? `Trial: ${trialDays} days` : 'Immediate payment (no trial)');
 
       return {
         id: session.id,

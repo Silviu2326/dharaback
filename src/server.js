@@ -4,6 +4,7 @@ console.log('📁 Environment loaded');
 
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
 
 const uploadDirs = [
   'uploads',
@@ -25,6 +26,7 @@ uploadDirs.forEach(dir => {
 });
 
 const app = require('./app');
+const { initializeSocket } = require('./websocket/chatSocket');
 console.log('📱 App loaded');
 
 // Determinar qué base de datos usar
@@ -40,6 +42,7 @@ const PORT = process.env.PORT || 5000;
 console.log(`🔧 Port configured: ${PORT}`);
 
 let server;
+let httpServer;
 
 // Start server function
 const startServer = async () => {
@@ -49,10 +52,19 @@ const startServer = async () => {
     await connectDB();
     console.log(`✅ ${USE_SUPABASE ? 'Supabase' : 'MongoDB'} connected successfully`);
 
+    // Create HTTP server (required for Socket.io)
+    httpServer = http.createServer(app);
+
+    // Initialize WebSocket
+    console.log('📡 Initializing WebSocket...');
+    initializeSocket(httpServer);
+    console.log('✅ WebSocket initialized');
+
     // THEN start the server
-    server = app.listen(PORT, () => {
+    server = httpServer.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
       console.log(`📊 Database: ${USE_SUPABASE ? 'Supabase (PostgreSQL)' : 'MongoDB'}`);
+      console.log(`📡 WebSocket ready on ws://localhost:${PORT}`);
       console.log(`📍 Test route available at: http://localhost:${PORT}/test`);
       console.log(`📍 Health check at: http://localhost:${PORT}/health`);
       console.log(`📍 API routes at: http://localhost:${PORT}/api/auth/login`);
@@ -71,8 +83,8 @@ startServer();
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
   console.log('❌ Unhandled Promise Rejection:', err.message);
-  if (server) {
-    server.close(() => {
+  if (httpServer) {
+    httpServer.close(() => {
       process.exit(1);
     });
   } else {
@@ -89,8 +101,8 @@ process.on('uncaughtException', (err) => {
 // Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('👋 SIGTERM received. Shutting down gracefully...');
-  if (server) {
-    server.close(() => {
+  if (httpServer) {
+    httpServer.close(() => {
       console.log('✅ Process terminated');
     });
   }

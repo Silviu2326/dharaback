@@ -33,6 +33,10 @@ class ProfessionalProfile {
     this.pricingPackages = data.pricing_packages || {};
     this.preferences = data.preferences || {};
     this.legalInfo = data.legal_info || {};
+    // NUEVOS CAMPOS DE UBICACIÓN
+    this.ciudad = data.ciudad;
+    this.modalidad = data.modalidad;
+    this.zonas_atencion = data.zonas_atencion || [];
     this.createdAt = data.created_at;
     this.updatedAt = data.updated_at;
 

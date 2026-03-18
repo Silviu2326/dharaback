@@ -6,10 +6,12 @@ const {
   updateBooking,
   cancelBooking,
   completeBooking,
+  completeClientBooking,
   markNoShow,
   getBookingStats,
   getUpcomingBookings,
   rescheduleBooking,
+  getClientCompletedTherapists,
   // Client functions
   getClientBookings,
   getClientBooking,
@@ -18,13 +20,19 @@ const {
   requestReschedule,
   createClientBooking
 } = require('../controllers/bookingController');
-const { protect, protectClient } = require('../middleware/auth');
+const { protect, protectClient, protectMixed } = require('../middleware/auth');
 
 const router = express.Router();
+
+console.log('📝 Registrando rutas de bookings...');
 
 // Client specific routes - use protectClient middleware only (no general protect middleware)
 router.post('/client/book', protectClient, createClientBooking);
 router.get('/client/upcoming', protectClient, getClientUpcomingBookings);
+router.get('/client/completed-therapists', protectClient, (req, res, next) => {
+  console.log('🎯 Ruta /client/completed-therapists alcanzada');
+  getClientCompletedTherapists(req, res, next);
+});
 router.route('/client')
   .get(protectClient, getClientBookings);
 
@@ -33,6 +41,7 @@ router.route('/client/:id')
   .delete(protectClient, cancelClientBooking);
 
 router.put('/client/:id/reschedule-request', protectClient, requestReschedule);
+router.put('/client/:id/complete', protectMixed, completeClientBooking);
 
 // All other routes are protected with therapist/user authentication
 router.use(protect);

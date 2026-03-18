@@ -474,6 +474,49 @@ const completeBooking = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Mark booking as completed (client side)
+// @route   PUT /api/bookings/client/:id/complete
+// @access  Private (Client or Therapist)
+const completeClientBooking = asyncHandler(async (req, res, next) => {
+  const booking = await Booking.findOne({
+    id: req.params.id
+  });
+
+  if (!booking) {
+    return next(new AppError('Booking not found', 404));
+  }
+
+  // Check if user owns this booking (client or therapist)
+  const userId = req.user.id || req.user._id;
+  const isOwner = 
+    booking.clientId?.toString() === userId?.toString() ||
+    booking.therapistId?.toString() === userId?.toString();
+
+  if (!isOwner) {
+    return next(new AppError('Not authorized to complete this booking', 403));
+  }
+
+  if (booking.status === 'completed') {
+    return next(new AppError('Booking is already completed', 400));
+  }
+
+  if (booking.status === 'cancelled') {
+    return next(new AppError('Cannot complete a cancelled booking', 400));
+  }
+
+  const updatedBooking = await Booking.findByIdAndUpdate(
+    req.params.id,
+    { status: 'completed' },
+    { new: true }
+  );
+
+  res.status(200).json({
+    success: true,
+    data: updatedBooking.toJSON(),
+    message: 'Booking marked as completed'
+  });
+});
+
 // @desc    Mark booking as no-show
 // @route   PUT /api/bookings/:id/no-show
 // @access  Private
@@ -1103,6 +1146,84 @@ const createClientBooking = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Get therapists with completed bookings for client
+// @route   GET /api/bookings/client/completed-therapists
+// @access  Private (Client)
+const getClientCompletedTherapists = asyncHandler(async (req, res, next) => {
+  try {
+    console.log('🔍 getClientCompletedTherapists iniciado');
+    const clientId = req.user.id || req.user._id;
+    console.log('👤 Client ID:', clientId);
+
+    // Get all completed bookings for this client
+    console.log('📡 Consultando bookings completadas...');
+    const { data: bookings, error } = await supabase
+      .from('bookings')
+      .select('therapist_id')
+      .eq('client_id', clientId)
+      .eq('status', 'completed');
+
+    if (error) {
+      console.error('❌ Error consultando bookings:', error);
+      throw new Error(error.message);
+    }
+
+    console.log('✅ Bookings encontrados:', bookings?.length || 0);
+
+    // Get unique therapist IDs
+    const therapistIds = [...new Set(bookings?.map(b => b.therapist_id) || [])];
+    console.log('👨‍⚕️ Therapist IDs únicos:', therapistIds);
+
+    if (therapistIds.length === 0) {
+      console.log('ℹ️ No hay terapeutas con citas completadas');
+      return res.status(200).json({
+        success: true,
+        data: {
+          therapists: []
+        }
+      });
+    }
+
+    // Get therapist details
+    console.log('📡 Consultando detalles de terapeutas...');
+    const { data: therapists, error: therapistError } = await supabase
+      .from('users')
+      .select('id, name, email, avatar, specialties, rating')
+      .in('id', therapistIds)
+      .eq('role', 'therapist')
+      .eq('is_active', true);
+
+    if (therapistError) {
+      console.error('❌ Error consultando terapeutas:', therapistError);
+      throw new Error(therapistError.message);
+    }
+
+    console.log('✅ Terapeutas encontrados:', therapists?.length || 0);
+
+    // Format response
+    const formattedTherapists = therapists?.map(therapist => ({
+      _id: therapist.id,
+      id: therapist.id,
+      name: therapist.name,
+      email: therapist.email,
+      avatar: therapist.avatar,
+      specialties: therapist.specialties || [],
+      rating: therapist.rating
+    })) || [];
+
+    console.log('✅ Respuesta formateada, enviando...');
+    res.status(200).json({
+      success: true,
+      data: {
+        therapists: formattedTherapists
+      }
+    });
+  } catch (error) {
+    console.error('Error getting completed therapists:', error);
+    next(error);
+  }
+});
+
 module.exports = {
   getBookings,
   getBooking,
@@ -1110,10 +1231,12 @@ module.exports = {
   updateBooking,
   cancelBooking,
   completeBooking,
+  completeClientBooking,
   markNoShow,
   getBookingStats,
   getUpcomingBookings,
   rescheduleBooking,
+  getClientCompletedTherapists,
   // Client functions
   getClientBookings,
   getClientBooking,

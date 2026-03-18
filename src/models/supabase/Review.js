@@ -286,7 +286,7 @@ class ReviewModel {
    */
   async create(data) {
     const reviewData = {
-      therapistId: data.therapistId,
+      therapist_id: data.therapistId,
       client_id: data.clientId,
       booking_id: data.bookingId || null,
       rating: data.rating,

@@ -531,14 +531,28 @@ const bulkUpdateTimeBlocks = asyncHandler(async (req, res, next) => {
 
   // Build update data with only allowed fields
   const updateData = {};
+  const minimalUpdateData = {}; // Only columns that definitely exist
   
   // Map frontend field names to database column names
-  if (updates.startTime !== undefined) updateData.start_time = updates.startTime;
-  if (updates.endTime !== undefined) updateData.end_time = updates.endTime;
-  if (updates.location !== undefined) updateData.location = updates.location;
+  if (updates.startTime !== undefined) {
+    updateData.start_time = updates.startTime;
+    minimalUpdateData.start_time = updates.startTime;
+  }
+  if (updates.endTime !== undefined) {
+    updateData.end_time = updates.endTime;
+    minimalUpdateData.end_time = updates.endTime;
+  }
+  if (updates.location !== undefined) {
+    updateData.location = updates.location;
+    minimalUpdateData.location = updates.location;
+  }
+  // These columns may not exist in older schemas
   if (updates.color !== undefined) updateData.color = updates.color;
   if (updates.notes !== undefined) updateData.notes = updates.notes;
-  if (updates.isActive !== undefined) updateData.is_available = updates.isActive;
+  if (updates.isActive !== undefined) {
+    updateData.is_available = updates.isActive;
+    minimalUpdateData.is_available = updates.isActive;
+  }
   
   // Update all blocks in parallel
   const updatePromises = ids.map(async (id) => {
@@ -555,13 +569,27 @@ const bulkUpdateTimeBlocks = asyncHandler(async (req, res, next) => {
         return;
       }
 
-      // Update the block
-      const { data, error } = await supabase
+      // Try full update first
+      let { data, error } = await supabase
         .from('availability_slots')
         .update(updateData)
         .eq('id', id)
         .select()
         .single();
+
+      // If extra columns don't exist, retry with minimal data
+      if (error && Object.keys(minimalUpdateData).length > 0) {
+        console.warn(`⚠️ Full update failed for ${id}, retrying minimal:`, error.message);
+        const minimalResult = await supabase
+          .from('availability_slots')
+          .update(minimalUpdateData)
+          .eq('id', id)
+          .select()
+          .single();
+        
+        data = minimalResult.data;
+        error = minimalResult.error;
+      }
 
       if (error) {
         console.error(`❌ Failed to update block ${id}:`, error.message);

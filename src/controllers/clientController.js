@@ -671,6 +671,26 @@ const getAvailableTherapists = asyncHandler(async (req, res, next) => {
           if (!hasSpecialty) return null;
         }
 
+        // Construir workLocations combinando zonas_atencion y ciudad
+        let workLocations = [];
+        if (profile) {
+          // Si tiene zonas_atencion, usarlas
+          if (profile.zonas_atencion && profile.zonas_atencion.length > 0) {
+            workLocations = profile.zonas_atencion.map(city => ({
+              city: city,
+              name: city
+            }));
+          } 
+          // Si no tiene zonas_atencion pero tiene ciudad, usar esa
+          else if (profile.ciudad) {
+            workLocations = [{ city: profile.ciudad, name: profile.ciudad }];
+          }
+          // Si es online o hibrido, agregar Online
+          if (profile.modalidad && profile.modalidad !== 'presencial') {
+            workLocations.push({ city: 'Online', name: 'Online' });
+          }
+        }
+
         return {
           id: therapist.id || therapist._id,
           name: therapist.name,
@@ -686,8 +706,12 @@ const getAvailableTherapists = asyncHandler(async (req, res, next) => {
             clientsCount: profile.clientsCount,
             yearsExperience: profile.yearsExperience,
             languages: profile.languages,
-            workLocations: profile.workLocations,
-            specialties: profile.therapies?.map(therapy => therapy.name) || []
+            workLocations: workLocations,
+            specialties: profile.therapies?.map(therapy => therapy.name) || [],
+            // NUEVOS CAMPOS
+            ciudad: profile.ciudad,
+            modalidad: profile.modalidad,
+            zonasAtencion: profile.zonas_atencion
           } : null
         };
       } catch (err) {

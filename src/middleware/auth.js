@@ -208,19 +208,23 @@ const authRateLimit = require('express-rate-limit')({
 // Protect routes for clients - require client authentication
 const protectClient = async (req, res, next) => {
   try {
+    console.log('🔐 protectClient middleware - URL:', req.url);
     let token;
 
     // Check for token in headers
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
+      console.log('🔑 Token encontrado en headers');
     }
 
     // Check for token in cookies (optional)
     if (!token && req.cookies && req.cookies.token) {
       token = req.cookies.token;
+      console.log('🔑 Token encontrado en cookies');
     }
 
     if (!token) {
+      console.log('❌ No token provided');
       return res.status(401).json({
         success: false,
         message: 'Access denied. No token provided.'
@@ -229,10 +233,13 @@ const protectClient = async (req, res, next) => {
 
     try {
       // Verify token
+      console.log('🔍 Verificando token...');
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      console.log('✅ Token decodificado:', decoded);
 
       // Check if token is for client
       if (decoded.type !== 'client') {
+        console.log('❌ Token type no es client:', decoded.type);
         return res.status(401).json({
           success: false,
           message: 'Access denied. Invalid token type.'
@@ -240,17 +247,22 @@ const protectClient = async (req, res, next) => {
       }
 
       // Get client from token
+      console.log('👤 Buscando cliente con ID:', decoded.id);
       const client = await Client.findById(decoded.id);
 
       if (!client) {
+        console.log('❌ Cliente no encontrado en la base de datos');
         return res.status(401).json({
           success: false,
           message: 'Access denied. Client not found.'
         });
       }
 
+      console.log('✅ Cliente encontrado:', client.name);
+
       // Check if client is active
       if (client.status !== 'active') {
+        console.log('❌ Cliente no está activo. Status:', client.status);
         return res.status(401).json({
           success: false,
           message: 'Access denied. Client account is not active.'

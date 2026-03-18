@@ -25,7 +25,12 @@ const registerTherapist = asyncHandler(async (req, res) => {
     experiencia,
     sobreMi,
     plan = 'avanzado',
-    documentos = [] // Array de documentos con tempId, aiAnalysis, etc.
+    documentos = [], // Array de documentos con tempId, aiAnalysis, etc.
+    // NUEVOS CAMPOS
+    ciudad,
+    modalidad,
+    zonasAtencion,
+    idiomas
   } = req.body;
 
   // Validaciones
@@ -166,6 +171,14 @@ const registerTherapist = asyncHandler(async (req, res) => {
                 }
               ]
             : [],
+          // NUEVOS CAMPOS DE UBICACIÓN
+          ciudad: ciudad || 'Madrid',
+          modalidad: modalidad || 'hibrido',
+          zonas_atencion: zonasAtencion?.length > 0 ? zonasAtencion : [ciudad || 'Madrid'],
+          // IDIOMAS
+          languages: idiomas?.length > 0 
+            ? idiomas.map(lang => ({ language: lang, level: 'nativo' }))
+            : [{ language: 'Español', level: 'nativo' }],
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }
@@ -439,7 +452,7 @@ const createTherapistSubscription = asyncHandler(async (req, res) => {
   // Configuración de planes
   const planConfig = {
     basico: {
-      priceId: process.env.STRIPE_PLAN_BASICO_PRICE_ID || 'price_basico_placeholder',
+      priceId: process.env.STRIPE_PLAN_BASICO_PRICE_ID || 'price_1TCACNECp38q24a3BPm1EwRX',
       defaultTrialDays: 90,
       nombre: 'Básico'
     },
@@ -449,7 +462,7 @@ const createTherapistSubscription = asyncHandler(async (req, res) => {
       nombre: 'Avanzado'
     },
     'avanzado-pro': {
-      priceId: process.env.STRIPE_PLAN_AVANZADO_PRO_PRICE_ID || 'price_avanzado_pro_placeholder',
+      priceId: process.env.STRIPE_PLAN_AVANZADO_PRO_PRICE_ID || 'price_1TCACNECp38q24a3lXLZEfgl',
       defaultTrialDays: 0,
       nombre: 'Avanzado Pro'
     }
