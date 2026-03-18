@@ -647,6 +647,13 @@ class PaymentModel {
       }));
   }
 
+  /**
+   * Eliminar un pago
+   */
+  async delete(id) {
+    return await this.service.delete(id);
+  }
+
   // Métodos estáticos para compatibilidad con controladores
   static async findById(id, options = {}) {
     const instance = new PaymentModel();
@@ -669,6 +676,11 @@ class PaymentModel {
   static async create(data) {
     const instance = new PaymentModel();
     return await instance.create(data);
+  }
+
+  static async delete(id) {
+    const instance = new PaymentModel();
+    return await instance.service.delete(id);
   }
 }
 

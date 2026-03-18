@@ -84,7 +84,7 @@ const paymentController = {
 
       const payment = await Payment.findOne({
         id: paymentId,
-        therapistId: therapistId
+        therapist_id: therapistId
       });
 
       if (!payment) {
@@ -178,7 +178,7 @@ const paymentController = {
       if (bookingId) {
         const booking = await Booking.findOne({
           id: bookingId,
-          therapistId: therapistId,
+          therapist_id: therapistId,
           client_id: clientId
         });
         if (!booking) {
@@ -242,7 +242,7 @@ const paymentController = {
 
       const payment = await Payment.findOne({
         id: paymentId,
-        therapistId: therapistId
+        therapist_id: therapistId
       });
 
       if (!payment) {
@@ -286,7 +286,7 @@ const paymentController = {
 
       const payment = await Payment.findOne({
         id: paymentId,
-        therapistId: therapistId
+        therapist_id: therapistId
       });
 
       if (!payment) {
@@ -730,7 +730,7 @@ const paymentController = {
 
       const payment = await Payment.findOne({
         id: paymentId,
-        client_id: clientId
+        therapist_id: therapistId
       });
 
       if (!payment) {
@@ -821,6 +821,34 @@ const paymentController = {
           recentPayments: recentPayments || [],
           currency: 'EUR'
         }
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  // Delete a payment
+  async deletePayment(req, res, next) {
+    try {
+      const { paymentId } = req.params;
+      const therapistId = req.user.id;
+
+      // Find the payment
+      const payment = await Payment.findOne({
+        id: paymentId,
+        therapist_id: therapistId
+      });
+
+      if (!payment) {
+        return next(new AppError('Payment not found', 404));
+      }
+
+      // Delete the payment
+      await Payment.delete(paymentId);
+
+      res.json({
+        success: true,
+        message: 'Cobro eliminado correctamente'
       });
     } catch (error) {
       next(error);

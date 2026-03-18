@@ -116,6 +116,7 @@ router.get('/methods', paymentController.getPaymentMethods);
 router.get('/:paymentId', idValidation, paymentController.getPayment);
 router.put('/:paymentId/status', idValidation, updatePaymentStatusValidation, paymentController.updatePaymentStatus);
 router.post('/:paymentId/refund', idValidation, refundValidation, paymentController.processRefund);
+router.delete('/:paymentId', idValidation, paymentController.deletePayment);
 
 // Payout Request Routes
 router.get('/payouts/requests', paymentController.getPayoutRequests);
