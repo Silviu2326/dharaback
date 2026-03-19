@@ -23,6 +23,7 @@ const {
   requestReschedule,
   createClientBooking
 } = require('../controllers/bookingController');
+const { checkAvailability } = require('../controllers/bookings/availabilityController');
 const { protect, protectClient, protectMixed } = require('../middleware/auth');
 
 const router = express.Router();
@@ -53,6 +54,9 @@ router.use(protect);
 router.get('/stats', getBookingStats);
 router.get('/statistics', getBookingStats);
 router.get('/upcoming', getUpcomingBookings);
+
+// Check availability endpoint
+router.get('/check-availability', checkAvailability);
 
 // Main booking CRUD routes
 router.route('/')
