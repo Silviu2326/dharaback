@@ -129,7 +129,7 @@ const login = asyncHandler(async (req, res, next) => {
     }
   } else if (userType === 'cliente') {
     console.log('Searching only in CLIENTS...');
-    client = await Client.findOne({ email: email.toLowerCase() });
+    client = await Client.findByEmail(email.toLowerCase());
     console.log('Client found:', client ? 'YES' : 'NO');
     
     if (client) {
@@ -145,7 +145,7 @@ const login = asyncHandler(async (req, res, next) => {
 
     if (!user) {
       console.log('User not found, checking clients...');
-      client = await Client.findOne({ email: email.toLowerCase() });
+      client = await Client.findByEmail(email.toLowerCase());
       console.log('Client found:', client ? 'YES' : 'NO');
       
       if (client) {

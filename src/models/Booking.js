@@ -211,6 +211,12 @@ bookingSchema.post('save', async function() {
 
 // Static method to find conflicting bookings
 bookingSchema.statics.findConflicts = function(therapistId, date, startTime, endTime, excludeId = null) {
+  console.log('\n🔍 [Booking.findConflicts] Buscando conflictos de horario:');
+  console.log('   - TherapistId:', therapistId);
+  console.log('   - Fecha:', date);
+  console.log('   - Rango solicitado:', startTime, '-', endTime);
+  console.log('   - ExcludeId:', excludeId || 'Ninguno');
+  
   const query = {
     therapistId,
     date,
@@ -229,7 +235,25 @@ bookingSchema.statics.findConflicts = function(therapistId, date, startTime, end
     query._id = { $ne: excludeId };
   }
 
-  return this.find(query);
+  console.log('   - Query MongoDB:', JSON.stringify(query, null, 2));
+
+  const result = this.find(query);
+  
+  // Log the results when the query executes
+  result.then(bookings => {
+    console.log('   - Citas encontradas en conflicto:', bookings.length);
+    if (bookings.length > 0) {
+      bookings.forEach((booking, idx) => {
+        console.log(`      [${idx + 1}] Cita ${booking._id}: ${booking.startTime}-${booking.endTime} (Estado: ${booking.status})`);
+      });
+    } else {
+      console.log('   - ✅ No se encontraron conflictos - horario disponible');
+    }
+  }).catch(err => {
+    console.error('   - ❌ Error en findConflicts:', err.message);
+  });
+
+  return result;
 };
 
 // Static method to get booking statistics

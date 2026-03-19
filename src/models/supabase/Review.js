@@ -9,9 +9,9 @@ const SupabaseService = require('../../services/supabaseService');
 class Review {
   constructor(data = {}) {
     this.id = data.id;
-    this.therapistId = data.therapistId;
-    this.clientId = data.client_id;
-    this.bookingId = data.booking_id;
+    this.therapistId = data.therapist_id || data.therapistId;
+    this.clientId = data.client_id || data.clientId;
+    this.bookingId = data.booking_id || data.bookingId;
     this.rating = data.rating || 0;
     this.title = data.title;
     this.comment = data.comment;

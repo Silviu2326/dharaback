@@ -1,0 +1,20 @@
+// @desc    Get single booking
+// @route   GET /api/bookings/:id
+// @access  Private
+const getBooking = asyncHandler(async (req, res, next) => {
+  const { data: booking, error } = await supabase
+    .from('bookings')
+    .select('*, client:clients(id, name, email, phone, avatar, notes)')
+    .eq('id', req.params.id)
+    .eq('therapist_id', req.user.id)
+    .single();
+
+  if (error || !booking) {
+    return next(new AppError('Booking not found', 404));
+  }
+
+  res.status(200).json({
+    success: true,
+    data: booking
+  });
+});

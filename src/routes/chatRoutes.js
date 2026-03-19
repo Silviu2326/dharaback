@@ -107,8 +107,8 @@ const idValidation = [
 
 const messageIdValidation = [
   param('messageId')
-    .isMongoId()
-    .withMessage('Message ID must be valid')
+    .isUUID()
+    .withMessage('Message ID must be a valid UUID')
 ];
 
 // Conversation Routes
@@ -132,7 +132,7 @@ router.post('/conversations/:conversationId/messages',
 router.get('/messages/:messageId', messageIdValidation, messageController.getMessage);
 router.put('/messages/:messageId', messageIdValidation, editMessageValidation, messageController.editMessage);
 router.delete('/messages/:messageId', messageIdValidation, messageController.deleteMessage);
-router.post('/messages/:messageId/read', messageIdValidation, messageController.markMessageAsRead);
+router.patch('/messages/:messageId/read', messageIdValidation, messageController.markMessageAsRead);
 router.post('/conversations/:conversationId/messages/read-all', idValidation, messageController.markAllAsRead);
 
 // Message Reactions

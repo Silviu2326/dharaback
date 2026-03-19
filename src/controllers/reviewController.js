@@ -55,10 +55,19 @@ const reviewController = {
 
       if (error) throw new Error(error.message);
 
+      // Transform reviews to match frontend expectations
+      const transformedReviews = (data || []).map(review => ({
+        ...review,
+        response: review.therapist_response,
+        responseDate: review.responded_at,
+        clientName: review.client?.name || review.client_name,
+        clientAvatar: review.client?.avatar || review.client_avatar
+      }));
+
       res.json({
         success: true,
         data: {
-          reviews: data || [],
+          reviews: transformedReviews,
           pagination: {
             current: parseInt(page),
             pages: Math.ceil((count || 0) / parseInt(limit)),
@@ -88,9 +97,9 @@ const reviewController = {
 
       // Get related data
       const [client, booking, therapist] = await Promise.all([
-        Client.findById(review.client_id),
-        review.booking_id ? Booking.findById(review.booking_id) : null,
-        User.findById(review.therapist_id)
+        Client.findById(review.clientId),
+        review.bookingId ? Booking.findById(review.bookingId) : null,
+        User.findById(review.therapistId)
       ]);
 
       res.json({
@@ -122,7 +131,7 @@ const reviewController = {
       }
 
       const { reviewId } = req.params;
-      const { response } = req.body;
+      const { response, responseId } = req.body;
       const therapistId = req.user.id;
 
       const review = await Review.findOne({
@@ -135,16 +144,14 @@ const reviewController = {
       }
 
       const updatedReview = await Review.findByIdAndUpdate(reviewId, {
-        response: {
-          content: response,
-          respondedBy: therapistId,
-          respondedAt: new Date().toISOString()
-        }
+        therapistResponse: response,  // Campo correcto: therapistResponse
+        respondedAt: new Date().toISOString()
       });
 
       res.json({
         success: true,
         message: 'Response added successfully',
+        responseId: responseId || `resp_${Date.now()}`,
         data: updatedReview
       });
     } catch (error) {
@@ -174,12 +181,8 @@ const reviewController = {
       }
 
       const updatedReview = await Review.findByIdAndUpdate(reviewId, {
-        response: {
-          content: response,
-          respondedBy: therapistId,
-          respondedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
+        therapistResponse: response,
+        respondedAt: new Date().toISOString()
       });
 
       res.json({

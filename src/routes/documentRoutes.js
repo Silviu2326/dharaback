@@ -1,13 +1,13 @@
 const express = require('express');
 const { body, param, query } = require('express-validator');
 const documentController = require('../controllers/documentController');
-const { protect } = require('../middleware/auth');
+const { protectMixed } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
 
 const router = express.Router();
 
-router.use(protect);
+router.use(protectMixed);
 
 // Configure multer for document uploads
 const storage = multer.diskStorage({
@@ -40,6 +40,13 @@ const upload = multer({
   }
 });
 
+// UUID validator helper
+const isValidUUID = (value) => {
+  if (!value) return true; // Optional field
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(value);
+};
+
 // Validation rules
 const uploadValidation = [
   body('title')
@@ -53,8 +60,16 @@ const uploadValidation = [
     .withMessage('Invalid category'),
   body('clientId')
     .optional()
-    .isMongoId()
-    .withMessage('Client ID must be valid'),
+    .custom((value) => {
+      if (!value) return true;
+      // Accept both MongoDB ObjectId and UUID formats
+      const isMongoId = /^[0-9a-fA-F]{24}$/.test(value);
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+      if (!isMongoId && !isUUID) {
+        throw new Error('Client ID must be valid');
+      }
+      return true;
+    }),
   body('visibility')
     .optional()
     .isIn(['private', 'client_shared', 'therapist_only', 'admin_only'])
@@ -86,8 +101,16 @@ const updateValidation = [
 
 const shareValidation = [
   body('clientId')
-    .isMongoId()
-    .withMessage('Client ID must be valid'),
+    .custom((value) => {
+      if (!value) throw new Error('Client ID is required');
+      // Accept both MongoDB ObjectId and UUID formats
+      const isMongoId = /^[0-9a-fA-F]{24}$/.test(value);
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+      if (!isMongoId && !isUUID) {
+        throw new Error('Client ID must be valid');
+      }
+      return true;
+    }),
   body('permissions')
     .optional()
     .isArray()

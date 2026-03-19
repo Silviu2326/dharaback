@@ -81,6 +81,7 @@ router.get('/:reviewId', idValidation, reviewController.getReview);
 
 // Review interaction routes
 router.post('/:reviewId/response', idValidation, responseValidation, reviewController.addResponse);
+router.post('/:reviewId/responses', idValidation, responseValidation, reviewController.addResponse); // Alias for frontend compatibility
 router.put('/:reviewId/response', idValidation, responseValidation, reviewController.updateResponse);
 router.post('/:reviewId/helpful', idValidation, reviewController.markAsHelpful);
 router.post('/:reviewId/report', idValidation, reportValidation, reviewController.reportReview);

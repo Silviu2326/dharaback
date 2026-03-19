@@ -139,11 +139,11 @@ class SupabaseService {
       .from(this.table)
       .update(data)
       .eq('id', id)
-      .select()
-      .single();
+      .select();
 
     if (error) throw new Error(`Error updating ${this.table}: ${error.message}`);
-    return result;
+    if (!result || result.length === 0) throw new Error(`Error updating ${this.table}: Record not found`);
+    return result[0];
   }
 
   /**

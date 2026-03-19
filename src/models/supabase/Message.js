@@ -302,6 +302,13 @@ class MessageModel {
    * Crear nuevo mensaje
    */
   async create(data) {
+    // No guardar mensajes locales o de fallback en la base de datos
+    const metadata = data.metadata || {};
+    if (metadata._localOnly || metadata._errorFallback) {
+      console.log('⚠️ Skipping save of local/error message to database:', data.id);
+      return new Message(data);
+    }
+
     const messageData = {
       conversation_id: data.conversationId,
       sender_id: data.senderId,
@@ -395,8 +402,15 @@ class MessageModel {
         throw new Error(error.message);
       }
 
-      const messages = (data || []).map(d => new Message(d));
+      const messages = (data || [])
+        .filter(d => {
+          // Filtrar mensajes locales que no deberían persistir
+          const metadata = d.metadata || {};
+          return !metadata._localOnly && !metadata._errorFallback;
+        })
+        .map(d => new Message(d));
       console.log('🔍 DEBUG Message.findByConversation - Returning messages:', messages.length);
+      console.log('🔍 DEBUG Message.findByConversation - Filtered out:', (data || []).length - messages.length, 'local/error messages');
       console.log('🔍 DEBUG Message.findByConversation - Message sender types:', messages.map(m => ({ id: m.id, senderId: m.senderId, senderType: m.senderType })));
       
       return messages;

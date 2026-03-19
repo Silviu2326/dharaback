@@ -333,6 +333,27 @@ class ClientModel {
   }
 
   /**
+   * Buscar por email (para login - retorna el primero si hay múltiples)
+   */
+  async findByEmail(email) {
+    const supabase = require('../../config/supabase').supabase;
+    
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('email', email)
+      .limit(1)
+      .single();
+    
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw new Error(`Error finding client: ${error.message}`);
+    }
+    
+    return data ? new Client(data) : null;
+  }
+
+  /**
    * Buscar por email y terapeuta
    */
   async findByEmailAndTherapist(email, therapistId) {

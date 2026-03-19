@@ -85,30 +85,193 @@ const getTherapistAvailability = asyncHandler(async (req, res, next) => {
 // @access Public
 const getAvailableSlotsForDate = asyncHandler(async (req, res, next) => {
   const { therapistId, date } = req.params;
+  const { sessionDuration = 60 } = req.query;
+
+  console.log('\n═══════════════════════════════════════════════════');
+  console.log('🔍 getAvailableSlotsForDate: Buscando slots disponibles');
+  console.log('═══════════════════════════════════════════════════');
+  console.log('📋 Parámetros:');
+  console.log('   - TherapistId:', therapistId);
+  console.log('   - Fecha:', date);
+  console.log('   - SessionDuration:', sessionDuration, 'minutos');
 
   const targetDate = new Date(date);
   if (isNaN(targetDate.getTime())) {
+    console.log('❌ ERROR: Formato de fecha inválido');
     return next(new AppError('Invalid date format', 400));
   }
 
   const dayOfWeek = targetDate.getDay(); // 0 = domingo
+  console.log('   - DayOfWeek:', dayOfWeek);
 
-  const { data: slots, error } = await supabase
+  // DEBUG: Primero consultar TODOS los slots del terapeuta sin filtros
+  console.log('\n📡 DEBUG: Consultando TODOS los slots del terapeuta...');
+  const { data: allSlotsDebug, error: debugError } = await supabase
+    .from('availability_slots')
+    .select('*')
+    .eq('therapist_id', therapistId);
+
+  if (debugError) {
+    console.error('❌ Error en debug query:', debugError.message);
+  } else {
+    console.log('✅ Total slots del terapeuta (sin filtros):', (allSlotsDebug || []).length);
+    if (allSlotsDebug && allSlotsDebug.length > 0) {
+      console.log('📊 Datos de los slots:');
+      allSlotsDebug.forEach((slot, idx) => {
+        console.log(`   [${idx + 1}] ID:${slot.id} | ${slot.start_time}-${slot.end_time} | day_of_week:${slot.day_of_week} | is_available:${slot.is_available} | valid_from:${slot.valid_from} | valid_until:${slot.valid_until}`);
+      });
+    }
+  }
+
+  // PASO 1: Obtener slots de disponibilidad
+  // Usar el mismo enfoque EXACTO que getTherapistTimeBlocks que sí funciona
+  console.log('\n📡 PASO 1: Consultando availability_slots...');
+  console.log('   Usando MISMO enfoque que getTherapistTimeBlocks');
+
+  let query = supabase
     .from('availability_slots')
     .select('*')
     .eq('therapist_id', therapistId)
-    .eq('day_of_week', dayOfWeek)
-    .eq('is_available', true)
+    .eq('is_available', true);
+
+  // Calcular rango de fechas (2 meses desde la fecha solicitada)
+  const checkDate = new Date(date);
+  const startDate = new Date(checkDate.getFullYear(), checkDate.getMonth(), 1).toISOString().split('T')[0];
+  const endDate = new Date(checkDate.getFullYear(), checkDate.getMonth() + 2, 0).toISOString().split('T')[0];
+  
+  console.log('   - Rango de búsqueda:', startDate, 'hasta', endDate);
+
+  // Usar el mismo filtro exacto que getTherapistTimeBlocks
+  query = query
+    .or(`and(valid_from.is.null,valid_until.is.null),and(valid_from.lte.${endDate},valid_until.is.null),and(valid_from.is.null,valid_until.gte.${startDate}),and(valid_from.lte.${endDate},valid_until.gte.${startDate})`);
+
+  query = query
+    .order('valid_from', { ascending: true })
     .order('start_time', { ascending: true });
 
-  if (error) return next(new AppError('Error fetching slots', 500));
+  console.log('   - Ejecutando query...');
+  const { data: allSlots, error: slotsError } = await query;
+
+  if (slotsError) {
+    console.error('❌ Error consultando slots:', slotsError.message);
+    return next(new AppError('Error fetching slots', 500));
+  }
+
+  console.log('✅ Slots encontrados en BD:', (allSlots || []).length);
+  if (allSlots && allSlots.length > 0) {
+    console.log('📊 Slots encontrados:');
+    allSlots.forEach((slot, idx) => {
+      console.log(`   [${idx + 1}] ${slot.start_time}-${slot.end_time} | day_of_week:${slot.day_of_week} | valid_from:${slot.valid_from} | valid_until:${slot.valid_until}`);
+    });
+  }
+
+  // PASO 2: Filtrar slots por día de la semana (si tienen day_of_week configurado)
+  // Si day_of_week es null, asumimos que aplica a todos los días (slots recurrentes)
+  console.log('\n📡 PASO 2: Filtrando slots por día de la semana (dayOfWeek=' + dayOfWeek + ')...');
+  const validSlots = (allSlots || []).filter(slot => {
+    // Si no tiene day_of_week, aplica a cualquier día (recurrente)
+    if (slot.day_of_week === null || slot.day_of_week === undefined) {
+      console.log(`   ✅ Slot ${slot.start_time}-${slot.end_time}: día recurrente (day_of_week=null)`);
+      return true;
+    }
+    // Si tiene day_of_week, debe coincidir
+    const matches = slot.day_of_week === dayOfWeek;
+    console.log(`   ${matches ? '✅' : '❌'} Slot ${slot.start_time}-${slot.end_time}: day_of_week=${slot.day_of_week} vs ${dayOfWeek}`);
+    return matches;
+  });
+
+  console.log('✅ Slots válidos para el día:', validSlots.length);
+
+  // PASO 3: Obtener citas existentes para esta fecha
+  console.log('\n📡 PASO 3: Consultando citas existentes...');
+  const { data: existingBookings, error: bookingsError } = await supabase
+    .from('bookings')
+    .select('start_time, end_time, status')
+    .eq('therapist_id', therapistId)
+    .eq('date', date)
+    .in('status', ['upcoming', 'pending', 'confirmed']);
+
+  if (bookingsError) {
+    console.error('❌ Error consultando citas:', bookingsError.message);
+  }
+
+  console.log('✅ Citas encontradas para esta fecha:', (existingBookings || []).length);
+  if (existingBookings && existingBookings.length > 0) {
+    existingBookings.forEach((booking, idx) => {
+      console.log(`   [${idx + 1}] ${booking.start_time}-${booking.end_time} | Status: ${booking.status}`);
+    });
+  }
+
+  // PASO 4: Restar horarios ocupados de los slots disponibles
+  console.log('\n⚙️  PASO 4: Calculando slots libres...');
+  const availableSlots = [];
+
+  validSlots.forEach(slot => {
+    console.log(`\n   Procesando slot: ${slot.start_time} - ${slot.end_time}`);
+
+    // Convertir a minutos desde medianoche
+    const [slotStartH, slotStartM] = slot.start_time.split(':').map(Number);
+    const [slotEndH, slotEndM] = slot.end_time.split(':').map(Number);
+    let currentMinutes = slotStartH * 60 + slotStartM;
+    const slotEndMinutes = slotEndH * 60 + slotEndM;
+
+    // Generar slots individuales
+    while (currentMinutes + parseInt(sessionDuration) <= slotEndMinutes) {
+      const startH = Math.floor(currentMinutes / 60);
+      const startM = currentMinutes % 60;
+      const endMinutes = currentMinutes + parseInt(sessionDuration);
+      const endH = Math.floor(endMinutes / 60);
+      const endM = endMinutes % 60;
+
+      const slotStartStr = `${startH.toString().padStart(2, '0')}:${startM.toString().padStart(2, '0')}`;
+      const slotEndStr = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
+
+      // Verificar si este slot específico está ocupado por alguna cita
+      const isBooked = (existingBookings || []).some(booking => {
+        const bookingStart = booking.start_time;
+        const bookingEnd = booking.end_time;
+
+        // Hay solapamiento si:
+        // El inicio del slot está dentro de la cita O el fin del slot está dentro de la cita
+        const overlap = (
+          (slotStartStr >= bookingStart && slotStartStr < bookingEnd) ||
+          (slotEndStr > bookingStart && slotEndStr <= bookingEnd) ||
+          (slotStartStr <= bookingStart && slotEndStr >= bookingEnd)
+        );
+
+        if (overlap) {
+          console.log(`      ❌ ${slotStartStr}-${slotEndStr} SOLAPADO con cita ${bookingStart}-${bookingEnd}`);
+        }
+
+        return overlap;
+      });
+
+      if (!isBooked) {
+        availableSlots.push({
+          id: `${slot.id}_${slotStartStr}`,
+          startTime: slotStartStr,
+          endTime: slotEndStr,
+          isAvailable: true,
+          location: slot.location || 'online'
+        });
+        console.log(`      ✅ ${slotStartStr}-${slotEndStr} DISPONIBLE`);
+      }
+
+      currentMinutes += parseInt(sessionDuration);
+    }
+  });
+
+  console.log('\n📊 RESULTADO FINAL:');
+  console.log('   - Total slots disponibles:', availableSlots.length);
+  console.log('   - Slots:', availableSlots.map(s => `${s.startTime}-${s.endTime}`).join(', ') || 'NINGUNO');
+  console.log('═══════════════════════════════════════════════════\n');
 
   res.status(200).json({
     success: true,
     data: {
       date,
       dayOfWeek,
-      slots: (slots || []).map(formatSlot)
+      slots: availableSlots
     }
   });
 });

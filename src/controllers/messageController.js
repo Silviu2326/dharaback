@@ -122,6 +122,12 @@ const messageController = {
         ascending: false
       });
 
+      console.log('🔍 DEBUG getMessages - Messages found:', messages.length);
+      console.log('🔍 DEBUG getMessages - Raw messages from DB:');
+      messages.forEach((msg, i) => {
+        console.log(`   ${i + 1}. ID: ${msg.id}, Sender: ${msg.senderId}, Type: ${msg.senderType}, Content: "${msg.content?.substring(0, 30)}"`);
+      });
+
       // Populate sender details for each message
       const populatedMessages = await Promise.all(
         messages.map(async (message) => {
@@ -140,8 +146,12 @@ const messageController = {
         })
       );
 
-      console.log('🔍 DEBUG getMessages - Messages found:', messages.length);
-      console.log('🔍 DEBUG getMessages - Populated messages:', populatedMessages.length);
+      console.log('🔍 DEBUG getMessages - FINAL RESPONSE messages count:', populatedMessages.length);
+      console.log('🔍 DEBUG getMessages - Messages being sent to client:');
+      populatedMessages.forEach((msg, i) => {
+        const isLocal = msg.metadata?._localOnly || msg.metadata?._errorFallback;
+        console.log(`   ${i + 1}. [${isLocal ? 'LOCAL' : 'REAL'}] ID: ${msg.id}, Content: "${msg.content?.substring(0, 40)}"`);
+      });
 
       res.json({
         success: true,
@@ -575,6 +585,10 @@ const messageController = {
           limit: parseInt(limit),
           offset: parseInt(offset),
           ascending: false
+        });
+        console.log('🔍 DEBUG getMessagesDirect - Messages from DB:', messages.length);
+        messages.forEach((msg, i) => {
+          console.log(`   ${i + 1}. ID: ${msg.id}, Sender: ${msg.senderId}, Type: ${msg.senderType}, Content: "${msg.content?.substring(0, 30)}"`);
         });
       } catch (msgError) {
         console.error('❌ Error finding messages:', msgError.message);
