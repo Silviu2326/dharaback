@@ -5,6 +5,9 @@ const {
   createBooking,
   updateBooking,
   cancelBooking,
+  patchCancelBooking,
+  cancelBookingReminders,
+  sendCancelNotification,
   completeBooking,
   completeClientBooking,
   markNoShow,
@@ -65,5 +68,15 @@ router.route('/:id')
 router.put('/:id/complete', completeBooking);
 router.put('/:id/no-show', markNoShow);
 router.put('/:id/reschedule', rescheduleBooking);
+
+// New routes for frontend compatibility
+// PATCH /:id/cancel - Alternative cancel endpoint (returns updated booking)
+router.patch('/:id/cancel', patchCancelBooking);
+
+// DELETE /:id/reminders - Cancel reminders for a booking
+router.delete('/:id/reminders', cancelBookingReminders);
+
+// POST /:id/cancel-notify - Send cancellation notification
+router.post('/:id/cancel-notify', sendCancelNotification);
 
 module.exports = router;

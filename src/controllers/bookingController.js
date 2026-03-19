@@ -101,14 +101,14 @@ const getBookings = asyncHandler(async (req, res, next) => {
 
   res.status(200).json({
     success: true,
-    data: transformedBookings,
+    count: transformedBookings.length,
+    total: count,
     pagination: {
       page: parseInt(page),
       limit: parseInt(limit),
-      totalItems: count || 0,
-      totalPages: Math.ceil((count || 0) / limit),
-      hasNextPage: (page * limit) < (count || 0)
-    }
+      totalPages: Math.ceil(count / limit)
+    },
+    data: transformedBookings
   });
 });
 
@@ -116,9 +116,10 @@ const getBookings = asyncHandler(async (req, res, next) => {
 // @route   GET /api/bookings/:id
 // @access  Private
 const getBooking = asyncHandler(async (req, res, next) => {
+  // Use Supabase to fetch the booking (consistent with getBookings)
   const { data: booking, error } = await supabase
     .from('bookings')
-    .select('*, client:clients(id, name, email, phone, avatar, notes)')
+    .select('*, client:clients(id, name, email, phone, avatar)')
     .eq('id', req.params.id)
     .eq('therapist_id', req.user.id)
     .single();
@@ -127,19 +128,58 @@ const getBooking = asyncHandler(async (req, res, next) => {
     return next(new AppError('Booking not found', 404));
   }
 
+  // Transform snake_case to camelCase for frontend compatibility
+  const transformedBooking = {
+    id: booking.id,
+    date: booking.date,
+    startTime: booking.start_time,
+    endTime: booking.end_time,
+    clientId: booking.client_id,
+    therapistId: booking.therapist_id,
+    therapyType: booking.therapy_type,
+    therapyDuration: booking.therapy_duration,
+    status: booking.status,
+    amount: booking.amount,
+    currency: booking.currency,
+    paymentStatus: booking.payment_status,
+    paymentMethod: booking.payment_method,
+    location: booking.location,
+    notes: booking.notes,
+    meetingLink: booking.meeting_link,
+    sessionDocument: booking.session_document,
+    planId: booking.plan_id,
+    reminderSent: booking.reminder_sent,
+    cancellationReason: booking.cancellation_reason,
+    cancelledBy: booking.cancelled_by,
+    cancelledAt: booking.cancelled_at,
+    lastStatusChange: booking.last_status_change,
+    createdAt: booking.created_at,
+    updatedAt: booking.updated_at,
+    client: booking.client ? {
+      id: booking.client.id,
+      name: booking.client.name,
+      email: booking.client.email,
+      phone: booking.client.phone,
+      avatar: booking.client.avatar
+    } : null
+  };
+
   res.status(200).json({
     success: true,
-    data: booking
+    data: transformedBooking
   });
 });
 
-// @desc    Create new booking (therapist)
+// @desc    Create new booking
 // @route   POST /api/bookings
 // @access  Private (Therapist)
 const createBooking = asyncHandler(async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return next(new AppError(errors.array()[0].msg, 400));
+    return res.status(400).json({
+      success: false,
+      errors: errors.array()
+    });
   }
 
   const {
@@ -148,77 +188,86 @@ const createBooking = asyncHandler(async (req, res, next) => {
     startTime,
     endTime,
     therapyType,
+    therapyDuration,
     amount,
-    location,
-    notes,
-    meetingLink
-  } = req.body;
-
-  // Verify client belongs to therapist
-  const client = await Client.findOne({
-    id: clientId,
-    therapistId: req.user.id,
-    status: 'active'
-  });
-
-  if (!client) {
-    return next(new AppError('Client not found', 404));
-  }
-
-  // Check for conflicts
-  const conflicts = await Booking.findConflicts(
-    req.user.id,
-    date,
-    startTime,
-    endTime
-  );
-
-  if (conflicts.length > 0) {
-    return next(new AppError('Time slot conflicts with existing booking', 400));
-  }
-
-  const booking = await Booking.create({
-    date: new Date(date),
-    startTime,
-    endTime,
-    clientId,
-    therapistId: req.user.id,
-    therapyType,
-    amount,
+    currency,
     location,
     notes,
     meetingLink,
-    status: 'upcoming'
+    planId
+  } = req.body;
+
+  // Check for conflicts
+  const existingBooking = await Booking.findOne({
+    where: {
+      therapistId: req.user.id,
+      date,
+      startTime,
+      status: {
+        notIn: ['cancelled', 'no_show']
+      }
+    }
   });
 
-  // Get full booking with associations
-  const bookingWithDetails = await Booking.findByPk(booking.id, {
-    include: [
-      {
-        model: Client,
-        as: 'client',
-        attributes: ['id', 'name', 'email', 'phone']
-      }
-    ]
+  if (existingBooking) {
+    return next(new AppError('Time slot is already booked', 409));
+  }
+
+  const booking = await Booking.create({
+    therapistId: req.user.id,
+    clientId,
+    date,
+    startTime,
+    endTime,
+    therapyType,
+    therapyDuration: therapyDuration || 60,
+    amount: amount || 0,
+    currency: currency || 'EUR',
+    location,
+    notes,
+    meetingLink,
+    planId,
+    status: 'upcoming',
+    paymentStatus: amount > 0 ? 'pending' : 'not_required'
   });
+
+  // Create or get conversation for this client
+  try {
+    const conversation = await Conversation.findOrCreate({
+      where: {
+        therapistId: req.user.id,
+        clientId
+      },
+      defaults: {
+        therapistId: req.user.id,
+        clientId
+      }
+    });
+  } catch (error) {
+    console.error('Error creating conversation:', error);
+  }
 
   // Send confirmation email
   try {
-    await emailService.sendAppointmentConfirmation({
-      to: client.email,
-      clientName: client.name,
-      therapistName: req.user.name,
-      date: booking.date,
-      time: booking.startTime,
-      location: booking.location
-    });
+    const client = await Client.findByPk(clientId);
+    if (client) {
+      await emailService.sendAppointmentConfirmation({
+        to: client.email,
+        clientName: client.name,
+        therapistName: req.user.name,
+        date,
+        time: startTime,
+        location,
+        meetingLink
+      });
+    }
   } catch (error) {
-    console.error('Failed to send booking confirmation email:', error);
+    console.error('Failed to send confirmation email:', error);
   }
 
   res.status(201).json({
     success: true,
-    data: bookingWithDetails
+    data: booking
   });
 });
 
@@ -237,74 +286,41 @@ const updateBooking = asyncHandler(async (req, res, next) => {
     return next(new AppError('Booking not found', 404));
   }
 
-  // Check if booking can be modified
-  if (booking.status === 'completed' || booking.status === 'cancelled') {
-    return next(new AppError('Cannot modify completed or cancelled bookings', 400));
-  }
-
-  const { date, startTime, endTime, therapyType, amount, location, notes, meetingLink } = req.body;
-
-  // If time changed, check for conflicts
-  if ((date && date !== booking.date) || 
-      (startTime && startTime !== booking.startTime) || 
-      (endTime && endTime !== booking.endTime)) {
-    
-    const conflicts = await Booking.findConflicts(
-      req.user.id,
-      date || booking.date,
-      startTime || booking.startTime,
-      endTime || booking.endTime,
-      booking.id
-    );
-
-    if (conflicts.length > 0) {
-      return next(new AppError('New time conflicts with existing booking', 400));
-    }
+  if (booking.status === 'completed') {
+    return next(new AppError('Cannot update completed bookings', 400));
   }
 
   // Update fields
-  if (date) booking.date = new Date(date);
-  if (startTime) booking.startTime = startTime;
-  if (endTime) booking.endTime = endTime;
-  if (therapyType) booking.therapyType = therapyType;
-  if (amount !== undefined) booking.amount = amount;
-  if (location) booking.location = location;
-  if (notes !== undefined) booking.notes = notes;
-  if (meetingLink !== undefined) booking.meetingLink = meetingLink;
+  const updateFields = ['date', 'startTime', 'endTime', 'therapyType', 'therapyDuration', 'amount', 'currency', 'location', 'notes', 'meetingLink', 'planId', 'status'];
+  updateFields.forEach(field => {
+    if (req.body[field] !== undefined) {
+      booking[field] = req.body[field];
+    }
+  });
 
   await booking.save();
 
-  // Get updated booking with associations
-  const updatedBooking = await Booking.findByPk(booking.id, {
-    include: [
-      {
-        model: Client,
-        as: 'client',
-        attributes: ['id', 'name', 'email', 'phone']
-      }
-    ]
-  });
-
   res.status(200).json({
     success: true,
-    data: updatedBooking
+    data: booking
   });
 });
 
 // @desc    Cancel booking
 // @route   DELETE /api/bookings/:id
-// @access  Private
+// @access  Private (Therapist)
 const cancelBooking = asyncHandler(async (req, res, next) => {
   const { reason } = req.body;
 
-  const booking = await Booking.findOne({
-    where: {
-      id: req.params.id,
-      therapistId: req.user.id
-    }
-  });
+  // Use Supabase to fetch booking
+  const { data: booking, error: fetchError } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('id', req.params.id)
+    .eq('therapist_id', req.user.id)
+    .single();
 
-  if (!booking) {
+  if (fetchError || !booking) {
     return next(new AppError('Booking not found', 404));
   }
 
@@ -316,24 +332,39 @@ const cancelBooking = asyncHandler(async (req, res, next) => {
     return next(new AppError('Booking is already cancelled', 400));
   }
 
-  booking.status = 'cancelled';
-  booking.cancellationReason = reason || 'Cancelled by therapist';
-  booking.cancelledAt = new Date();
-  booking.cancelledBy = req.user.id;
+  // Update booking
+  const { data: updatedBooking, error: updateError } = await supabase
+    .from('bookings')
+    .update({
+      status: 'cancelled',
+      cancellation_reason: reason || 'Cancelled by therapist',
+      cancelled_at: new Date().toISOString(),
+      cancelled_by: req.user.id
+    })
+    .eq('id', req.params.id)
+    .select()
+    .single();
 
-  await booking.save();
+  if (updateError) {
+    return next(new AppError('Failed to cancel booking', 500));
+  }
 
   // Send cancellation email
   try {
-    const client = await Client.findByPk(booking.clientId);
+    const { data: client } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('id', booking.client_id)
+      .single();
+    
     if (client) {
       await emailService.sendAppointmentCancellation({
         to: client.email,
         clientName: client.name,
         therapistName: req.user.name,
         date: booking.date,
-        time: booking.startTime,
-        reason: booking.cancellationReason
+        time: booking.start_time,
+        reason: reason || 'Cancelled by therapist'
       });
     }
   } catch (error) {
@@ -342,8 +373,183 @@ const cancelBooking = asyncHandler(async (req, res, next) => {
 
   res.status(200).json({
     success: true,
-    data: booking
+    data: updatedBooking
   });
+});
+
+// @desc    Cancel booking via PATCH (alternative endpoint for frontend compatibility)
+// @route   PATCH /api/bookings/:id/cancel
+// @access  Private (Therapist)
+const patchCancelBooking = asyncHandler(async (req, res, next) => {
+  const { reason, cancellationReason, refundAmount } = req.body;
+
+  // Use Supabase to fetch and update
+  const { data: booking, error: fetchError } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('id', req.params.id)
+    .eq('therapist_id', req.user.id)
+    .single();
+
+  if (fetchError || !booking) {
+    return next(new AppError('Booking not found', 404));
+  }
+
+  if (booking.status === 'completed') {
+    return next(new AppError('Cannot cancel completed bookings', 400));
+  }
+
+  if (booking.status === 'cancelled') {
+    return next(new AppError('Booking is already cancelled', 400));
+  }
+
+  // Update booking - only status and short cancellation reason
+  const updateData = {
+    status: 'cancelled'
+  };
+  
+  // Only add cancellation_reason if it's short enough (< 20 chars)
+  const reasonText = reason || cancellationReason || 'Other';
+  if (reasonText.length <= 20) {
+    updateData.cancellation_reason = reasonText;
+  } else {
+    // Truncate or use short version
+    updateData.cancellation_reason = reasonText.substring(0, 20);
+  }
+  
+  console.log('🔄 Attempting to update booking:', req.params.id);
+  console.log('📝 Update data:', updateData);
+  
+  const { data: updatedBooking, error: updateError } = await supabase
+    .from('bookings')
+    .update(updateData)
+    .eq('id', req.params.id)
+    .select()
+    .single();
+
+  if (updateError) {
+    console.error('❌ Supabase update error:', updateError);
+    return next(new AppError(`Failed to cancel booking: ${updateError.message}`, 500));
+  }
+  
+  console.log('✅ Booking updated successfully:', updatedBooking);
+
+  // Send cancellation email
+  try {
+    const { data: client } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('id', booking.client_id)
+      .single();
+    
+    if (client) {
+      await emailService.sendAppointmentCancellation({
+        to: client.email,
+        clientName: client.name,
+        therapistName: req.user.name,
+        date: booking.date,
+        time: booking.start_time,
+        reason: reason || cancellationReason || 'Cancelled by therapist'
+      });
+    }
+  } catch (error) {
+    console.error('Failed to send cancellation email:', error);
+  }
+
+  res.status(200).json({
+    success: true,
+    data: updatedBooking
+  });
+});
+
+// @desc    Cancel reminders for a booking
+// @route   DELETE /api/bookings/:id/reminders
+// @access  Private (Therapist)
+const cancelBookingReminders = asyncHandler(async (req, res, next) => {
+  // Use Supabase to fetch booking
+  const { data: booking, error: fetchError } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('id', req.params.id)
+    .eq('therapist_id', req.user.id)
+    .single();
+
+  if (fetchError || !booking) {
+    return next(new AppError('Booking not found', 404));
+  }
+
+  // Update booking to mark reminders as cancelled
+  const { error: updateError } = await supabase
+    .from('bookings')
+    .update({
+      reminder_cancelled: true,
+      reminder_cancelled_at: new Date().toISOString()
+    })
+    .eq('id', req.params.id);
+
+  if (updateError) {
+    return next(new AppError('Failed to cancel reminders', 500));
+  }
+
+  res.status(200).json({
+    success: true,
+    message: 'Reminders cancelled successfully',
+    data: {
+      id: booking.id,
+      reminderCancelled: true
+    }
+  });
+});
+
+// @desc    Send cancellation notification
+// @route   POST /api/bookings/:id/cancel-notify
+// @access  Private (Therapist)
+const sendCancelNotification = asyncHandler(async (req, res, next) => {
+  const { reason } = req.body;
+
+  // Use Supabase to fetch booking
+  const { data: booking, error: fetchError } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('id', req.params.id)
+    .eq('therapist_id', req.user.id)
+    .single();
+
+  if (fetchError || !booking) {
+    return next(new AppError('Booking not found', 404));
+  }
+
+  // Send cancellation email
+  try {
+    const { data: client } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('id', booking.client_id)
+      .single();
+    
+    if (client) {
+      await emailService.sendAppointmentCancellation({
+        to: client.email,
+        clientName: client.name,
+        therapistName: req.user.name,
+        date: booking.date,
+        time: booking.start_time,
+        reason: reason || booking.cancellation_reason || 'Cancelled by therapist'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Cancellation notification sent successfully',
+      data: {
+        id: booking.id,
+        notified: true
+      }
+    });
+  } catch (error) {
+    console.error('Failed to send cancellation notification:', error);
+    return next(new AppError('Failed to send cancellation notification', 500));
+  }
 });
 
 // @desc    Complete booking
@@ -374,46 +580,21 @@ const completeBooking = asyncHandler(async (req, res, next) => {
 
   await booking.save();
 
-  // Update client last session
+  // Send completion email to client
   try {
     const client = await Client.findByPk(booking.clientId);
     if (client) {
-      client.lastSession = new Date();
-      client.sessionsCount += 1;
-      await client.save();
+      await emailService.sendAppointmentCompleted({
+        to: client.email,
+        clientName: client.name,
+        therapistName: req.user.name,
+        date: booking.date,
+        time: booking.startTime
+      });
     }
   } catch (error) {
-    console.error('Failed to update client stats:', error);
+    console.error('Failed to send completion email:', error);
   }
-
-  res.status(200).json({
-    success: true,
-    data: booking
-  });
-});
-
-// @desc    Complete booking (Client version)
-// @route   PUT /api/bookings/:id/complete-client
-// @access  Private (Client)
-const completeClientBooking = asyncHandler(async (req, res, next) => {
-  const booking = await Booking.findOne({
-    where: {
-      id: req.params.id,
-      clientId: req.user.id
-    }
-  });
-
-  if (!booking) {
-    return next(new AppError('Booking not found', 404));
-  }
-
-  if (booking.status !== 'upcoming') {
-    return next(new AppError('Only upcoming bookings can be marked as completed', 400));
-  }
-
-  booking.status = 'completed';
-  booking.completedAt = new Date();
-  await booking.save();
 
   res.status(200).json({
     success: true,
@@ -441,6 +622,8 @@ const markNoShow = asyncHandler(async (req, res, next) => {
   }
 
   booking.status = 'no_show';
+  booking.noShowAt = new Date();
+
   await booking.save();
 
   res.status(200).json({
@@ -450,103 +633,97 @@ const markNoShow = asyncHandler(async (req, res, next) => {
 });
 
 // @desc    Get booking statistics
-// @route   GET /api/bookings/stats/overview
+// @route   GET /api/bookings/stats
 // @access  Private (Therapist)
 const getBookingStats = asyncHandler(async (req, res, next) => {
   const { startDate, endDate } = req.query;
 
-  const where = { therapistId: req.user.id };
+  // Get counts for different statuses
+  const whereClause = {
+    therapistId: req.user.id
+  };
 
   if (startDate && endDate) {
-    where.date = {
-      [Op.between]: [new Date(startDate), new Date(endDate)]
+    whereClause.date = {
+      gte: new Date(startDate),
+      lte: new Date(endDate)
     };
   }
 
   const stats = await Booking.findAll({
-    where,
+    where: whereClause,
     attributes: [
       'status',
-      [Booking.sequelize.fn('COUNT', Booking.sequelize.col('id')), 'count'],
-      [Booking.sequelize.fn('SUM', Booking.sequelize.col('amount')), 'totalAmount']
+      [Booking.sequelize.fn('COUNT', Booking.sequelize.col('status')), 'count']
     ],
-    group: ['status'],
-    raw: true
+    group: ['status']
   });
 
-  const totalBookings = stats.reduce((sum, stat) => sum + parseInt(stat.count), 0);
-  const totalRevenue = stats.reduce((sum, stat) => sum + parseFloat(stat.totalAmount || 0), 0);
+  // Calculate revenue
+  const revenue = await Booking.findAll({
+    where: {
+      ...whereClause,
+      status: 'completed',
+      paymentStatus: 'paid'
+    },
+    attributes: [
+      [Booking.sequelize.fn('SUM', Booking.sequelize.col('amount')), 'totalRevenue']
+    ]
+  });
 
   res.status(200).json({
     success: true,
     data: {
-      totalBookings,
-      totalRevenue,
-      byStatus: stats
+      statusCounts: stats.reduce((acc, stat) => {
+        acc[stat.status] = parseInt(stat.getDataValue('count'));
+        return acc;
+      }, {}),
+      totalRevenue: parseFloat(revenue[0]?.getDataValue('totalRevenue') || 0)
     }
   });
 });
 
 // @desc    Get upcoming bookings
 // @route   GET /api/bookings/upcoming
-// @access  Private
+// @access  Private (Therapist)
 const getUpcomingBookings = asyncHandler(async (req, res, next) => {
   const { limit = 5 } = req.query;
 
-  const where = {
-    status: 'upcoming',
-    date: {
-      [Op.gte]: new Date()
-    }
-  };
-
-  if (req.user.role === 'therapist') {
-    where.therapistId = req.user.id;
-  } else {
-    where.clientId = req.user.id;
-  }
-
   const bookings = await Booking.findAll({
-    where,
-    order: [
-      ['date', 'ASC'],
-      ['startTime', 'ASC']
-    ],
-    limit: parseInt(limit),
-    include: [
-      {
-        model: Client,
-        as: 'client',
-        attributes: ['id', 'name', 'email', 'phone', 'avatar']
+    where: {
+      therapistId: req.user.id,
+      status: 'upcoming',
+      date: {
+        gte: new Date()
       }
-    ]
+    },
+    order: [['date', 'ASC'], ['startTime', 'ASC']],
+    limit: parseInt(limit),
+    include: [{
+      model: Client,
+      attributes: ['id', 'name', 'email', 'phone', 'avatar']
+    }]
   });
 
   res.status(200).json({
     success: true,
+    count: bookings.length,
     data: bookings
   });
 });
 
 // @desc    Reschedule booking
 // @route   PUT /api/bookings/:id/reschedule
-// @access  Private
+// @access  Private (Therapist)
 const rescheduleBooking = asyncHandler(async (req, res, next) => {
   const { date, startTime, endTime, reason } = req.body;
 
-  if (!date || !startTime || !endTime) {
-    return next(new AppError('New date, start time and end time are required', 400));
-  }
-
-  let where = { id: req.params.id };
-  
-  if (req.user.role === 'therapist') {
-    where.therapistId = req.user.id;
-  } else {
-    where.clientId = req.user.id;
-  }
-
-  const booking = await Booking.findOne({ where });
+  const booking = await Booking.findOne({
+    where: {
+      id: req.params.id,
+      therapistId: req.user.id
+    }
+  });
 
   if (!booking) {
     return next(new AppError('Booking not found', 404));
@@ -557,48 +734,53 @@ const rescheduleBooking = asyncHandler(async (req, res, next) => {
   }
 
   // Check for conflicts
-  const conflicts = await Booking.findConflicts(
-    booking.therapistId,
-    date,
-    startTime,
-    endTime,
-    booking.id
-  );
+  const existingBooking = await Booking.findOne({
+    where: {
+      therapistId: req.user.id,
+      date,
+      startTime,
+      id: {
+        not: req.params.id
+      },
+      status: {
+        notIn: ['cancelled', 'no_show']
+      }
+    }
+  });
 
-  if (conflicts.length > 0) {
-    return next(new AppError('New time conflicts with existing booking', 400));
+  if (existingBooking) {
+    return next(new AppError('Time slot is already booked', 409));
   }
 
   // Save old values for notification
   const oldDate = booking.date;
-  const oldStartTime = booking.startTime;
+  const oldTime = booking.startTime;
 
-  booking.date = new Date(date);
+  booking.date = date;
   booking.startTime = startTime;
-  booking.endTime = endTime;
-  booking.isRescheduled = true;
+  if (endTime) booking.endTime = endTime;
+  booking.rescheduleReason = reason;
   booking.rescheduledAt = new Date();
-  booking.rescheduledBy = req.user.id;
-  booking.rescheduleReason = reason || 'Rescheduled';
 
   await booking.save();
 
-  // Send rescheduling notification
+  // Send reschedule email
   try {
     const client = await Client.findByPk(booking.clientId);
     if (client) {
       await emailService.sendAppointmentRescheduled({
         to: client.email,
         clientName: client.name,
+        therapistName: req.user.name,
         oldDate,
-        oldTime: oldStartTime,
-        newDate: booking.date,
-        newTime: booking.startTime,
-        reason: booking.rescheduleReason
+        oldTime,
+        newDate: date,
+        newTime: startTime,
+        reason
       });
     }
   } catch (error) {
-    console.error('Failed to send rescheduling email:', error);
+    console.error('Failed to send reschedule email:', error);
   }
 
   res.status(200).json({
@@ -607,199 +789,160 @@ const rescheduleBooking = asyncHandler(async (req, res, next) => {
   });
 });
 
-// ============================================================================
-// CLIENT BOOKING FUNCTIONS
-// ============================================================================
+// @desc    Get therapists for completed bookings (for client reviews)
+// @route   GET /api/bookings/client/completed-therapists
+// @access  Private (Client)
+const getClientCompletedTherapists = asyncHandler(async (req, res, next) => {
+  try {
+    // Find all completed bookings for this client with unique therapists
+    const { data: bookings, error } = await supabase
+      .from('bookings')
+      .select(`
+        therapist_id,
+        therapist:therapists!inner(
+          id,
+          name,
+          email,
+          avatar,
+          specialties,
+          rating
+        )
+      `)
+      .eq('client_id', req.user.id)
+      .eq('status', 'completed');
 
-// @desc    Get client bookings
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    // Get unique therapists
+    const uniqueTherapists = [];
+    const seenTherapistIds = new Set();
+
+    (bookings || []).forEach(booking => {
+      if (booking.therapist && !seenTherapistIds.has(booking.therapist.id)) {
+        seenTherapistIds.add(booking.therapist.id);
+        uniqueTherapists.push(booking.therapist);
+      }
+    });
+
+    // Format response
+    const formattedTherapists = uniqueTherapists.map(therapist => ({
+      id: therapist.id,
+      name: therapist.name,
+      email: therapist.email,
+      avatar: therapist.avatar,
+      specialties: therapist.specialties || [],
+      rating: therapist.rating
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        therapists: formattedTherapists
+      }
+    });
+  } catch (error) {
+    console.error('Error getting completed therapists:', error);
+    next(error);
+  }
+});
+
+// ==================== CLIENT CONTROLLER FUNCTIONS ====================
+
+// @desc    Get all bookings for client
 // @route   GET /api/bookings/client
 // @access  Private (Client)
 const getClientBookings = asyncHandler(async (req, res, next) => {
-  const { status, page = 1, limit = 20 } = req.query;
+  const { status, page = 1, limit = 10 } = req.query;
 
-  // Build query
-  let query = supabase
-    .from('bookings')
-    .select('*, therapist:users(id, name, email, avatar)', { count: 'exact' })
-    .eq('client_id', req.user.id);
+  const whereClause = {
+    clientId: req.user.id
+  };
 
   if (status) {
-    query = query.eq('status', status);
+    whereClause.status = status;
   }
 
-  // Apply sorting
-  query = query.order('date', { ascending: false });
+  const bookings = await Booking.findAll({
+    where: whereClause,
+    order: [['date', 'DESC'], ['startTime', 'DESC']],
+    limit: parseInt(limit),
+    offset: (page - 1) * limit,
+    include: [{
+      model: User,
+      as: 'therapist',
+      attributes: ['id', 'name', 'email', 'avatar', 'specialties']
+    }]
+  });
 
-  // Apply pagination
-  const offset = (page - 1) * limit;
-  query = query.range(offset, offset + limit - 1);
-
-  const { data: bookings, error, count: total } = await query;
-
-  if (error) {
-    return next(new AppError(error.message, 500));
-  }
-
-  // Transform snake_case to camelCase for frontend compatibility
-  const transformedBookings = (bookings || []).map(booking => ({
-    id: booking.id,
-    date: booking.date,
-    startTime: booking.start_time,
-    endTime: booking.end_time,
-    clientId: booking.client_id,
-    therapistId: booking.therapist_id,
-    therapyType: booking.therapy_type,
-    therapyDuration: booking.therapy_duration,
-    status: booking.status,
-    amount: booking.amount,
-    currency: booking.currency,
-    paymentStatus: booking.payment_status,
-    paymentMethod: booking.payment_method,
-    location: booking.location,
-    notes: booking.notes,
-    meetingLink: booking.meeting_link,
-    sessionDocument: booking.session_document,
-    planId: booking.plan_id,
-    reminderSent: booking.reminder_sent,
-    cancellationReason: booking.cancellation_reason,
-    cancelledBy: booking.cancelled_by,
-    cancelledAt: booking.cancelled_at,
-    lastStatusChange: booking.last_status_change,
-    createdAt: booking.created_at,
-    updatedAt: booking.updated_at,
-    therapist: booking.therapist ? {
-      id: booking.therapist.id,
-      name: booking.therapist.name,
-      email: booking.therapist.email,
-      avatar: booking.therapist.avatar
-    } : null
-  }));
+  const count = await Booking.count({
+    where: whereClause
+  });
 
   res.status(200).json({
     success: true,
-    data: transformedBookings,
+    count: bookings.length,
+    total: count,
     pagination: {
       page: parseInt(page),
       limit: parseInt(limit),
-      total: total || 0,
-      pages: Math.ceil((total || 0) / limit)
-    }
+      totalPages: Math.ceil(count / limit)
+    },
+    data: bookings
   });
 });
 
-// @desc    Get client booking
+// @desc    Get single booking for client
 // @route   GET /api/bookings/client/:id
 // @access  Private (Client)
 const getClientBooking = asyncHandler(async (req, res, next) => {
-  const { data: booking, error } = await supabase
-    .from('bookings')
-    .select('*, therapist:users(id, name, email, avatar)')
-    .eq('id', req.params.id)
-    .eq('client_id', req.user.id)
-    .single();
+  const booking = await Booking.findOne({
+    where: {
+      id: req.params.id,
+      clientId: req.user.id
+    },
+    include: [{
+      model: User,
+      as: 'therapist',
+      attributes: ['id', 'name', 'email', 'avatar', 'specialties', 'phone']
+    }]
+  });
 
-  if (error || !booking) {
+  if (!booking) {
     return next(new AppError('Booking not found', 404));
   }
 
-  // Transform snake_case to camelCase
-  const transformedBooking = {
-    id: booking.id,
-    date: booking.date,
-    startTime: booking.start_time,
-    endTime: booking.end_time,
-    clientId: booking.client_id,
-    therapistId: booking.therapist_id,
-    therapyType: booking.therapy_type,
-    therapyDuration: booking.therapy_duration,
-    status: booking.status,
-    amount: booking.amount,
-    currency: booking.currency,
-    paymentStatus: booking.payment_status,
-    paymentMethod: booking.payment_method,
-    location: booking.location,
-    notes: booking.notes,
-    meetingLink: booking.meeting_link,
-    sessionDocument: booking.session_document,
-    planId: booking.plan_id,
-    reminderSent: booking.reminder_sent,
-    cancellationReason: booking.cancellation_reason,
-    cancelledBy: booking.cancelled_by,
-    cancelledAt: booking.cancelled_at,
-    lastStatusChange: booking.last_status_change,
-    createdAt: booking.created_at,
-    updatedAt: booking.updated_at,
-    therapist: booking.therapist ? {
-      id: booking.therapist.id,
-      name: booking.therapist.name,
-      email: booking.therapist.email,
-      avatar: booking.therapist.avatar
-    } : null
-  };
-
   res.status(200).json({
     success: true,
-    data: transformedBooking
+    data: booking
   });
 });
 
-// @desc    Get client upcoming bookings
+// @desc    Get upcoming bookings for client
 // @route   GET /api/bookings/client/upcoming
 // @access  Private (Client)
 const getClientUpcomingBookings = asyncHandler(async (req, res, next) => {
-  const today = new Date().toISOString().split('T')[0];
-  
-  const { data: bookings, error } = await supabase
-    .from('bookings')
-    .select('*, therapist:users(id, name, email, avatar)')
-    .eq('client_id', req.user.id)
-    .eq('status', 'upcoming')
-    .gte('date', today)
-    .order('date', { ascending: true })
-    .order('start_time', { ascending: true });
-
-  if (error) {
-    return next(new AppError(error.message, 500));
-  }
-
-  // Transform snake_case to camelCase
-  const transformedBookings = (bookings || []).map(booking => ({
-    id: booking.id,
-    date: booking.date,
-    startTime: booking.start_time,
-    endTime: booking.end_time,
-    clientId: booking.client_id,
-    therapistId: booking.therapist_id,
-    therapyType: booking.therapy_type,
-    therapyDuration: booking.therapy_duration,
-    status: booking.status,
-    amount: booking.amount,
-    currency: booking.currency,
-    paymentStatus: booking.payment_status,
-    paymentMethod: booking.payment_method,
-    location: booking.location,
-    notes: booking.notes,
-    meetingLink: booking.meeting_link,
-    sessionDocument: booking.session_document,
-    planId: booking.plan_id,
-    reminderSent: booking.reminder_sent,
-    cancellationReason: booking.cancellation_reason,
-    cancelledBy: booking.cancelled_by,
-    cancelledAt: booking.cancelled_at,
-    lastStatusChange: booking.last_status_change,
-    createdAt: booking.created_at,
-    updatedAt: booking.updated_at,
-    therapist: booking.therapist ? {
-      id: booking.therapist.id,
-      name: booking.therapist.name,
-      email: booking.therapist.email,
-      avatar: booking.therapist.avatar
-    } : null
-  }));
+  const bookings = await Booking.findAll({
+    where: {
+      clientId: req.user.id,
+      status: 'upcoming',
+      date: {
+        gte: new Date()
+      }
+    },
+    order: [['date', 'ASC'], ['startTime', 'ASC']],
+    include: [{
+      model: User,
+      as: 'therapist',
+      attributes: ['id', 'name', 'email', 'avatar', 'specialties']
+    }]
+  });
 
   res.status(200).json({
     success: true,
-    data: transformedBookings
+    count: bookings.length,
+    data: bookings
   });
 });
 
@@ -839,8 +982,9 @@ const cancelClientBooking = asyncHandler(async (req, res, next) => {
   try {
     const therapist = await User.findByPk(booking.therapistId);
     if (therapist) {
-      await emailService.sendAppointmentCancelledByClient({
+      await emailService.sendAppointmentCancellation({
         to: therapist.email,
+        clientName: req.user.name,
         therapistName: therapist.name,
         date: booking.date,
         time: booking.startTime,
@@ -848,7 +992,7 @@ const cancelClientBooking = asyncHandler(async (req, res, next) => {
       });
     }
   } catch (error) {
-    console.error('Failed to send cancellation notification:', error);
+    console.error('Failed to send cancellation email to therapist:', error);
   }
 
   res.status(200).json({
@@ -858,10 +1002,10 @@ const cancelClientBooking = asyncHandler(async (req, res, next) => {
 });
 
 // @desc    Request reschedule (Client)
-// @route   POST /api/bookings/client/:id/reschedule-request
+// @route   PUT /api/bookings/client/:id/reschedule-request
 // @access  Private (Client)
 const requestReschedule = asyncHandler(async (req, res, next) => {
-  const { preferredDate, preferredTime, reason } = req.body;
+  const { requestedDate, requestedTime, reason } = req.body;
 
   const booking = await Booking.findOne({
     where: {
@@ -879,10 +1023,10 @@ const requestReschedule = asyncHandler(async (req, res, next) => {
   }
 
   booking.rescheduleRequested = true;
-  booking.rescheduleRequestDate = new Date();
-  booking.preferredDate = preferredDate ? new Date(preferredDate) : null;
-  booking.preferredTime = preferredTime;
-  booking.rescheduleReason = reason;
+  booking.rescheduleRequestedAt = new Date();
+  booking.rescheduleRequestedDate = requestedDate;
+  booking.rescheduleRequestedTime = requestedTime;
+  booking.rescheduleRequestReason = reason;
 
   await booking.save();
 
@@ -892,16 +1036,17 @@ const requestReschedule = asyncHandler(async (req, res, next) => {
     if (therapist) {
       await emailService.sendRescheduleRequest({
         to: therapist.email,
+        clientName: req.user.name,
         therapistName: therapist.name,
-        currentDate: booking.date,
-        currentTime: booking.startTime,
-        preferredDate,
-        preferredTime,
+        date: booking.date,
+        time: booking.startTime,
+        requestedDate,
+        requestedTime,
         reason
       });
     }
   } catch (error) {
-    console.error('Failed to send reschedule request:', error);
+    console.error('Failed to send reschedule request email:', error);
   }
 
   res.status(200).json({
@@ -910,11 +1055,7 @@ const requestReschedule = asyncHandler(async (req, res, next) => {
   });
 });
 
-// ============================================================================
-// CREATE CLIENT BOOKING
-// ============================================================================
-
-// @desc    Create booking by client
+// @desc    Create booking (Client self-booking)
 // @route   POST /api/bookings/client/book
 // @access  Private (Client)
 const createClientBooking = asyncHandler(async (req, res, next) => {
@@ -925,198 +1066,103 @@ const createClientBooking = asyncHandler(async (req, res, next) => {
     endTime,
     therapyType,
     therapyDuration,
-    amount,
-    currency = 'EUR',
     location,
-    notes,
-    meetingLink
+    notes
   } = req.body;
 
-  // Validate required fields
-  if (!therapistId || !date || !startTime || !endTime || !therapyType || !amount || !location) {
-    return next(new AppError('All required fields must be provided', 400));
+  // Check therapist exists
+  const therapist = await User.findByPk(therapistId);
+  if (!therapist) {
+    return next(new AppError('Therapist not found', 404));
   }
 
-  // Get client ID from authenticated user
-  const authClientId = req.user.id;
-
-  // Find or create client record for this therapist
-  let client = await Client.findOne({
-    id: authClientId,
-    therapistId: therapistId
+  // Check for conflicts
+  const existingBooking = await Booking.findOne({
+    where: {
+      therapistId,
+      date,
+      startTime,
+      status: {
+        notIn: ['cancelled', 'no_show']
+      }
+    }
   });
 
-  if (!client) {
-    // Check if a client with this email already exists for this therapist
-    client = await Client.findOne({
-      email: req.user.email,
-      therapistId: therapistId
-    });
+  if (existingBooking) {
+    return next(new AppError('Time slot is already booked', 409));
   }
 
-  if (!client) {
-    // Create new client record for this therapist
-    client = await Client.create({
-      id: authClientId,
-      name: req.user.name,
-      email: req.user.email,
-      phone: req.user.phone,
-      therapistId: therapistId,
-      status: 'active'
-    });
-  }
-  
-  // Use the client record's ID for the booking
-  const clientId = client.id;
-
-  // Check for time conflicts
-  const conflicts = await Booking.findConflicts(
+  const booking = await Booking.create({
     therapistId,
+    clientId: req.user.id,
     date,
     startTime,
-    endTime
-  );
-
-  if (conflicts.length > 0) {
-    return next(new AppError('Time slot conflicts with existing booking', 400));
-  }
-
-  // Create the booking
-  const booking = await Booking.create({
-    date: new Date(date),
-    startTime,
     endTime,
-    clientId,
-    therapistId,
     therapyType,
     therapyDuration: therapyDuration || 60,
-    amount,
-    currency,
     location,
     notes,
-    meetingLink,
-    status: 'upcoming'
+    status: 'upcoming',
+    paymentStatus: 'pending'
   });
 
-  // Create or reactivate conversation between client and therapist
-  let conversation = null;
+  // Send confirmation emails
   try {
-    conversation = await Conversation.findBetweenUsers(clientId, therapistId);
-    
-    if (!conversation) {
-      conversation = await Conversation.create({
-        clientId: clientId,
-        therapistId: therapistId,
-        status: 'active',
-        metadata: {
-          title: `Chat with therapist`,
-          type: 'therapy_session',
-          bookingId: booking.id,
-          therapyType: therapyType,
-          createdFromBooking: true
-        }
-      });
-    } else if (conversation.isArchived) {
-      await conversation.reactivate();
-    }
-  } catch (chatError) {
-    console.error('Failed to create/reactivate conversation:', chatError);
-  }
-
-  // Send confirmation email
-  try {
-    const [clientInfo, therapistInfo] = await Promise.all([
-      Client.findById(clientId),
-      User.findById(therapistId)
-    ]);
+    await emailService.sendAppointmentConfirmation({
+      to: req.user.email,
+      clientName: req.user.name,
+      therapistName: therapist.name,
+      date,
+      time: startTime,
+      location
+    });
 
     await emailService.sendAppointmentConfirmation({
-      to: clientInfo?.email,
-      clientName: clientInfo?.name,
-      therapistName: therapistInfo?.name,
-      date: booking.date,
-      time: booking.startTime,
-      location: booking.location
+      to: therapist.email,
+      clientName: req.user.name,
+      therapistName: therapist.name,
+      date,
+      time: startTime,
+      location
     });
-  } catch (emailError) {
-    console.error('Failed to send booking confirmation email:', emailError);
+  } catch (error) {
+    console.error('Failed to send confirmation emails:', error);
   }
 
   res.status(201).json({
     success: true,
-    data: {
-      ...booking.toJSON(),
-      conversation: conversation ? {
-        id: conversation.id,
-        status: conversation.status
-      } : null
-    },
-    message: 'Booking created successfully'
+    data: booking
   });
 });
 
-// @desc    Get therapists with completed bookings for client
-// @route   GET /api/bookings/client/completed-therapists
+// @desc    Complete booking (Client marking as completed)
+// @route   PUT /api/bookings/client/:id/complete
 // @access  Private (Client)
-const getClientCompletedTherapists = asyncHandler(async (req, res, next) => {
-  try {
-    const clientId = req.user.id;
-
-    // Get all completed bookings for this client
-    const { data: bookings, error } = await supabase
-      .from('bookings')
-      .select('therapist_id')
-      .eq('client_id', clientId)
-      .eq('status', 'completed');
-
-    if (error) {
-      throw new Error(error.message);
+const completeClientBooking = asyncHandler(async (req, res, next) => {
+  const booking = await Booking.findOne({
+    where: {
+      id: req.params.id,
+      clientId: req.user.id
     }
+  });
 
-    // Get unique therapist IDs
-    const therapistIds = [...new Set(bookings?.map(b => b.therapist_id) || [])];
-
-    if (therapistIds.length === 0) {
-      return res.status(200).json({
-        success: true,
-        data: {
-          therapists: []
-        }
-      });
-    }
-
-    // Get therapist details
-    const { data: therapists, error: therapistError } = await supabase
-      .from('users')
-      .select('id, name, email, avatar, specialties, rating')
-      .in('id', therapistIds)
-      .eq('role', 'therapist')
-      .eq('is_active', true);
-
-    if (therapistError) {
-      throw new Error(therapistError.message);
-    }
-
-    // Format response
-    const formattedTherapists = therapists?.map(therapist => ({
-      id: therapist.id,
-      name: therapist.name,
-      email: therapist.email,
-      avatar: therapist.avatar,
-      specialties: therapist.specialties || [],
-      rating: therapist.rating
-    })) || [];
-
-    res.status(200).json({
-      success: true,
-      data: {
-        therapists: formattedTherapists
-      }
-    });
-  } catch (error) {
-    console.error('Error getting completed therapists:', error);
-    next(error);
+  if (!booking) {
+    return next(new AppError('Booking not found', 404));
   }
+
+  if (booking.status !== 'upcoming') {
+    return next(new AppError('Only upcoming bookings can be marked as completed', 400));
+  }
+
+  booking.status = 'completed';
+  booking.completedAt = new Date();
+
+  await booking.save();
+
+  res.status(200).json({
+    success: true,
+    data: booking
+  });
 });
 
 module.exports = {
@@ -1125,6 +1171,9 @@ module.exports = {
   createBooking,
   updateBooking,
   cancelBooking,
+  patchCancelBooking,
+  cancelBookingReminders,
+  sendCancelNotification,
   completeBooking,
   completeClientBooking,
   markNoShow,
