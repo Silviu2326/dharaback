@@ -1,37 +1,38 @@
 const express = require('express');
 const { body, param, query } = require('express-validator');
 const workLocationController = require('../controllers/workLocationController');
-const { protect } = require('../middleware/auth');
+const { protect, optionalAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Ruta pública para clientes - obtener ubicaciones de un terapeuta específico
+router.get('/public/therapist/:therapistId', 
+  param('therapistId').isUUID().withMessage('Therapist ID must be a valid UUID'),
+  workLocationController.getPublicLocationsByTherapist
+);
+
+// Rutas protegidas (requieren autenticación)
 router.use(protect);
 
-// Validation rules
+// Validation rules - Alineados con la estructura de la tabla work_locations en Supabase
 const createValidation = [
   body('name').notEmpty().withMessage('Location name is required').isLength({ max: 100 }),
-  body('address.street').notEmpty().withMessage('Street address is required').isLength({ max: 200 }),
+  body('address').notEmpty().withMessage('Address is required').isString().withMessage('Address must be a string').isLength({ max: 255 }),
   body('city').notEmpty().withMessage('City is required').isLength({ max: 100 }),
   body('postalCode').notEmpty().matches(/^[0-5]\d{4}$/).withMessage('Please enter a valid Spanish postal code'),
   body('phone').optional().matches(/^(\+34|0034|34)?[6-9]\d{8}$/).withMessage('Please enter a valid Spanish phone number'),
   body('email').optional().isEmail(),
-  body('locationType').optional().isIn(['office', 'clinic', 'hospital', 'home', 'virtual', 'hybrid']),
-  body('coordinates.latitude').optional().isFloat({ min: -90, max: 90 }),
-  body('coordinates.longitude').optional().isFloat({ min: -180, max: 180 }),
-  body('status').optional().isIn(['active', 'inactive', 'temporarily_closed', 'under_renovation'])
+  body('isPrimary').optional().isBoolean()
 ];
 
 const updateValidation = [
   body('name').optional().isLength({ max: 100 }),
-  body('address.street').optional().isLength({ max: 200 }),
+  body('address').optional().isString().isLength({ max: 255 }),
   body('city').optional().isLength({ max: 100 }),
   body('postalCode').optional().matches(/^[0-5]\d{4}$/),
   body('phone').optional().matches(/^(\+34|0034|34)?[6-9]\d{8}$/),
   body('email').optional().isEmail(),
-  body('locationType').optional().isIn(['office', 'clinic', 'hospital', 'home', 'virtual', 'hybrid']),
-  body('coordinates.latitude').optional().isFloat({ min: -90, max: 90 }),
-  body('coordinates.longitude').optional().isFloat({ min: -180, max: 180 }),
-  body('status').optional().isIn(['active', 'inactive', 'temporarily_closed', 'under_renovation'])
+  body('isPrimary').optional().isBoolean()
 ];
 
 const nearbyValidation = [
@@ -41,11 +42,11 @@ const nearbyValidation = [
 ];
 
 const idValidation = [
-  param('locationId').isMongoId().withMessage('Location ID must be valid')
+  param('locationId').isUUID().withMessage('Location ID must be a valid UUID')
 ];
 
 const therapistIdValidation = [
-  param('therapistId').isMongoId().withMessage('Therapist ID must be valid')
+  param('therapistId').isUUID().withMessage('Therapist ID must be a valid UUID')
 ];
 
 // Main routes

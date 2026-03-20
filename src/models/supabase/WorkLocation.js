@@ -96,7 +96,7 @@ class WorkLocation {
     const service = new SupabaseService('work_locations');
 
     const data = {
-      therapistId: this.therapistId,
+      therapist_id: this.therapistId,
       name: this.name,
       address: this.address,
       city: this.city,
@@ -117,7 +117,7 @@ class WorkLocation {
     } else {
       // Si es la primera ubicación, hacerla primaria
       if (!this.isPrimary) {
-        const existingCount = await service.count({ therapistId: this.therapistId });
+        const existingCount = await service.count({ therapist_id: this.therapistId });
         if (existingCount === 0) {
           data.is_primary = true;
           this.isPrimary = true;
@@ -167,8 +167,9 @@ class WorkLocationModel {
    * Crear nueva ubicación
    */
   async create(data) {
+    // Convertir camelCase a snake_case para Supabase
     const locationData = {
-      therapistId: data.therapistId,
+      therapist_id: data.therapistId,
       name: data.name,
       address: data.address,
       city: data.city,
@@ -185,7 +186,7 @@ class WorkLocationModel {
 
     // Si es la primera ubicación, hacerla primaria
     if (!locationData.is_primary) {
-      const existingCount = await this.service.count({ therapistId: data.therapistId });
+      const existingCount = await this.service.count({ therapist_id: data.therapistId });
       if (existingCount === 0) {
         locationData.is_primary = true;
       }

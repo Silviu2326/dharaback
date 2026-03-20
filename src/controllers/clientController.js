@@ -657,9 +657,10 @@ const getAvailableTherapists = asyncHandler(async (req, res, next) => {
       try {
         const profile = await ProfessionalProfile.findOne({ user_id: therapist.id || therapist._id });
         
-        console.log(`[DEBUG] Therapist ${therapist.name} (${therapist.id}):`, {
+        console.log(`🔍 [BACKEND] Therapist ${therapist.name} (${therapist.id}):`, {
           hasProfile: !!profile,
-          banner: profile?.banner,
+          therapistBanner: therapist?.banner,
+          profileBanner: profile?.banner,
           profileKeys: profile ? Object.keys(profile) : null
         });
         
@@ -691,6 +692,30 @@ const getAvailableTherapists = asyncHandler(async (req, res, next) => {
           }
         }
 
+        const profileData = profile ? {
+          about: profile.about,
+          // El banner viene del modelo User, no del ProfessionalProfile
+          banner: therapist.banner,
+          isAvailable: profile.isAvailable,
+          rating: profile.rating,
+          clientsCount: profile.clientsCount,
+          yearsExperience: profile.yearsExperience,
+          languages: profile.languages,
+          workLocations: workLocations,
+          specialties: profile.therapies?.map(therapy => therapy.name) || [],
+          specializations: profile.specializations || therapist.specializations || [],
+          // NUEVOS CAMPOS
+          ciudad: profile.ciudad,
+          modalidad: profile.modalidad,
+          zonasAtencion: profile.zonas_atencion
+        } : {
+          // Si no hay profile, usar datos del therapist
+          banner: therapist.banner,
+          specialties: therapist.specialties || therapist.therapies || []
+        };
+        
+        console.log(`🔍 [BACKEND] Returning profile.banner:`, profileData.banner);
+        
         return {
           id: therapist.id || therapist._id,
           name: therapist.name,
@@ -698,21 +723,7 @@ const getAvailableTherapists = asyncHandler(async (req, res, next) => {
           avatar: therapist.avatar,
           isVerified: therapist.isVerified,
           joinedAt: therapist.createdAt,
-          profile: profile ? {
-            about: profile.about,
-            banner: profile.banner,
-            isAvailable: profile.isAvailable,
-            rating: profile.rating,
-            clientsCount: profile.clientsCount,
-            yearsExperience: profile.yearsExperience,
-            languages: profile.languages,
-            workLocations: workLocations,
-            specialties: profile.therapies?.map(therapy => therapy.name) || [],
-            // NUEVOS CAMPOS
-            ciudad: profile.ciudad,
-            modalidad: profile.modalidad,
-            zonasAtencion: profile.zonas_atencion
-          } : null
+          profile: profileData
         };
       } catch (err) {
         return {
@@ -745,8 +756,16 @@ const getAvailableTherapists = asyncHandler(async (req, res, next) => {
 const getTherapistById = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
 
+  console.log('🔍 [BACKEND] getTherapistById called with id:', id);
+
   // Get therapist
   const therapist = await User.findById(id);
+  
+  console.log('🔍 [BACKEND] therapist found:', therapist ? 'YES' : 'NO');
+  console.log('🔍 [BACKEND] therapist.banner:', therapist?.banner);
+  console.log('🔍 [BACKEND] therapist.avatar:', therapist?.avatar);
+  console.log('🔍 [BACKEND] therapist.specialties:', therapist?.specialties);
+  console.log('🔍 [BACKEND] therapist.therapies:', therapist?.therapies);
   
   if (!therapist) {
     return next(new AppError('Therapist not found', 404));
@@ -758,6 +777,11 @@ const getTherapistById = asyncHandler(async (req, res, next) => {
 
   // Get professional profile
   const profile = await ProfessionalProfile.findOne({ user_id: id });
+  
+  console.log('🔍 [BACKEND] profile found:', profile ? 'YES' : 'NO');
+  console.log('🔍 [BACKEND] profile.therapies:', profile?.therapies);
+  console.log('🔍 [BACKEND] profile.specializations:', profile?.specializations);
+  console.log('🔍 [BACKEND] profile.banner:', profile?.banner);
   
   // Get rates
   const { supabase } = require('../config/supabase');
@@ -812,18 +836,24 @@ const getTherapistById = asyncHandler(async (req, res, next) => {
     isVerified: therapist.isVerified,
     isActive: therapist.isActive,
     joinedAt: therapist.createdAt,
-    bio: profile?.about || '',
-    specialties: profile?.therapies?.map(t => t.name) || [],
-    languages: profile?.languages || [],
-    rating: profile?.rating || 0,
-    clientsCount: profile?.clientsCount || 0,
-    yearsExperience: profile?.yearsExperience || 0,
-    education: profile?.education || [],
-    videoPresentation: profile?.videoPresentation,
-    sessionPrice: rates?.session_price || profile?.basePrice || 0,
-    workLocations: workLocations || [],
-    isAvailable: profile?.isAvailable || false,
-    banner: profile?.banner,
+    bio: profile?.about || therapist?.bio || '',
+    // Intentar obtener especialidades de múltiples fuentes
+    specialties: therapist?.specialties || 
+                 profile?.specialties || 
+                 profile?.therapies?.map(t => t.name) || 
+                 therapist?.therapies || [],
+    specializations: therapist?.specializations || profile?.specializations || [],
+    languages: profile?.languages || therapist?.languages || [],
+    rating: profile?.rating || therapist?.rating || 0,
+    clientsCount: profile?.clientsCount || therapist?.clientsCount || 0,
+    yearsExperience: profile?.yearsExperience || therapist?.yearsExperience || 0,
+    education: profile?.education || therapist?.education || [],
+    videoPresentation: profile?.videoPresentation || therapist?.videoPresentation,
+    sessionPrice: rates?.session_price || profile?.basePrice || therapist?.basePrice || 0,
+    workLocations: workLocations || therapist?.work_locations || [],
+    isAvailable: profile?.isAvailable || therapist?.isAvailable || false,
+    // El banner viene del modelo User, no del ProfessionalProfile
+    banner: therapist.banner,
     // Incluir servicios y paquetes
     services: sessions,
     packages: packages,
@@ -833,6 +863,10 @@ const getTherapistById = asyncHandler(async (req, res, next) => {
       packages: packages
     }
   };
+  
+  console.log('🔍 [BACKEND] Final therapistData.banner:', therapistData.banner);
+  console.log('🔍 [BACKEND] Final therapistData.specialties:', therapistData.specialties);
+  console.log('🔍 [BACKEND] Final therapistData.specializations:', therapistData.specializations);
 
   res.status(200).json({
     success: true,

@@ -138,20 +138,57 @@ const createBooking = asyncHandler(async (req, res, next) => {
 // @route   PUT /api/bookings/:id
 // @access  Private (Therapist)
 const updateBooking = asyncHandler(async (req, res, next) => {
-  let booking = await Booking.findOne({
-    where: { id: req.params.id, therapistId: req.user.id }
-  });
+  // Use Supabase to fetch booking
+  const { data: booking, error: fetchError } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('id', req.params.id)
+    .eq('therapist_id', req.user.id)
+    .single();
 
-  if (!booking) return next(new AppError('Booking not found', 404));
+  if (fetchError || !booking) return next(new AppError('Booking not found', 404));
   if (booking.status === 'completed') return next(new AppError('Cannot update completed bookings', 400));
 
-  const updateFields = ['date', 'startTime', 'endTime', 'therapyType', 'therapyDuration', 'amount', 'currency', 'location', 'notes', 'meetingLink', 'planId', 'status'];
-  updateFields.forEach(field => {
-    if (req.body[field] !== undefined) booking[field] = req.body[field];
+  // Build update data
+  const updateData = {};
+  const updateFields = ['date', 'start_time', 'end_time', 'therapy_type', 'therapy_duration', 'amount', 'currency', 'location', 'notes', 'meeting_link', 'plan_id', 'status'];
+  
+  // Map camelCase to snake_case
+  const fieldMap = {
+    'date': 'date',
+    'startTime': 'start_time',
+    'endTime': 'end_time',
+    'therapyType': 'therapy_type',
+    'therapyDuration': 'therapy_duration',
+    'amount': 'amount',
+    'currency': 'currency',
+    'location': 'location',
+    'notes': 'notes',
+    'meetingLink': 'meeting_link',
+    'planId': 'plan_id',
+    'status': 'status'
+  };
+
+  Object.keys(req.body).forEach(field => {
+    const dbField = fieldMap[field];
+    if (dbField && req.body[field] !== undefined) {
+      updateData[dbField] = req.body[field];
+    }
   });
 
-  await booking.save();
-  res.status(200).json({ success: true, data: booking });
+  // Update booking
+  const { data: updatedBooking, error: updateError } = await supabase
+    .from('bookings')
+    .update(updateData)
+    .eq('id', req.params.id)
+    .select()
+    .single();
+
+  if (updateError) {
+    return next(new AppError(`Failed to update booking: ${updateError.message}`, 500));
+  }
+
+  res.status(200).json({ success: true, data: updatedBooking });
 });
 
 // @desc    Complete booking
@@ -160,54 +197,92 @@ const updateBooking = asyncHandler(async (req, res, next) => {
 const completeBooking = asyncHandler(async (req, res, next) => {
   const { notes, rating } = req.body;
 
-  const booking = await Booking.findOne({
-    where: { id: req.params.id, therapistId: req.user.id }
-  });
+  // Use Supabase to fetch booking
+  const { data: booking, error: fetchError } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('id', req.params.id)
+    .eq('therapist_id', req.user.id)
+    .single();
 
-  if (!booking) return next(new AppError('Booking not found', 404));
+  if (fetchError || !booking) return next(new AppError('Booking not found', 404));
   if (booking.status !== 'upcoming') return next(new AppError('Only upcoming bookings can be marked as completed', 400));
 
-  booking.status = 'completed';
-  booking.completedAt = new Date();
-  if (notes) booking.notes = notes;
-  if (rating) booking.rating = rating;
+  // Build update data
+  const updateData = {
+    status: 'completed',
+    completed_at: new Date().toISOString()
+  };
+  if (notes) updateData.notes = notes;
+  if (rating) updateData.rating = rating;
 
-  await booking.save();
+  // Update booking
+  const { data: updatedBooking, error: updateError } = await supabase
+    .from('bookings')
+    .update(updateData)
+    .eq('id', req.params.id)
+    .select()
+    .single();
 
+  if (updateError) {
+    return next(new AppError(`Failed to complete booking: ${updateError.message}`, 500));
+  }
+
+  // Send completion email
   try {
-    const client = await Client.findByPk(booking.clientId);
+    const { data: client } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('id', booking.client_id)
+      .single();
+    
     if (client) {
       await emailService.sendAppointmentCompleted({
         to: client.email,
         clientName: client.name,
         therapistName: req.user.name,
         date: booking.date,
-        time: booking.startTime
+        time: booking.start_time
       });
     }
   } catch (error) {
     console.error('Failed to send completion email:', error);
   }
 
-  res.status(200).json({ success: true, data: booking });
+  res.status(200).json({ success: true, data: updatedBooking });
 });
 
 // @desc    Mark booking as no-show
 // @route   PUT /api/bookings/:id/no-show
 // @access  Private (Therapist)
 const markNoShow = asyncHandler(async (req, res, next) => {
-  const booking = await Booking.findOne({
-    where: { id: req.params.id, therapistId: req.user.id }
-  });
+  // Use Supabase to fetch booking
+  const { data: booking, error: fetchError } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('id', req.params.id)
+    .eq('therapist_id', req.user.id)
+    .single();
 
-  if (!booking) return next(new AppError('Booking not found', 404));
+  if (fetchError || !booking) return next(new AppError('Booking not found', 404));
   if (booking.status !== 'upcoming') return next(new AppError('Only upcoming bookings can be marked as no-show', 400));
 
-  booking.status = 'no_show';
-  booking.noShowAt = new Date();
-  await booking.save();
+  // Update booking
+  const { data: updatedBooking, error: updateError } = await supabase
+    .from('bookings')
+    .update({
+      status: 'no_show',
+      no_show_at: new Date().toISOString()
+    })
+    .eq('id', req.params.id)
+    .select()
+    .single();
 
-  res.status(200).json({ success: true, data: booking });
+  if (updateError) {
+    return next(new AppError(`Failed to mark booking as no-show: ${updateError.message}`, 500));
+  }
+
+  res.status(200).json({ success: true, data: updatedBooking });
 });
 
 // @desc    Reschedule booking
@@ -216,38 +291,65 @@ const markNoShow = asyncHandler(async (req, res, next) => {
 const rescheduleBooking = asyncHandler(async (req, res, next) => {
   const { date, startTime, endTime, reason } = req.body;
 
-  const booking = await Booking.findOne({
-    where: { id: req.params.id, therapistId: req.user.id }
-  });
+  // Use Supabase to fetch booking
+  const { data: booking, error: fetchError } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('id', req.params.id)
+    .eq('therapist_id', req.user.id)
+    .single();
 
-  if (!booking) return next(new AppError('Booking not found', 404));
+  if (fetchError || !booking) return next(new AppError('Booking not found', 404));
   if (booking.status === 'completed' || booking.status === 'cancelled') {
     return next(new AppError('Cannot reschedule completed or cancelled bookings', 400));
   }
 
-  const existingBooking = await Booking.findOne({
-    where: {
-      therapistId: req.user.id, date, startTime,
-      id: { not: req.params.id },
-      status: { notIn: ['cancelled', 'no_show'] }
-    }
-  });
+  // Check for conflicts
+  const { data: existingBooking, error: conflictError } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('therapist_id', req.user.id)
+    .eq('date', date)
+    .eq('start_time', startTime)
+    .neq('id', req.params.id)
+    .not('status', 'in', '("cancelled","no_show")')
+    .limit(1);
 
-  if (existingBooking) return next(new AppError('Time slot is already booked', 409));
+  if (existingBooking && existingBooking.length > 0) {
+    return next(new AppError('Time slot is already booked', 409));
+  }
 
   const oldDate = booking.date;
-  const oldTime = booking.startTime;
+  const oldTime = booking.start_time;
 
-  booking.date = date;
-  booking.startTime = startTime;
-  if (endTime) booking.endTime = endTime;
-  booking.rescheduleReason = reason;
-  booking.rescheduledAt = new Date();
+  // Update booking
+  const updateData = {
+    date: date,
+    start_time: startTime,
+    reschedule_reason: reason,
+    rescheduled_at: new Date().toISOString()
+  };
+  if (endTime) updateData.end_time = endTime;
 
-  await booking.save();
+  const { data: updatedBooking, error: updateError } = await supabase
+    .from('bookings')
+    .update(updateData)
+    .eq('id', req.params.id)
+    .select()
+    .single();
 
+  if (updateError) {
+    return next(new AppError(`Failed to reschedule booking: ${updateError.message}`, 500));
+  }
+
+  // Send reschedule email
   try {
-    const client = await Client.findByPk(booking.clientId);
+    const { data: client } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('id', booking.client_id)
+      .single();
+    
     if (client) {
       await emailService.sendAppointmentRescheduled({
         to: client.email,
@@ -260,7 +362,7 @@ const rescheduleBooking = asyncHandler(async (req, res, next) => {
     console.error('Failed to send reschedule email:', error);
   }
 
-  res.status(200).json({ success: true, data: booking });
+  res.status(200).json({ success: true, data: updatedBooking });
 });
 
 // @desc    Get booking statistics

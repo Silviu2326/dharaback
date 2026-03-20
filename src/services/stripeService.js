@@ -576,6 +576,93 @@ class StripeService {
       return null;
     }
   }
+
+  // ============================================
+  // STRIPE CONNECT METHODS
+  // ============================================
+
+  /**
+   * Crear una cuenta de Stripe Connect
+   * @param {Object} data - Datos de la cuenta
+   * @returns {Promise<Object>} Cuenta creada
+   */
+  async createConnectAccount(data) {
+    try {
+      const account = await stripe.accounts.create(data);
+      console.log('✅ [StripeService] Connect account created:', account.id);
+      return account;
+    } catch (error) {
+      console.error('❌ [StripeService] Error creating connect account:', error);
+      throw new Error(`Stripe Connect error: ${error.message}`);
+    }
+  }
+
+  /**
+   * Obtener una cuenta de Stripe Connect
+   * @param {string} accountId - ID de la cuenta
+   * @returns {Promise<Object>} Cuenta
+   */
+  async getConnectAccount(accountId) {
+    try {
+      const account = await stripe.accounts.retrieve(accountId);
+      return account;
+    } catch (error) {
+      console.error('❌ [StripeService] Error getting connect account:', error);
+      throw new Error(`Stripe Connect error: ${error.message}`);
+    }
+  }
+
+  /**
+   * Crear enlace de onboarding para Stripe Connect
+   * @param {string} accountId - ID de la cuenta
+   * @param {string} returnUrl - URL de retorno
+   * @returns {Promise<string>} URL de onboarding
+   */
+  async getConnectOnboardingUrl(accountId, returnUrl) {
+    try {
+      const accountLink = await stripe.accountLinks.create({
+        account: accountId,
+        refresh_url: `${returnUrl}/stripe-connect/refresh`,
+        return_url: `${returnUrl}/stripe-connect/success`,
+        type: 'account_onboarding'
+      });
+      return accountLink.url;
+    } catch (error) {
+      console.error('❌ [StripeService] Error creating onboarding link:', error);
+      throw new Error(`Stripe Connect error: ${error.message}`);
+    }
+  }
+
+  /**
+   * Obtener URL del dashboard de Stripe Express
+   * @param {string} accountId - ID de la cuenta
+   * @returns {Promise<string>} URL del dashboard
+   */
+  async getConnectDashboardUrl(accountId) {
+    try {
+      const loginLink = await stripe.accounts.createLoginLink(accountId);
+      return loginLink.url;
+    } catch (error) {
+      console.error('❌ [StripeService] Error creating dashboard link:', error);
+      throw new Error(`Stripe Connect error: ${error.message}`);
+    }
+  }
+
+  /**
+   * Revocar una cuenta de Stripe Connect
+   * @param {string} accountId - ID de la cuenta
+   * @returns {Promise<Object>} Resultado
+   */
+  async revokeConnectAccount(accountId) {
+    try {
+      const result = await stripe.accounts.del(accountId);
+      console.log('✅ [StripeService] Connect account revoked:', accountId);
+      return result;
+    } catch (error) {
+      console.error('❌ [StripeService] Error revoking connect account:', error);
+      throw new Error(`Stripe Connect error: ${error.message}`);
+    }
+  }
 }
 
 module.exports = new StripeService();

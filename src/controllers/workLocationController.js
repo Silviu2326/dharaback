@@ -116,8 +116,11 @@ const getWorkLocations = async (req, res) => {
 // Create new work location
 const createWorkLocation = async (req, res) => {
   try {
+    console.log('[BACKEND] CreateWorkLocation - Request body:', JSON.stringify(req.body, null, 2));
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('[BACKEND] Validation errors:', JSON.stringify(errors.array(), null, 2));
       return res.status(400).json({
         success: false,
         message: 'Validation errors',
@@ -126,10 +129,14 @@ const createWorkLocation = async (req, res) => {
     }
 
     const userId = req.user.id || req.user._id;
+    console.log('[BACKEND] User ID:', userId);
+    
     const locationData = {
       ...req.body,
       therapistId: userId
     };
+    
+    console.log('[BACKEND] Location data to create:', JSON.stringify(locationData, null, 2));
 
     const workLocation = await WorkLocation.create(locationData);
 
@@ -444,6 +451,56 @@ const findNearbyLocations = async (req, res) => {
   }
 };
 
+// Get public locations by therapist (for clients)
+const getPublicLocationsByTherapist = async (req, res) => {
+  try {
+    const { therapistId } = req.params;
+
+    if (!therapistId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Therapist ID is required'
+      });
+    }
+
+    console.log(`[BACKEND] Getting public locations for therapist: ${therapistId}`);
+
+    // Obtener ubicaciones del terapeuta (sin filtrar por status ya que la columna puede no existir)
+    const locations = await WorkLocation.findByTherapist(therapistId, {});
+
+    // Filtrar información sensible - solo devolver datos públicos
+    const publicLocations = locations.map(loc => {
+      const locData = loc.toJSON();
+      return {
+        id: locData.id,
+        name: locData.name,
+        address: locData.address,
+        city: locData.city,
+        postalCode: locData.postalCode,
+        country: locData.country,
+        isPrimary: locData.isPrimary,
+        coordinates: locData.coordinates,
+        fullAddress: locData.fullAddress
+        // No incluir: phone, email, accessibilityInfo, parkingInfo (información privada)
+      };
+    });
+
+    console.log(`[BACKEND] Found ${publicLocations.length} public locations for therapist ${therapistId}`);
+
+    res.json({
+      success: true,
+      data: publicLocations
+    });
+  } catch (error) {
+    console.error('[BACKEND] Error fetching public locations by therapist:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching locations',
+      error: error.message
+    });
+  }
+};
+
 // Calculate distance between locations
 const calculateDistance = async (req, res) => {
   try {
@@ -495,6 +552,7 @@ module.exports = {
   deleteWorkLocation,
   setPrimaryLocation,
   getLocationsByTherapist,
+  getPublicLocationsByTherapist,
   findNearbyLocations,
   calculateDistance
 };

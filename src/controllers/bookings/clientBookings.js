@@ -16,29 +16,41 @@ const { supabase } = require('../../config/supabase');
 const getClientBookings = asyncHandler(async (req, res, next) => {
   const { status, page = 1, limit = 10 } = req.query;
 
-  const whereClause = { clientId: req.user.id };
-  if (status) whereClause.status = status;
+  // Use Supabase directly with join to get therapist info
+  let query = supabase
+    .from('bookings')
+    .select(`
+      *,
+      therapist:users!therapist_id(id, name, email, avatar)
+    `, { count: 'exact' })
+    .eq('client_id', req.user.id);
 
-  const bookings = await Booking.findAll({
-    where: whereClause,
-    order: [['date', 'DESC'], ['startTime', 'DESC']],
-    limit: parseInt(limit),
-    offset: (page - 1) * limit,
-    include: [{ model: User, as: 'therapist', attributes: ['id', 'name', 'email', 'avatar', 'specialties'] }]
-  });
+  if (status) {
+    query = query.eq('status', status);
+  }
 
-  const count = await Booking.count({ where: whereClause });
+  const offset = (page - 1) * limit;
+  query = query
+    .order('date', { ascending: false })
+    .order('start_time', { ascending: false })
+    .range(offset, offset + parseInt(limit) - 1);
+
+  const { data: bookings, count, error } = await query;
+
+  if (error) {
+    return next(new AppError(`Error fetching bookings: ${error.message}`, 500));
+  }
 
   res.status(200).json({
     success: true,
-    count: bookings.length,
-    total: count,
+    count: bookings?.length || 0,
+    total: count || 0,
     pagination: {
       page: parseInt(page),
       limit: parseInt(limit),
-      totalPages: Math.ceil(count / limit)
+      totalPages: Math.ceil((count || 0) / limit)
     },
-    data: bookings
+    data: bookings || []
   });
 });
 
@@ -46,12 +58,17 @@ const getClientBookings = asyncHandler(async (req, res, next) => {
 // @route   GET /api/bookings/client/:id
 // @access  Private (Client)
 const getClientBooking = asyncHandler(async (req, res, next) => {
-  const booking = await Booking.findOne({
-    where: { id: req.params.id, clientId: req.user.id },
-    include: [{ model: User, as: 'therapist', attributes: ['id', 'name', 'email', 'avatar', 'specialties', 'phone'] }]
-  });
+  const { data: booking, error } = await supabase
+    .from('bookings')
+    .select(`
+      *,
+      therapist:users!therapist_id(id, name, email, avatar, phone)
+    `)
+    .eq('id', req.params.id)
+    .eq('client_id', req.user.id)
+    .single();
 
-  if (!booking) return next(new AppError('Booking not found', 404));
+  if (error || !booking) return next(new AppError('Booking not found', 404));
 
   res.status(200).json({ success: true, data: booking });
 });
@@ -60,11 +77,21 @@ const getClientBooking = asyncHandler(async (req, res, next) => {
 // @route   GET /api/bookings/client/upcoming
 // @access  Private (Client)
 const getClientUpcomingBookings = asyncHandler(async (req, res, next) => {
-  const bookings = await Booking.findAll({
-    where: { clientId: req.user.id, status: 'upcoming', date: { gte: new Date() } },
-    order: [['date', 'ASC'], ['startTime', 'ASC']],
-    include: [{ model: User, as: 'therapist', attributes: ['id', 'name', 'email', 'avatar', 'specialties'] }]
-  });
+  const today = new Date().toISOString().split('T')[0];
+  
+  const { data: bookings, error } = await supabase
+    .from('bookings')
+    .select(`
+      *,
+      therapist:users!therapist_id(id, name, email, avatar)
+    `)
+    .eq('client_id', req.user.id)
+    .eq('status', 'upcoming')
+    .gte('date', today)
+    .order('date', { ascending: true })
+    .order('start_time', { ascending: true });
+
+  if (error) return next(new AppError(error.message, 500));
 
   res.status(200).json({ success: true, count: bookings.length, data: bookings });
 });
@@ -75,11 +102,10 @@ const getClientUpcomingBookings = asyncHandler(async (req, res, next) => {
 const cancelClientBooking = asyncHandler(async (req, res, next) => {
   const { reason } = req.body;
 
-  const booking = await Booking.findOne({
-    where: { id: req.params.id, clientId: req.user.id }
-  });
+  const booking = await Booking.findById(req.params.id);
 
   if (!booking) return next(new AppError('Booking not found', 404));
+  if (booking.clientId !== req.user.id) return next(new AppError('Not authorized', 403));
   if (booking.status === 'completed') return next(new AppError('Cannot cancel completed bookings', 400));
   if (booking.status === 'cancelled') return next(new AppError('Booking is already cancelled', 400));
 
@@ -91,7 +117,7 @@ const cancelClientBooking = asyncHandler(async (req, res, next) => {
 
   // Notify therapist
   try {
-    const therapist = await User.findByPk(booking.therapistId);
+    const therapist = await User.findById(booking.therapistId);
     if (therapist) {
       await emailService.sendAppointmentCancellation({
         to: therapist.email,
@@ -115,25 +141,37 @@ const cancelClientBooking = asyncHandler(async (req, res, next) => {
 const requestReschedule = asyncHandler(async (req, res, next) => {
   const { requestedDate, requestedTime, reason } = req.body;
 
-  const booking = await Booking.findOne({
-    where: { id: req.params.id, clientId: req.user.id }
-  });
+  const booking = await Booking.findById(req.params.id);
 
   if (!booking) return next(new AppError('Booking not found', 404));
+  if (booking.clientId !== req.user.id) return next(new AppError('Not authorized', 403));
   if (booking.status === 'completed' || booking.status === 'cancelled') {
     return next(new AppError('Cannot reschedule completed or cancelled bookings', 400));
   }
 
-  booking.rescheduleRequested = true;
-  booking.rescheduleRequestedAt = new Date();
-  booking.rescheduleRequestedDate = requestedDate;
-  booking.rescheduleRequestedTime = requestedTime;
-  booking.rescheduleRequestReason = reason;
-  await booking.save();
+  const { Booking: BookingClass } = require('../../models/supabase/Booking');
+  const bookingInstance = new BookingClass(booking);
+  
+  const updateData = {
+    reschedule_requested: true,
+    reschedule_requested_at: new Date(),
+    reschedule_requested_date: requestedDate,
+    reschedule_requested_time: requestedTime,
+    reschedule_request_reason: reason
+  };
+
+  const { data: updatedBooking, error } = await supabase
+    .from('bookings')
+    .update(updateData)
+    .eq('id', req.params.id)
+    .select()
+    .single();
+
+  if (error) return next(new AppError(error.message, 500));
 
   // Notify therapist
   try {
-    const therapist = await User.findByPk(booking.therapistId);
+    const therapist = await User.findById(booking.therapistId);
     if (therapist) {
       await emailService.sendRescheduleRequest({
         to: therapist.email,
@@ -148,26 +186,26 @@ const requestReschedule = asyncHandler(async (req, res, next) => {
     console.error('Failed to send reschedule request email:', error);
   }
 
-  res.status(200).json({ success: true, data: booking });
+  res.status(200).json({ success: true, data: updatedBooking });
 });
 
 // @desc    Create booking (Client self-booking)
 // @route   POST /api/bookings/client/book
 // @access  Private (Client)
 const createClientBooking = asyncHandler(async (req, res, next) => {
-  const { therapistId, date, startTime, endTime, therapyType, therapyDuration, location, notes } = req.body;
+  const { therapistId, date, startTime, endTime, therapyType, therapyDuration, location, notes, amount, currency } = req.body;
 
-  const therapist = await User.findByPk(therapistId);
+  const therapist = await User.findById(therapistId);
   if (!therapist) return next(new AppError('Therapist not found', 404));
 
-  const existingBooking = await Booking.findOne({
-    where: {
-      therapistId, date, startTime,
-      status: { notIn: ['cancelled', 'no_show'] }
-    }
-  });
+  // Check for conflicts
+  const conflicts = await Booking.findConflicts(therapistId, date, startTime, endTime);
+  if (conflicts.length > 0) {
+    return next(new AppError('Time slot is already booked', 409));
+  }
 
-  if (existingBooking) return next(new AppError('Time slot is already booked', 409));
+  // Validate amount - database requires it
+  const bookingAmount = amount || 0;
 
   const booking = await Booking.create({
     therapistId,
@@ -175,6 +213,8 @@ const createClientBooking = asyncHandler(async (req, res, next) => {
     date, startTime, endTime, therapyType,
     therapyDuration: therapyDuration || 60,
     location, notes,
+    amount: bookingAmount,
+    currency: currency || 'EUR',
     status: 'upcoming',
     paymentStatus: 'unpaid'  // Supabase constraint: only 'unpaid' or 'paid'
   });
@@ -204,18 +244,26 @@ const createClientBooking = asyncHandler(async (req, res, next) => {
 // @route   PUT /api/bookings/client/:id/complete
 // @access  Private (Client)
 const completeClientBooking = asyncHandler(async (req, res, next) => {
-  const booking = await Booking.findOne({
-    where: { id: req.params.id, clientId: req.user.id }
-  });
+  const booking = await Booking.findById(req.params.id);
 
   if (!booking) return next(new AppError('Booking not found', 404));
+  if (booking.clientId !== req.user.id) return next(new AppError('Not authorized', 403));
   if (booking.status !== 'upcoming') return next(new AppError('Only upcoming bookings can be marked as completed', 400));
 
-  booking.status = 'completed';
-  booking.completedAt = new Date();
-  await booking.save();
+  const { data: updatedBooking, error } = await supabase
+    .from('bookings')
+    .update({ 
+      status: 'completed', 
+      completed_at: new Date(),
+      last_status_change: new Date()
+    })
+    .eq('id', req.params.id)
+    .select()
+    .single();
 
-  res.status(200).json({ success: true, data: booking });
+  if (error) return next(new AppError(error.message, 500));
+
+  res.status(200).json({ success: true, data: updatedBooking });
 });
 
 // @desc    Get therapists for completed bookings (for client reviews)
@@ -227,7 +275,7 @@ const getClientCompletedTherapists = asyncHandler(async (req, res, next) => {
       .from('bookings')
       .select(`
         therapist_id,
-        therapist:therapists!inner(id, name, email, avatar, specialties, rating)
+        therapist:users!inner(id, name, email, avatar)
       `)
       .eq('client_id', req.user.id)
       .eq('status', 'completed');

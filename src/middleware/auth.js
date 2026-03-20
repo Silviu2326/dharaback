@@ -322,8 +322,10 @@ const protectMixed = async (req, res, next) => {
       let user;
 
       // Check token type and get appropriate user
+      let userType = 'therapist'; // default
       if (decoded.type === 'client') {
         user = await Client.findById(decoded.id);
+        userType = 'client';
         if (user && user.status !== 'active') {
           return res.status(401).json({
             success: false,
@@ -351,8 +353,13 @@ const protectMixed = async (req, res, next) => {
       // Remove password from user object
       user.password = undefined;
 
-      // Add user to request object
-      req.user = user;
+      // Convert to plain object and add type info
+      const userObj = user.toJSON ? user.toJSON() : JSON.parse(JSON.stringify(user));
+      req.user = {
+        ...userObj,
+        type: userType,
+        role: userType === 'client' ? 'client' : (userObj.role || 'therapist')
+      };
       next();
 
     } catch (error) {

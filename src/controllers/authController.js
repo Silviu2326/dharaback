@@ -513,26 +513,15 @@ const registerCliente = asyncHandler(async (req, res, next) => {
 
   const name = `${nombre.trim()} ${apellidos.trim()}`;
 
-  // Check if client already exists
-  const existingClient = await Client.findOne({ email: email.toLowerCase() });
-  if (existingClient) {
-    return next(new AppError('Ya existe un cliente con este email', 400));
-  }
-
-  // Check if user (therapist) already exists with this email
-  const existingUser = await User.findOne({ email: email.toLowerCase() });
-  if (existingUser) {
-    return next(new AppError('Ya existe un usuario con este email', 400));
-  }
-
+  let client = null;
   let therapistId = null;
-  let linkedClientId = null;
+  let invitation = null;
 
   // Validate invitation code if provided
   if (invitationCodeInput) {
     console.log('Validating invitation code:', invitationCodeInput);
     
-    const invitation = await InvitationCode.findByCode(invitationCodeInput.toUpperCase());
+    invitation = await InvitationCode.findByCode(invitationCodeInput.toUpperCase());
     
     if (!invitation) {
       return next(new AppError('Código de invitación inválido', 400));
@@ -546,52 +535,87 @@ const registerCliente = asyncHandler(async (req, res, next) => {
       return next(new AppError('El código de invitación ya no es válido', 400));
     }
 
-    // Check if email matches (if invitation has email restriction)
-    if (invitation.email && invitation.email.toLowerCase() !== email.toLowerCase()) {
-      return next(new AppError('El email no coincide con el código de invitación', 400));
-    }
-
     therapistId = invitation.therapistId;
-    linkedClientId = invitation.clientId;
+    const linkedClientId = invitation.clientId;
     
     console.log('Invitation code valid:', {
       therapistId,
       linkedClientId,
       email: invitation.email
     });
-  }
 
-  // Create client
-  console.log('Creating client with password...');
-  const clientData = {
-    name,
-    email: email.toLowerCase().trim(),
-    password,
-    phone: telefono || undefined,
-    status: 'active'
-  };
+    // Buscar el cliente pre-registrado
+    client = await Client.findById(linkedClientId);
+    
+    if (!client) {
+      return next(new AppError('Cliente no encontrado para este código de invitación', 400));
+    }
 
-  // If invitation code was provided, link to therapist
-  if (therapistId) {
-    clientData.therapist_id = therapistId;
-  }
+    console.log('Found pre-registered client:', {
+      id: client.id,
+      currentEmail: client.email,
+      currentName: client.name
+    });
 
-  const client = await Client.create(clientData);
-  
-  console.log('Client created with password hash:', client.password ? client.password.substring(0, 20) : 'none');
+    // ACTUALIZAR cliente existente con los nuevos datos
+    const updateData = {
+      name,
+      email: email.toLowerCase().trim(),
+      phone: telefono || client.phone,
+      password,
+      status: 'active'
+    };
 
-  // If invitation code was provided, mark it as used
-  if (linkedClientId && invitationCodeInput) {
+    console.log('Updating existing client with new data...');
+    client = await Client.findByIdAndUpdate(linkedClientId, updateData, { new: true });
+    
+    console.log('Client updated:', {
+      id: client.id,
+      email: client.email,
+      name: client.name
+    });
+
+    // Marcar el código como usado
     try {
-      const invitation = await InvitationCode.findByCode(invitationCodeInput.toUpperCase());
-      if (invitation) {
-        await invitation.markAsUsed(client.id);
-        console.log('Invitation code marked as used:', invitationCodeInput);
-      }
+      await invitation.markAsUsed(client.id);
+      console.log('Invitation code marked as used:', invitationCodeInput);
     } catch (error) {
       console.error('Error marking invitation code as used:', error);
-      // Don't fail registration if this step fails
+      // No fallar el registro si esto falla
     }
+
+  } else {
+    // SIN CÓDIGO: Registro normal de nuevo cliente
+    console.log('No invitation code - creating new client...');
+    
+    // Check if client already exists
+    const existingClient = await Client.findOne({ email: email.toLowerCase() });
+    if (existingClient) {
+      return next(new AppError('Ya existe un cliente con este email', 400));
+    }
+
+    // Check if user (therapist) already exists with this email
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      return next(new AppError('Ya existe un usuario con este email', 400));
+    }
+
+    // Create client
+    const clientData = {
+      name,
+      email: email.toLowerCase().trim(),
+      password,
+      phone: telefono || undefined,
+      status: 'active'
+    };
+
+    client = await Client.create(clientData);
+    
+    console.log('New client created:', {
+      id: client.id,
+      email: client.email,
+      name: client.name
+    });
   }
 
   // Generate token for client with type 'client'
@@ -600,7 +624,7 @@ const registerCliente = asyncHandler(async (req, res, next) => {
 
   res.status(201).json({
     success: true,
-    message: 'Cliente registrado exitosamente',
+    message: invitationCodeInput ? 'Cliente vinculado exitosamente' : 'Cliente registrado exitosamente',
     accessToken: token,
     refreshToken,
     user: {
@@ -609,7 +633,7 @@ const registerCliente = asyncHandler(async (req, res, next) => {
       email: client.email,
       phone: client.phone,
       role: 'cliente',
-      therapistId: therapistId || undefined
+      therapistId: therapistId || client.therapistId || undefined
     }
   });
 });

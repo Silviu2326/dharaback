@@ -391,22 +391,112 @@ class DocumentModel {
 
   /**
    * Buscar documentos por cliente
+   * Ahora soporta búsqueda a través de la tabla document_clients
    */
   async findByClient(clientId, options = {}) {
-    return await this.find({
-      ...options,
-      filters: { ...options.filters, client_id: clientId }
-    });
+    const supabase = require('../../config/supabase').supabase;
+    
+    // Query usando la tabla de unión para soportar múltiples clientes
+    let query = supabase
+      .from('documents')
+      .select(`
+        *,
+        document_clients!inner(client_id)
+      `)
+      .eq('document_clients.client_id', clientId);
+
+    if (options.orderBy) {
+      query = query.order(options.orderBy, { ascending: options.ascending !== false });
+    } else {
+      query = query.order('created_at', { ascending: false });
+    }
+
+    if (options.limit) {
+      query = query.limit(options.limit);
+    }
+
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return data.map(d => new Document(d));
+  }
+
+  /**
+   * Buscar documentos por múltiples clientes
+   */
+  async findByClients(clientIds, options = {}) {
+    if (!Array.isArray(clientIds) || clientIds.length === 0) {
+      return [];
+    }
+    
+    const supabase = require('../../config/supabase').supabase;
+    
+    let query = supabase
+      .from('documents')
+      .select(`
+        *,
+        document_clients!inner(client_id)
+      `)
+      .in('document_clients.client_id', clientIds);
+
+    if (options.orderBy) {
+      query = query.order(options.orderBy, { ascending: options.ascending !== false });
+    } else {
+      query = query.order('created_at', { ascending: false });
+    }
+
+    if (options.limit) {
+      query = query.limit(options.limit);
+    }
+
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return data.map(d => new Document(d));
   }
 
   /**
    * Buscar documentos por usuario y cliente
+   * Ahora soporta búsqueda a través de la tabla document_clients
    */
   async findByUserAndClient(userId, clientId, options = {}) {
-    return await this.find({
-      ...options,
-      filters: { ...options.filters, user_id: userId, client_id: clientId }
-    });
+    const supabase = require('../../config/supabase').supabase;
+    
+    let query = supabase
+      .from('documents')
+      .select(`
+        *,
+        document_clients!inner(client_id)
+      `)
+      .eq('user_id', userId)
+      .eq('document_clients.client_id', clientId);
+
+    if (options.orderBy) {
+      query = query.order(options.orderBy, { ascending: options.ascending !== false });
+    } else {
+      query = query.order('created_at', { ascending: false });
+    }
+
+    if (options.limit) {
+      query = query.limit(options.limit);
+    }
+
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return data.map(d => new Document(d));
+  }
+
+  /**
+   * Obtener todos los clientes asociados a un documento
+   */
+  async getDocumentClients(documentId) {
+    const supabase = require('../../config/supabase').supabase;
+    
+    const { data, error } = await supabase
+      .from('document_clients')
+      .select('client_id, clients(*)')
+      .eq('document_id', documentId);
+
+    if (error) throw new Error(error.message);
+    return data.map(dc => dc.clients);
   }
 
   /**

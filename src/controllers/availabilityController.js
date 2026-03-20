@@ -70,12 +70,45 @@ const getTherapistAvailability = asyncHandler(async (req, res, next) => {
     return next(new AppError('Error fetching availability data', 500));
   }
 
+  // Obtener ausencias del terapeuta en el rango de fechas
+  console.log('[getTherapistAvailability] Fetching absences...');
+  const { data: absences, error: absencesError } = await supabase
+    .from('absences')
+    .select('*')
+    .eq('therapist_id', therapistId)
+    .lte('start_date', endDate)
+    .gte('end_date', startDate)
+    .order('start_date', { ascending: true });
+
+  if (absencesError) {
+    console.error('[getTherapistAvailability] Error fetching absences:', absencesError.message);
+  }
+
+  console.log(`[getTherapistAvailability] Found ${(absences || []).length} absences`);
+
+  // Formatear las ausencias para el frontend
+  const formattedAbsences = (absences || []).map(row => ({
+    id: row.id,
+    title: row.reason || row.type || 'Ausencia',
+    startDate: row.start_date,
+    endDate: row.end_date,
+    start_date: row.start_date,
+    end_date: row.end_date,
+    allDay: true,
+    absenceType: row.type,
+    type: 'absence',
+    status: row.status
+  }));
+
   res.status(200).json({
     success: true,
     data: {
       therapist: { id: therapist.id, name: therapist.name },
       slots: (slots || []).map(formatSlot),
-      total: (slots || []).length
+      absences: formattedAbsences,
+      exceptions: formattedAbsences, // Alias para compatibilidad
+      total: (slots || []).length,
+      totalAbsences: formattedAbsences.length
     }
   });
 });

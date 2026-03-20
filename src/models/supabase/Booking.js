@@ -424,7 +424,15 @@ class BookingModel {
    * Contar
    */
   async count(filters = {}) {
-    return await this.service.count(filters);
+    // Translate camelCase filters to snake_case column names
+    const columnFilters = {};
+    if (filters.clientId) columnFilters.client_id = filters.clientId;
+    if (filters.therapistId) columnFilters.therapist_id = filters.therapistId;
+    if (filters.status) columnFilters.status = filters.status;
+    if (filters.date) columnFilters.date = filters.date;
+    if (filters.therapyType) columnFilters.therapy_type = filters.therapyType;
+    
+    return await this.service.count(columnFilters);
   }
 
   /**
