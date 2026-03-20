@@ -96,10 +96,23 @@ const messageController = {
       // Verify conversation access
       let conversation;
       if (isClient) {
-        conversation = await Conversation.findOne({
-          id: conversationId,
-          clientId: userId
-        });
+        // For clients, we need to find all their client records and check if conversation belongs to any
+        console.log('🔍 DEBUG getMessages - Fetching client records for user:', userId, 'email:', req.user.email);
+        const { supabase } = require('../config/supabase');
+        const { data: clientRecords } = await supabase
+          .from('clients')
+          .select('id')
+          .eq('email', req.user.email);
+        
+        const clientIds = clientRecords?.map(c => c.id) || [];
+        console.log('🔍 DEBUG getMessages - Found client IDs:', clientIds);
+        
+        // Find conversation by ID and check if client_id is in user's client IDs
+        conversation = await Conversation.findById(conversationId);
+        if (conversation && !clientIds.includes(conversation.clientId)) {
+          console.log('🔍 DEBUG getMessages - Conversation found but client_id not in user\'s client IDs');
+          conversation = null;
+        }
       } else {
         conversation = await Conversation.findOne({
           id: conversationId,
@@ -669,11 +682,23 @@ const messageController = {
       let conversation;
       try {
         if (isClient) {
-          // For clients, search by client_id
-          conversation = await Conversation.findOne({
-            id: conversationId,
-            clientId: userId
-          });
+          // For clients, we need to find all their client records and check if conversation belongs to any
+          console.log('🔍 DEBUG sendMessageDirect - Fetching client records for user:', userId, 'email:', req.user.email);
+          const { supabase } = require('../config/supabase');
+          const { data: clientRecords } = await supabase
+            .from('clients')
+            .select('id')
+            .eq('email', req.user.email);
+          
+          const clientIds = clientRecords?.map(c => c.id) || [];
+          console.log('🔍 DEBUG sendMessageDirect - Found client IDs:', clientIds);
+          
+          // Find conversation by ID and check if client_id is in user's client IDs
+          conversation = await Conversation.findById(conversationId);
+          if (conversation && !clientIds.includes(conversation.clientId)) {
+            console.log('🔍 DEBUG sendMessageDirect - Conversation found but client_id not in user\'s client IDs');
+            conversation = null;
+          }
         } else {
           // For therapists, search by therapist_id
           conversation = await Conversation.findOne({

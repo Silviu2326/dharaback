@@ -7,6 +7,7 @@ const { AppError, asyncHandler } = require('../../middleware/errorHandler');
 const Booking = require('../../models/supabase/Booking');
 const User = require('../../models/supabase/User');
 const Client = require('../../models/supabase/Client');
+const Conversation = require('../../models/supabase/Conversation');
 const emailService = require('../../services/emailService');
 const { supabase } = require('../../config/supabase');
 
@@ -218,6 +219,82 @@ const createClientBooking = asyncHandler(async (req, res, next) => {
     status: 'upcoming',
     paymentStatus: 'unpaid'  // Supabase constraint: only 'unpaid' or 'paid'
   });
+
+  // Create or update client-therapist relationship and conversation
+  let clientIdForConversation = null;
+  
+  try {
+    // Check if client already exists for this therapist
+    console.log('🔍 DEBUG: Looking for existing client with email:', req.user.email, 'and therapist:', therapistId);
+    const { data: existingClient, error: clientLookupError } = await supabase
+      .from('clients')
+      .select('id')
+      .eq('therapist_id', therapistId)
+      .eq('email', req.user.email)
+      .maybeSingle();
+    
+    console.log('🔍 DEBUG: existingClient query result:', { existingClient, clientLookupError });
+
+    if (!existingClient) {
+      // Create new client entry for this therapist
+      console.log('🔍 DEBUG: Creating new client for therapist:', therapistId);
+      const newClient = await Client.create({
+        name: req.user.name,
+        email: req.user.email,
+        phone: req.user.phone || null,
+        avatar: req.user.avatar || null,
+        therapistId: therapistId,
+        status: 'active',
+        preferences: {
+          preferredTime: 'any',
+          preferredLocation: 'both',
+          reminderEnabled: true,
+          reminderTime: 24
+        }
+      });
+      clientIdForConversation = newClient.id;
+      console.log(`✅ Created client relationship for therapist ${therapistId}, client ID: ${newClient.id}`);
+    } else {
+      clientIdForConversation = existingClient.id;
+      console.log(`🔍 DEBUG: Existing client found, ID: ${existingClient.id}`);
+    }
+  } catch (clientError) {
+    console.error('❌ Failed to create client-therapist relationship:', clientError);
+    console.error('❌ Error stack:', clientError.stack);
+    // Don't fail the booking creation if client relationship fails
+  }
+
+  // Create conversation between client and therapist
+  try {
+    if (!clientIdForConversation) {
+      console.log('⚠️  WARNING: No clientId available for conversation creation');
+    } else {
+      console.log('🔍 DEBUG: Checking conversation between clientId:', clientIdForConversation, 'and therapistId:', therapistId);
+      
+      const existingConversation = await Conversation.findBetweenUsers(clientIdForConversation, therapistId);
+      console.log('🔍 DEBUG: existingConversation result:', existingConversation);
+      
+      if (!existingConversation) {
+        console.log('🔍 DEBUG: No existing conversation found, creating new one...');
+        const newConversation = await Conversation.create({
+          clientId: clientIdForConversation,
+          therapistId: therapistId,
+          status: 'active',
+          metadata: {
+            userId: req.user.id,  // Guardar el ID del usuario para que el cliente pueda ver el chat
+            type: 'therapy_session'
+          }
+        });
+        console.log(`✅ Created conversation between client ${clientIdForConversation} and therapist ${therapistId}:`, newConversation);
+      } else {
+        console.log('🔍 DEBUG: Conversation already exists:', existingConversation);
+      }
+    }
+  } catch (conversationError) {
+    console.error('❌ Failed to create conversation:', conversationError);
+    console.error('❌ Error stack:', conversationError.stack);
+    // Don't fail the booking creation if conversation creation fails
+  }
 
   // Send confirmation emails
   try {

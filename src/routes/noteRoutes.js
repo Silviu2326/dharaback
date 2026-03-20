@@ -33,8 +33,15 @@ const createValidation = [
     .withMessage('Tags must be an array'),
   body('clientId')
     .optional()
-    .isMongoId()
-    .withMessage('Client ID must be valid')
+    .custom((value) => {
+      // Accept both MongoDB ObjectId (24 hex chars) and UUID formats
+      const isMongoId = /^[0-9a-fA-F]{24}$/.test(value);
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+      if (!isMongoId && !isUUID) {
+        throw new Error('Client ID must be valid');
+      }
+      return true;
+    })
 ];
 
 const updateValidation = [

@@ -25,7 +25,39 @@ const conversationController = {
 
       // Filter by client_id for clients, therapist_id for therapists
       if (isClient) {
-        query = query.eq('client_id', userId);
+        // For clients, we need to find all their client records (one per therapist)
+        // and get conversations for all of them
+        console.log('🔍 DEBUG: Client listing conversations, userId:', userId, 'email:', req.user.email);
+        
+        // First, get all client records for this user (by email)
+        const { data: clientRecords, error: clientError } = await supabase
+          .from('clients')
+          .select('id')
+          .eq('email', req.user.email);
+        
+        if (clientError) {
+          console.error('❌ Error fetching client records:', clientError);
+        }
+        
+        const clientIds = clientRecords?.map(c => c.id) || [];
+        console.log('🔍 DEBUG: Found client IDs for user:', clientIds);
+        
+        if (clientIds.length > 0) {
+          // Filter conversations by client_ids
+          query = query.in('client_id', clientIds);
+        } else {
+          // If no client records found, return empty result
+          console.log('⚠️  No client records found for user, returning empty conversations');
+          return res.json({
+            conversations: [],
+            pagination: {
+              limit: parseInt(limit),
+              offset: (parseInt(page) - 1) * parseInt(limit),
+              total: 0,
+              hasMore: false
+            }
+          });
+        }
       } else {
         query = query.eq('therapist_id', userId);
       }

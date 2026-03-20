@@ -79,11 +79,11 @@ const paymentController = {
   // Get a specific payment
   async getPayment(req, res, next) {
     try {
-      const { paymentId } = req.params;
+      const { id } = req.params;
       const therapistId = req.user.id;
 
       const payment = await Payment.findOne({
-        id: paymentId,
+        id: id,
         therapist_id: therapistId
       });
 
@@ -236,12 +236,12 @@ const paymentController = {
         return next(new AppError('Validation failed', 400, errors.array()));
       }
 
-      const { paymentId } = req.params;
-      const { status, transactionId, failureReason } = req.body;
+      const { id } = req.params;
+      const { status, transactionId, failureReason, reason } = req.body;
       const therapistId = req.user.id;
 
       const payment = await Payment.findOne({
-        id: paymentId,
+        id: id,
         therapist_id: therapistId
       });
 
@@ -251,20 +251,27 @@ const paymentController = {
 
       const updateData = { status };
       if (transactionId) updateData.transactionId = transactionId;
-      if (failureReason) {
+
+      // Support both 'reason' (from frontend) and 'failureReason' (legacy)
+      const reasonText = reason || failureReason;
+      if (reasonText) {
         updateData.metadata = {
           ...payment.metadata,
-          failureReason
+          statusChangeReason: reasonText,
+          statusChangedAt: new Date().toISOString(),
+          statusChangedBy: therapistId
         };
       }
+
       if (status === 'completed') {
         updateData.paidAt = new Date().toISOString();
       }
 
-      const updatedPayment = await Payment.findByIdAndUpdate(paymentId, updateData, { new: true });
+      const updatedPayment = await Payment.findByIdAndUpdate(id, updateData, { new: true });
 
       res.json({
         success: true,
+        message: 'Estado del cobro actualizado correctamente',
         data: updatedPayment.toJSON()
       });
     } catch (error) {
@@ -280,12 +287,12 @@ const paymentController = {
         return next(new AppError('Validation failed', 400, errors.array()));
       }
 
-      const { paymentId } = req.params;
+      const { id } = req.params;
       const { refundAmount, reason } = req.body;
       const therapistId = req.user.id;
 
       const payment = await Payment.findOne({
-        id: paymentId,
+        id: id,
         therapist_id: therapistId
       });
 
@@ -830,12 +837,12 @@ const paymentController = {
   // Delete a payment
   async deletePayment(req, res, next) {
     try {
-      const { paymentId } = req.params;
+      const { id } = req.params;
       const therapistId = req.user.id;
 
       // Find the payment
       const payment = await Payment.findOne({
-        id: paymentId,
+        id: id,
         therapist_id: therapistId
       });
 
@@ -844,7 +851,7 @@ const paymentController = {
       }
 
       // Delete the payment
-      await Payment.delete(paymentId);
+      await Payment.delete(id);
 
       res.json({
         success: true,

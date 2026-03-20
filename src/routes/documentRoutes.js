@@ -122,12 +122,12 @@ const bulkValidation = [
     .isArray({ min: 1 })
     .withMessage('Document IDs must be a non-empty array'),
   body('documentIds.*')
-    .isMongoId()
-    .withMessage('Each document ID must be valid')
+    .isUUID(4)
+    .withMessage('Each document ID must be a valid UUID')
 ];
 
 const idValidation = [
-  param('documentId').isMongoId().withMessage('Document ID must be valid')
+  param('documentId').isUUID(4).withMessage('Document ID must be a valid UUID')
 ];
 
 const categoryValidation = [

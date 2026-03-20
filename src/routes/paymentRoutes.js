@@ -94,7 +94,7 @@ const createPayoutRequestValidation = [
 ];
 
 const idValidation = [
-  param('paymentId')
+  param('id')
     .matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
     .withMessage('Payment ID must be a valid UUID')
 ];
@@ -113,10 +113,10 @@ router.get('/statistics', paymentController.getPaymentStats);
 router.get('/balance', paymentController.getBalanceSummary);
 router.get('/providers', paymentController.getProviders);
 router.get('/methods', paymentController.getPaymentMethods);
-router.get('/:paymentId', idValidation, paymentController.getPayment);
-router.put('/:paymentId/status', idValidation, updatePaymentStatusValidation, paymentController.updatePaymentStatus);
-router.post('/:paymentId/refund', idValidation, refundValidation, paymentController.processRefund);
-router.delete('/:paymentId', idValidation, paymentController.deletePayment);
+router.get('/:id', idValidation, paymentController.getPayment);
+router.patch('/:id/status', idValidation, updatePaymentStatusValidation, paymentController.updatePaymentStatus);
+router.post('/:id/refund', idValidation, refundValidation, paymentController.processRefund);
+router.delete('/:id', idValidation, paymentController.deletePayment);
 
 // Payout Request Routes
 router.get('/payouts/requests', paymentController.getPayoutRequests);
