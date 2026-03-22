@@ -43,11 +43,16 @@ class SupabaseService {
    * Buscar todos los registros con filtros opcionales
    */
   async findAll(options = {}) {
+    console.log('🔍 [SupabaseService.findAll] Table:', this.table);
+    console.log('🔍 [SupabaseService.findAll] Options:', JSON.stringify(options, null, 2));
+    
     let query = supabase.from(this.table).select(options.select || '*');
 
     // Aplicar filtros
     if (options.filters) {
+      console.log('🔍 [SupabaseService.findAll] Applying filters:', options.filters);
       Object.entries(options.filters).forEach(([key, value]) => {
+        console.log(`🔍 [SupabaseService.findAll] Filter: ${key} =`, value);
         if (Array.isArray(value)) {
           query = query.in(key, value);
         } else if (typeof value === 'object' && value !== null) {
@@ -91,7 +96,11 @@ class SupabaseService {
 
     const { data, error } = await query;
 
-    if (error) throw new Error(`Error finding ${this.table}: ${error.message}`);
+    console.log('🔍 [SupabaseService.findAll] Query result:', data ? data.length : 0, 'rows');
+    if (error) {
+      console.error('❌ [SupabaseService.findAll] Error:', error);
+      throw new Error(`Error finding ${this.table}: ${error.message}`);
+    }
     return data || [];
   }
 

@@ -1,4 +1,4 @@
-const { ProfessionalProfile, User } = require('../models');
+const { ProfessionalProfile, User, WorkLocation } = require('../models');
 const { AppError, asyncHandler } = require('../middleware/errorHandler');
 
 // @desc    Get professional profile
@@ -86,6 +86,55 @@ const getProfile = asyncHandler(async (req, res, next) => {
     isVerified: user.isVerified,
     verificationStatus: user.verificationStatus
   } : null;
+
+  // DEBUG: Obtener ubicaciones de trabajo desde Supabase
+  console.log('🔍 [BACKEND getProfile] User ID:', userId);
+  console.log('🔍 [BACKEND getProfile] profileData.workLocations before Supabase:', profileData.workLocations);
+  
+  try {
+    // Obtener ubicaciones desde la tabla work_locations de Supabase
+    const workLocationsFromSupabase = await WorkLocation.findByTherapist(userId);
+    console.log('🔍 [BACKEND getProfile] Work locations from Supabase:', workLocationsFromSupabase);
+    console.log('🔍 [BACKEND getProfile] Count:', workLocationsFromSupabase ? workLocationsFromSupabase.length : 0);
+    
+    if (workLocationsFromSupabase && workLocationsFromSupabase.length > 0) {
+      // Mapear las ubicaciones al formato esperado por el frontend
+      profileData.workLocations = workLocationsFromSupabase.map(loc => ({
+        id: loc.id,
+        name: loc.name,
+        address: loc.address,
+        city: loc.city,
+        postalCode: loc.postalCode,
+        country: loc.country,
+        phone: loc.phone,
+        email: loc.email,
+        isPrimary: loc.isPrimary,
+        offersOnline: loc.offersOnline,
+        coordinates: loc.coordinates,
+        accessibilityInfo: loc.accessibilityInfo,
+        parkingInfo: loc.parkingInfo
+      }));
+      
+      // También mapear a work_locations para compatibilidad
+      profileData.work_locations = profileData.workLocations;
+      
+      console.log('🔍 [BACKEND getProfile] Final workLocations count:', profileData.workLocations.length);
+      console.log('🔍 [BACKEND getProfile] workLocations names:', profileData.workLocations.map(l => l.name));
+    } else {
+      console.log('⚠️ [BACKEND getProfile] No work locations found in Supabase');
+      // Si no hay en Supabase, mantener lo que venga de MongoDB
+      if (profileData.workLocations && profileData.workLocations.length > 0) {
+        console.log('🔍 [BACKEND getProfile] Using workLocations from MongoDB:', profileData.workLocations.length);
+        profileData.work_locations = profileData.workLocations;
+      }
+    }
+  } catch (error) {
+    console.error('❌ [BACKEND getProfile] Error fetching work locations from Supabase:', error);
+    // Si hay error, mantener lo que venga de MongoDB
+    if (profileData.workLocations && profileData.workLocations.length > 0) {
+      profileData.work_locations = profileData.workLocations;
+    }
+  }
 
   res.status(200).json({
     success: true,

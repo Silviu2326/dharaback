@@ -200,7 +200,10 @@ class WorkLocationModel {
    * Buscar todas
    */
   async find(options = {}) {
+    console.log('🔍 [WorkLocation.find] Query options:', JSON.stringify(options, null, 2));
     const results = await this.service.findAll(options);
+    console.log('🔍 [WorkLocation.find] Results count:', results ? results.length : 0);
+    console.log('🔍 [WorkLocation.find] Results:', results);
     return results.map(data => new WorkLocation(data));
   }
 
@@ -224,10 +227,17 @@ class WorkLocationModel {
    * Buscar por terapeuta
    */
   async findByTherapist(therapistId, options = {}) {
-    return await this.find({
+    console.log('🔍 [WorkLocation.findByTherapist] Therapist ID:', therapistId);
+    console.log('🔍 [WorkLocation.findByTherapist] Options:', JSON.stringify(options, null, 2));
+    const results = await this.find({
       ...options,
       filters: { ...options.filters, therapist_id: therapistId }
     });
+    console.log('🔍 [WorkLocation.findByTherapist] Found', results.length, 'locations');
+    if (results.length > 0) {
+      console.log('🔍 [WorkLocation.findByTherapist] Location names:', results.map(r => r.name));
+    }
+    return results;
   }
 
   /**

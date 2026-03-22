@@ -761,12 +761,6 @@ const getTherapistById = asyncHandler(async (req, res, next) => {
   // Get therapist
   const therapist = await User.findById(id);
   
-  console.log('🔍 [BACKEND] therapist found:', therapist ? 'YES' : 'NO');
-  console.log('🔍 [BACKEND] therapist.banner:', therapist?.banner);
-  console.log('🔍 [BACKEND] therapist.avatar:', therapist?.avatar);
-  console.log('🔍 [BACKEND] therapist.specialties:', therapist?.specialties);
-  console.log('🔍 [BACKEND] therapist.therapies:', therapist?.therapies);
-  
   if (!therapist) {
     return next(new AppError('Therapist not found', 404));
   }
@@ -775,16 +769,28 @@ const getTherapistById = asyncHandler(async (req, res, next) => {
     return next(new AppError('User is not a therapist', 400));
   }
 
-  // Get professional profile
-  const profile = await ProfessionalProfile.findOne({ user_id: id });
-  
-  console.log('🔍 [BACKEND] profile found:', profile ? 'YES' : 'NO');
-  console.log('🔍 [BACKEND] profile.therapies:', profile?.therapies);
-  console.log('🔍 [BACKEND] profile.specializations:', profile?.specializations);
-  console.log('🔍 [BACKEND] profile.banner:', profile?.banner);
-  
-  // Get rates
+  // Get professional profile from the view therapist_profiles (has all joined data)
   const { supabase } = require('../config/supabase');
+  const { data: profileView, error: profileError } = await supabase
+    .from('therapist_profiles')
+    .select('*')
+    .eq('user_id', id)
+    .single();
+  
+  console.log('🔍 [BACKEND] Profile from therapist_profiles view:', profileView ? 'FOUND' : 'NOT FOUND');
+  if (profileView) {
+    console.log('🔍 [BACKEND] View work_locations:', profileView.work_locations);
+    console.log('🔍 [BACKEND] View external_links:', profileView.external_links);
+  }
+  
+  // Fallback to ProfessionalProfile model if view fails
+  let profile = null;
+  if (profileError || !profileView) {
+    console.log('🔍 [BACKEND] View not found, using ProfessionalProfile model');
+    profile = await ProfessionalProfile.findOne({ user_id: id });
+  }
+
+  // Get rates
   const { data: rates } = await supabase
     .from('rates')
     .select('*')
@@ -792,20 +798,31 @@ const getTherapistById = asyncHandler(async (req, res, next) => {
     .eq('is_active', true)
     .single();
 
-  // Get work locations
-  const { data: workLocations } = await supabase
+  // Get work locations from Supabase work_locations table
+  const { data: workLocationsFromTable } = await supabase
     .from('work_locations')
     .select('*')
     .eq('therapist_id', id);
 
+  // Also check profile.work_locations (from therapist_profiles view or model)
+  const workLocationsFromProfile = profileView?.work_locations || profile?.work_locations || [];
+  
+  console.log('🔍 [BACKEND] ========== WORK LOCATIONS ==========');
+  console.log('🔍 [BACKEND] workLocations from table:', workLocationsFromTable);
+  console.log('🔍 [BACKEND] workLocations from table count:', workLocationsFromTable?.length || 0);
+  console.log('🔍 [BACKEND] workLocations from profileView:', profileView?.work_locations);
+  console.log('🔍 [BACKEND] workLocations from profile model:', profile?.work_locations);
+  console.log('🔍 [BACKEND] ======================================');
+
   // Build response with services/packages
   // Buscar en múltiples ubicaciones donde pueden estar los datos
-  // Los datos pueden estar en: profile.pricing, profile.rates, profile.pricingPackages
+  // Usar profileView (vista) o profile (modelo)
+  const profileData = profileView || profile || {};
   
-  const pricing = profile?.pricing || {};
+  const pricing = profileData?.pricing || {};
   const customRates = pricing?.customRates || {};
-  const profileRates = profile?.rates || {};
-  const pricingPackages = profile?.pricingPackages || {};
+  const profileRates = profileData?.rates || {};
+  const pricingPackages = profileData?.pricingPackages || {};
   
   // Los servicios pueden estar en diferentes ubicaciones según el formato
   const sessions = customRates?.sessions || 
@@ -822,11 +839,7 @@ const getTherapistById = asyncHandler(async (req, res, next) => {
                    rates?.customRates?.packages || 
                    [];
   
-  console.log('🔍 Backend - profile.pricing:', JSON.stringify(pricing, null, 2));
-  console.log('🔍 Backend - profile.rates:', JSON.stringify(profileRates, null, 2));
-  console.log('🔍 Backend - profile.pricingPackages:', JSON.stringify(pricingPackages, null, 2));
-  console.log('🔍 Backend - sessions found:', sessions?.length || 0);
-  console.log('🔍 Backend - packages found:', packages?.length || 0);
+
   
   const therapistData = {
     id: therapist.id || therapist._id,
@@ -836,24 +849,119 @@ const getTherapistById = asyncHandler(async (req, res, next) => {
     isVerified: therapist.isVerified,
     isActive: therapist.isActive,
     joinedAt: therapist.createdAt,
-    bio: profile?.about || therapist?.bio || '',
+    bio: profileData?.about || therapist?.bio || '',
     // Intentar obtener especialidades de múltiples fuentes
     specialties: therapist?.specialties || 
-                 profile?.specialties || 
-                 profile?.therapies?.map(t => t.name) || 
+                 profileData?.specialties || 
+                 profileData?.therapies?.map(t => t.name) || 
                  therapist?.therapies || [],
-    specializations: therapist?.specializations || profile?.specializations || [],
-    languages: profile?.languages || therapist?.languages || [],
-    rating: profile?.rating || therapist?.rating || 0,
-    clientsCount: profile?.clientsCount || therapist?.clientsCount || 0,
-    yearsExperience: profile?.yearsExperience || therapist?.yearsExperience || 0,
-    education: profile?.education || therapist?.education || [],
-    videoPresentation: profile?.videoPresentation || therapist?.videoPresentation,
-    sessionPrice: rates?.session_price || profile?.basePrice || therapist?.basePrice || 0,
-    workLocations: workLocations || therapist?.work_locations || [],
-    isAvailable: profile?.isAvailable || therapist?.isAvailable || false,
+    specializations: therapist?.specializations || profileData?.specializations || [],
+    languages: profileData?.languages || therapist?.languages || [],
+    rating: profileData?.rating || therapist?.rating || 0,
+    clientsCount: profileData?.clientsCount || therapist?.clientsCount || 0,
+    yearsExperience: profileData?.yearsExperience || therapist?.yearsExperience || 0,
+    education: profileData?.education || therapist?.education || [],
+    videoPresentation: (() => {
+      console.log('🔍 [BACKEND] ========== VIDEO PRESENTATION ==========');
+      console.log('🔍 [BACKEND] therapist.video_presentation:', therapist?.video_presentation);
+      console.log('🔍 [BACKEND] therapist.videoPresentation:', therapist?.videoPresentation);
+      console.log('🔍 [BACKEND] profileView.video_presentation:', profileView?.video_presentation);
+      console.log('🔍 [BACKEND] profileView.videoPresentation:', profileView?.videoPresentation);
+      
+      // Buscar video_presentation en User (therapist) primero, luego en profileView
+      const rawVideo = therapist?.video_presentation || therapist?.videoPresentation ||
+                      profileView?.video_presentation || profileView?.videoPresentation ||
+                      profile?.video_presentation || profile?.videoPresentation;
+      
+      console.log('🔍 [BACKEND] Raw video selected:', rawVideo);
+      console.log('🔍 [BACKEND] Type of raw video:', typeof rawVideo);
+      
+      // Si es string, parsearlo
+      if (typeof rawVideo === 'string') {
+        try {
+          const parsed = JSON.parse(rawVideo);
+          console.log('🔍 [BACKEND] Parsed videoPresentation:', parsed);
+          console.log('🔍 [BACKEND] ==========================================');
+          return parsed;
+        } catch (e) {
+          console.error('🔍 [BACKEND] Error parsing video_presentation:', e);
+          console.log('🔍 [BACKEND] ==========================================');
+          return null;
+        }
+      }
+      
+      // Si es objeto con URL válida, devolverlo
+      if (rawVideo && typeof rawVideo === 'object' && rawVideo.url) {
+        console.log('🔍 [BACKEND] Video object with URL:', rawVideo);
+        console.log('🔍 [BACKEND] ==========================================');
+        return rawVideo;
+      }
+      
+      console.log('🔍 [BACKEND] No valid videoPresentation found');
+      console.log('🔍 [BACKEND] ==========================================');
+      return null;
+    })(),
+    sessionPrice: rates?.session_price || profileData?.basePrice || therapist?.basePrice || 0,
+    workLocations: (() => {
+      // Combinar ubicaciones de múltiples fuentes
+      let locations = [];
+      
+      // 1. Primero intentar con work_locations de la tabla work_locations
+      if (workLocationsFromTable && workLocationsFromTable.length > 0) {
+        locations = workLocationsFromTable;
+      }
+      // 2. Si no hay, usar work_locations de therapist_profiles
+      else if (workLocationsFromProfile && workLocationsFromProfile.length > 0) {
+        locations = workLocationsFromProfile;
+      }
+      // 3. Fallback a therapist.work_locations
+      else if (therapist?.work_locations) {
+        locations = Array.isArray(therapist.work_locations) 
+          ? therapist.work_locations 
+          : [therapist.work_locations];
+      }
+      
+      return locations;
+    })(),
+    isAvailable: profileData?.isAvailable || therapist?.isAvailable || false,
     // El banner viene del modelo User, no del ProfessionalProfile
     banner: therapist.banner,
+    // Incluir enlaces externos (pueden estar en profileView.external_links, profile.external_links o profile.externalLinks)
+    externalLinks: (() => {
+      console.log('🔍 [BACKEND] ========== EXTERNAL LINKS ==========');
+      console.log('🔍 [BACKEND] profileView.external_links:', profileView?.external_links);
+      console.log('🔍 [BACKEND] profile.external_links:', profile?.external_links);
+      console.log('🔍 [BACKEND] profile.externalLinks:', profile?.externalLinks);
+      console.log('🔍 [BACKEND] therapist.external_links:', therapist?.external_links);
+      console.log('🔍 [BACKEND] therapist.externalLinks:', therapist?.externalLinks);
+      
+      // Primero buscar en profileView (vista), luego en profile (modelo)
+      const rawLinks = profileView?.external_links || 
+                      profile?.external_links || profile?.externalLinks || 
+                      therapist?.external_links || therapist?.externalLinks;
+      console.log('🔍 [BACKEND] Raw external_links selected:', rawLinks);
+      console.log('🔍 [BACKEND] Type of external_links:', typeof rawLinks);
+      
+      if (typeof rawLinks === 'string') {
+        try {
+          const parsed = JSON.parse(rawLinks);
+          console.log('🔍 [BACKEND] Parsed externalLinks:', parsed);
+          console.log('🔍 [BACKEND] ======================================');
+          return parsed;
+        } catch (e) {
+          console.error('🔍 [BACKEND] Error parsing external_links:', e);
+          console.log('🔍 [BACKEND] ======================================');
+          return [];
+        }
+      }
+      console.log('🔍 [BACKEND] Final externalLinks (not string):', rawLinks || []);
+      console.log('🔍 [BACKEND] ======================================');
+      return rawLinks || [];
+    })(),
+    // Incluir redes sociales si existen
+    socialMedia: profileView?.social_media || profileView?.socialMedia || 
+                profile?.social_media || profile?.socialMedia || 
+                therapist?.social_media || therapist?.socialMedia,
     // Incluir servicios y paquetes
     services: sessions,
     packages: packages,
@@ -864,10 +972,14 @@ const getTherapistById = asyncHandler(async (req, res, next) => {
     }
   };
   
-  console.log('🔍 [BACKEND] Final therapistData.banner:', therapistData.banner);
-  console.log('🔍 [BACKEND] Final therapistData.specialties:', therapistData.specialties);
-  console.log('🔍 [BACKEND] Final therapistData.specializations:', therapistData.specializations);
-
+  console.log('🔍 [BACKEND] ========== FINAL DATA TO SEND ==========');
+  console.log('🔍 [BACKEND] workLocations count:', therapistData.workLocations?.length || 0);
+  console.log('🔍 [BACKEND] workLocations:', therapistData.workLocations);
+  console.log('🔍 [BACKEND] externalLinks count:', therapistData.externalLinks?.length || 0);
+  console.log('🔍 [BACKEND] externalLinks:', therapistData.externalLinks);
+  console.log('🔍 [BACKEND] videoPresentation:', therapistData.videoPresentation);
+  console.log('🔍 [BACKEND] ============================================');
+  
   res.status(200).json({
     success: true,
     data: therapistData,
