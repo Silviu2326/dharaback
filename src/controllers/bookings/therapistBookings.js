@@ -176,16 +176,27 @@ const updateBooking = asyncHandler(async (req, res, next) => {
     }
   });
 
-  // Update booking
-  const { data: updatedBooking, error: updateError } = await supabase
+  // Update booking (don't use .select() due to RLS issues)
+  const { error: updateError } = await supabase
     .from('bookings')
     .update(updateData)
-    .eq('id', req.params.id)
-    .select()
-    .single();
+    .eq('id', req.params.id);
 
   if (updateError) {
     return next(new AppError(`Failed to update booking: ${updateError.message}`, 500));
+  }
+
+  // Fetch the updated booking separately
+  const { data: updatedBooking, error: fetchAfterError } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('id', req.params.id)
+    .eq('therapist_id', req.user.id)
+    .single();
+
+  if (fetchAfterError || !updatedBooking) {
+    console.log('Update succeeded but fetch failed:', { fetchAfterError, id: req.params.id, therapistId: req.user.id });
+    return next(new AppError('Booking updated but could not fetch updated data', 500));
   }
 
   res.status(200).json({ success: true, data: updatedBooking });

@@ -299,7 +299,7 @@ const validateBookingUpdate = [
 
   body('status')
     .optional()
-    .isIn(['upcoming', 'pending', 'completed', 'cancelled', 'no_show'])
+    .isIn(['upcoming', 'pending', 'completed', 'cancelled', 'no_show', 'client_arrived'])
     .withMessage('Invalid booking status'),
 
   body('amount')
