@@ -47,21 +47,197 @@ const listController = {
       console.log('🔍 BACKEND - userRole check:', { userRole, isClient: userRole === 'client', isTherapist: userRole !== 'client' });
       
       if (userRole === 'client') {
-        // Clients see documents shared with them through document_clients table
-        console.log('🔍 BACKEND - PATH: CLIENT - Using document_clients junction table for client_id:', therapistId);
+        // Clients see documents shared with them through:
+        // 1. document_clients junction table (multi-client support)
+        // 2. client_id field in documents table (backward compatibility)
+        console.log('🔍 BACKEND - PATH: CLIENT - Searching documents for client_id:', therapistId);
         
-        // Build a new query that joins with document_clients table
-        // This allows documents to be associated with multiple clients
-        query = supabase
+        // First query: documents linked via document_clients junction table
+        let junctionQuery = supabase
           .from('documents')
           .select('*, client:client_id(*), uploader:user_id(*), document_clients!inner(client_id)', { count: 'exact' })
-          .eq('document_clients.client_id', therapistId);
+          .eq('document_clients.client_id', therapistId)
+          .or('metadata->>status.is.null,metadata->>status.not.in.("deleted","archived")');
         
-        console.log('🔍 BACKEND - Query built with document_clients join for multi-client support');
+        // Second query: documents where client_id field matches directly (backward compatibility)
+        let directQuery = supabase
+          .from('documents')
+          .select('*, client:client_id(*), uploader:user_id(*)', { count: 'exact' })
+          .eq('client_id', therapistId)
+          .or('metadata->>status.is.null,metadata->>status.not.in.("deleted","archived")');
         
-        // Re-apply deleted filter for clients
-        console.log('🔍 BACKEND - Filtering out deleted documents for client view');
-        query = query.or('metadata->>status.is.null,metadata->>status.not.in.("deleted","archived")');
+        console.log('🔍 BACKEND - Executing both queries for client documents');
+        
+        // Execute both queries
+        const [junctionResult, directResult] = await Promise.all([
+          junctionQuery,
+          directQuery
+        ]);
+        
+        // Merge results and remove duplicates
+        const junctionDocs = junctionResult.data || [];
+        const directDocs = directResult.data || [];
+        const seenIds = new Set();
+        let mergedData = [];
+        
+        // Add junction documents first
+        for (const doc of junctionDocs) {
+          if (!seenIds.has(doc.id)) {
+            seenIds.add(doc.id);
+            mergedData.push(doc);
+          }
+        }
+        
+        // Add direct client_id documents (avoiding duplicates)
+        for (const doc of directDocs) {
+          if (!seenIds.has(doc.id)) {
+            seenIds.add(doc.id);
+            mergedData.push(doc);
+          }
+        }
+        
+        console.log('🔍 BACKEND - Junction query results:', junctionDocs.length);
+        console.log('🔍 BACKEND - Direct query results:', directDocs.length);
+        console.log('🔍 BACKEND - Merged unique results (before filters):', mergedData.length);
+        
+        // Apply category filter if provided
+        if (category) {
+          mergedData = mergedData.filter(doc => doc.category === category);
+          console.log('🔍 BACKEND - After category filter:', mergedData.length);
+        }
+        
+        // Apply type filter if provided
+        if (type) {
+          mergedData = mergedData.filter(doc => doc.type === type);
+        }
+        
+        // Map frontend column names to Supabase column names
+        const columnMap = {
+          'uploadedAt': 'created_at',
+          'updatedAt': 'updated_at',
+          'title': 'description'
+        };
+        
+        const mappedSortBy = columnMap[sortBy] || sortBy;
+        
+        // Apply sorting
+        mergedData.sort((a, b) => {
+          const aVal = a[mappedSortBy];
+          const bVal = b[mappedSortBy];
+          if (sortOrder === 'asc') {
+            return aVal > bVal ? 1 : -1;
+          } else {
+            return aVal < bVal ? 1 : -1;
+          }
+        });
+        
+        // Apply pagination
+        const totalCount = mergedData.length;
+        const offset = (parseInt(page) - 1) * parseInt(limit);
+        const paginatedData = mergedData.slice(offset, offset + parseInt(limit));
+        
+        console.log('🔍 BACKEND - Query executed for role:', userRole);
+        console.log('🔍 BACKEND - Query results:', {
+          dataLength: paginatedData.length,
+          count: totalCount,
+          error: (junctionResult.error || directResult.error)?.message || null
+        });
+        
+        // Process documents for client (skip therapist-specific code below)
+        const data = paginatedData;
+        const count = totalCount;
+        const error = junctionResult.error || directResult.error;
+        
+        if (error) throw new Error(error.message);
+        
+        // Get unique user_ids to fetch therapist info
+        const userIds = [...new Set((data || []).map(d => d.user_id).filter(Boolean))];
+        console.log('🔍 BACKEND - Unique user_ids from result:', userIds);
+        
+        // Fetch therapist information
+        let therapistMap = {};
+        if (userIds.length > 0) {
+          const { data: therapists, error: therapistError } = await supabase
+            .from('users')
+            .select('id, name, email')
+            .in('id', userIds);
+          
+          if (therapistError) {
+            console.log('🔍 BACKEND - Error fetching therapists:', therapistError);
+          } else {
+            console.log('🔍 BACKEND - Found therapists:', therapists?.length || 0);
+            therapistMap = (therapists || []).reduce((acc, t) => {
+              acc[t.id] = t;
+              return acc;
+            }, {});
+          }
+        }
+
+        // Get all document IDs to fetch associated clients from document_clients table
+        const documentIds = (data || []).map(d => d.id);
+        let documentClientsMap = {};
+        
+        if (documentIds.length > 0) {
+          console.log('🔍 BACKEND - Fetching associated clients for', documentIds.length, 'documents');
+          const { data: docClients, error: docClientsError } = await supabase
+            .from('document_clients')
+            .select('document_id, client_id, clients(id, name, email, avatar)')
+            .in('document_id', documentIds);
+          
+          if (docClientsError) {
+            console.log('🔍 BACKEND - Error fetching document_clients:', docClientsError);
+          } else {
+            console.log('🔍 BACKEND - Found document_client associations:', docClients?.length || 0);
+            documentClientsMap = (docClients || []).reduce((acc, dc) => {
+              if (!acc[dc.document_id]) {
+                acc[dc.document_id] = [];
+              }
+              acc[dc.document_id].push(dc.clients);
+              return acc;
+            }, {});
+          }
+        }
+
+        const documents = (data || []).map(d => {
+          const doc = new Document.Document(d);
+          const docJson = doc.toJSON();
+          
+          // Add therapist info
+          const therapist = therapistMap[d.user_id];
+          docJson.uploader = therapist ? {
+            id: therapist.id,
+            name: therapist.name,
+            email: therapist.email
+          } : { name: 'Terapeuta' };
+          
+          // Add all associated clients from document_clients table
+          const associatedClients = documentClientsMap[d.id] || [];
+          docJson.clients = associatedClients.map(client => ({
+            id: client.id,
+            name: client.name,
+            email: client.email,
+            avatar: client.avatar
+          }));
+          
+          // Keep backward compatibility with single client field
+          docJson.client = associatedClients.length > 0 ? docJson.clients[0] : (d.client || null);
+          
+          return docJson;
+        });
+        
+        console.log('🔍 BACKEND - Returning documents count for client:', documents.length);
+
+        return res.json({
+          success: true,
+          data: {
+            documents: documents,
+            pagination: {
+              current: parseInt(page),
+              pages: Math.ceil((count || 0) / parseInt(limit)),
+              total: count || 0
+            }
+          }
+        });
       } else {
         // Therapists see their own documents
         console.log('🔍 BACKEND - PATH: THERAPIST - Filtering by user_id:', therapistId);

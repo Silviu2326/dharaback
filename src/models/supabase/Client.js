@@ -233,6 +233,14 @@ class ClientModel {
    * Crear nuevo cliente
    */
   async create(data) {
+    // Check for duplicate email before creating
+    if (data.email) {
+      const existingClient = await this.findOne({ email: data.email.toLowerCase().trim() });
+      if (existingClient) {
+        throw new Error(`Ya existe un cliente con el email: ${data.email}`);
+      }
+    }
+
     // Generate password if not provided
     if (!data.password) {
       const randomPassword = generateRandomPassword(12);

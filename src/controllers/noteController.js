@@ -155,7 +155,7 @@ const noteController = {
   // Get a specific note
   async getNote(req, res, next) {
     try {
-      const { noteId } = req.params;
+      const { id: noteId } = req.params;
       const userId = req.user.id;
 
       const note = await Note.findById(noteId);
@@ -287,7 +287,7 @@ const noteController = {
         return next(new AppError('Validation failed', 400, errors.array()));
       }
 
-      const { noteId } = req.params;
+      const { id: noteId } = req.params;
       const userId = req.user.id;
       const updates = req.body;
 
@@ -365,7 +365,7 @@ const noteController = {
   // Delete a note
   async deleteNote(req, res, next) {
     try {
-      const { noteId } = req.params;
+      const { id: noteId } = req.params;
       const userId = req.user.id;
 
       const note = await Note.findById(noteId);
@@ -393,7 +393,7 @@ const noteController = {
   // Toggle pin status
   async togglePin(req, res, next) {
     try {
-      const { noteId } = req.params;
+      const { id: noteId } = req.params;
       const userId = req.user.id;
 
       const note = await Note.findById(noteId);
@@ -426,7 +426,7 @@ const noteController = {
   // Add a response to a note
   async addResponse(req, res, next) {
     try {
-      const { noteId } = req.params;
+      const { id: noteId } = req.params;
       const { content } = req.body;
       const userId = req.user.id;
 
@@ -460,7 +460,7 @@ const noteController = {
   // Mark response as read
   async markResponseRead(req, res, next) {
     try {
-      const { noteId, responseId } = req.params;
+      const { id: noteId, responseId } = req.params;
       const userId = req.user.id;
 
       const note = await Note.findById(noteId);
@@ -748,7 +748,7 @@ const noteController = {
   // Complete reminder
   async completeReminder(req, res, next) {
     try {
-      const { noteId, reminderId } = req.params;
+      const { id: noteId, reminderId } = req.params;
       const userId = req.user.id;
 
       const note = await Note.findById(noteId);
