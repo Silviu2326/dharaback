@@ -34,20 +34,46 @@ const createConnectAccount = asyncHandler(async (req, res) => {
     if (user.stripe_connect_account_id) {
       console.log(`ℹ️ [createConnectAccount] Usuario ya tiene cuenta: ${user.stripe_connect_account_id}`);
       
-      // Obtener el enlace de onboarding existente
-      const onboardingUrl = await stripeService.getConnectOnboardingUrl(
-        user.stripe_connect_account_id,
-        process.env.FRONTEND_URL || 'http://localhost:5173'
-      );
+      try {
+        // Intentar obtener el enlace de onboarding existente
+        const onboardingUrl = await stripeService.getConnectOnboardingUrl(
+          user.stripe_connect_account_id,
+          process.env.FRONTEND_URL || 'http://localhost:5173'
+        );
 
-      return res.status(200).json({
-        success: true,
-        message: 'Ya tienes una cuenta de Stripe Connect',
-        data: {
-          url: onboardingUrl,
-          accountId: user.stripe_connect_account_id
+        return res.status(200).json({
+          success: true,
+          message: 'Ya tienes una cuenta de Stripe Connect',
+          data: {
+            url: onboardingUrl,
+            accountId: user.stripe_connect_account_id
+          }
+        });
+      } catch (error) {
+        // Si la cuenta es inválida, limpiarla y crear una nueva
+        if (error.message && (
+          error.message.includes('does not have access to account') ||
+          error.message.includes('account_invalid') ||
+          error.message.includes('StripePermissionError')
+        )) {
+          console.log(`🧹 [createConnectAccount] Cuenta existente inválida, limpiando y creando nueva: ${user.stripe_connect_account_id}`);
+          
+          // Limpiar la referencia inválida
+          await supabase
+            .from('users')
+            .update({
+              stripe_connect_account_id: null,
+              stripe_connect_status: null,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', userId);
+          
+          // Continuar con la creación de nueva cuenta (no hacer return)
+        } else {
+          // Si es otro error, lanzarlo
+          throw error;
         }
-      });
+      }
     }
 
     // Crear nueva cuenta de Stripe Connect
@@ -217,6 +243,49 @@ const getConnectStatus = asyncHandler(async (req, res) => {
 
   } catch (error) {
     console.error(`❌ [getConnectStatus] Error:`, error);
+    
+    // Verificar si es un error de permisos de Stripe (cuenta inválida o sin acceso)
+    if (error.message && (
+      error.message.includes('does not have access to account') ||
+      error.message.includes('account_invalid') ||
+      error.message.includes('StripePermissionError') ||
+      error.message.includes('Application access may have been revoked')
+    )) {
+      console.log(`🧹 [getConnectStatus] Cuenta inválida detectada. Limpiando referencia para usuario: ${userId}`);
+      
+      // Limpiar la referencia de cuenta inválida
+      try {
+        const { error: clearError } = await supabase
+          .from('users')
+          .update({
+            stripe_connect_account_id: null,
+            stripe_connect_status: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', userId);
+        
+        if (clearError) {
+          console.error(`❌ [getConnectStatus] Error limpiando cuenta inválida:`, clearError);
+        } else {
+          console.log(`✅ [getConnectStatus] Cuenta inválida limpiada exitosamente`);
+        }
+      } catch (clearCatchError) {
+        console.error(`❌ [getConnectStatus] Error al limpiar:`, clearCatchError);
+      }
+      
+      // Retornar estado de no conectado para que el usuario pueda reconectar
+      return res.status(200).json({
+        success: true,
+        data: {
+          connected: false,
+          accountId: null,
+          dashboardUrl: null,
+          requirements: null,
+          message: 'La cuenta de Stripe Connect ya no es válida. Por favor, conecta una nueva cuenta.'
+        }
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: error.message || 'Error obteniendo estado de Stripe Connect'
@@ -261,6 +330,35 @@ const getDashboardUrl = asyncHandler(async (req, res) => {
 
   } catch (error) {
     console.error(`❌ [getDashboardUrl] Error:`, error);
+    
+    // Verificar si es un error de permisos de Stripe (cuenta inválida)
+    if (error.message && (
+      error.message.includes('does not have access to account') ||
+      error.message.includes('account_invalid') ||
+      error.message.includes('StripePermissionError')
+    )) {
+      // Limpiar la referencia de cuenta inválida
+      try {
+        await supabase
+          .from('users')
+          .update({
+            stripe_connect_account_id: null,
+            stripe_connect_status: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', userId);
+        
+        console.log(`✅ [getDashboardUrl] Cuenta inválida limpiada`);
+      } catch (clearError) {
+        console.error(`❌ [getDashboardUrl] Error limpiando cuenta:`, clearError);
+      }
+      
+      return res.status(400).json({
+        success: false,
+        message: 'La cuenta de Stripe Connect ya no es válida. Por favor, conecta una nueva cuenta.'
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: error.message || 'Error obteniendo URL del dashboard'

@@ -13,6 +13,7 @@ const noteController = {
         limit = 20,
         category,
         clientId,
+        client_id,
         tags,
         isPinned,
         sortBy = 'created_at',
@@ -20,53 +21,120 @@ const noteController = {
         search
       } = req.query;
 
-      // Use the getVisibleNotes method which handles visibility
+      // Support both clientId (camelCase) and client_id (snake_case)
+      const effectiveClientId = clientId || client_id;
+      
+      console.log('🔍 [getNotes] REQUEST:', {
+        userId,
+        effectiveClientId,
+        category,
+        tags,
+        isPinned
+      });
+
+      // Build filters
+      const filters = { user_id: userId };
+      
+      if (effectiveClientId) {
+        filters.client_id = effectiveClientId;
+      }
+      
+      if (category) {
+        filters.category = category;
+      }
+      
+      if (isPinned !== undefined) {
+        filters.is_pinned = isPinned === 'true';
+      }
+      
+      if (tags) {
+        const tagArray = tags.split(',').map(tag => tag.trim());
+        filters.tags = { overlaps: tagArray };
+      }
+      
+      if (search) {
+        filters.or = [
+          { title: { ilike: `%${search}%` } },
+          { content: { ilike: `%${search}%` } }
+        ];
+      }
+
+      console.log('🔍 [getNotes] FILTERS:', filters);
+
+      // Use Supabase directly for pagination and sorting
       let query = supabase
         .from('notes')
         .select('*', { count: 'exact' })
         .eq('user_id', userId);
 
-      // Apply filters
-      if (category) query = query.eq('category', category);
-      if (clientId) query = query.eq('client_id', clientId);
-      if (isPinned !== undefined) query = query.eq('is_pinned', isPinned === 'true');
+      if (effectiveClientId) {
+        query = query.eq('client_id', effectiveClientId);
+      }
+
+      if (category) {
+        query = query.eq('category', category);
+      }
+
+      if (isPinned !== undefined) {
+        query = query.eq('is_pinned', isPinned === 'true');
+      }
+
       if (tags) {
         const tagArray = tags.split(',').map(tag => tag.trim());
         query = query.overlaps('tags', tagArray);
       }
+
       if (search) {
         query = query.or(`title.ilike.%${search}%,content.ilike.%${search}%`);
       }
 
-      // Apply sorting - pinned first, then by sortBy
       query = query.order('is_pinned', { ascending: false })
                    .order(sortBy, { ascending: sortOrder === 'asc' });
 
-      // Apply pagination
       const offset = (parseInt(page) - 1) * parseInt(limit);
       query = query.range(offset, offset + parseInt(limit) - 1);
 
       const { data, error, count } = await query;
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error('❌ [getNotes] DATABASE ERROR:', error);
+        throw new Error(error.message);
+      }
+
+      console.log('🔍 [getNotes] RAW DATA:', {
+        count: data?.length || 0,
+        total: count,
+        clientIds: data?.map(n => ({ id: n.id, client_id: n.client_id }))
+      });
 
       const notes = (data || []).map(n => new Note.Note(n));
 
-      // Populate client data if needed
+      // Populate client data
       const populatedNotes = await Promise.all(
         notes.map(async (note) => {
           const noteData = note.toJSON();
           if (note.clientId) {
-            const client = await Client.findById(note.clientId);
-            noteData.client = client ? {
-              id: client.id,
-              name: client.name,
-              avatar: client.avatar
-            } : null;
+            try {
+              const client = await Client.findById(note.clientId);
+              noteData.client = client ? {
+                id: client.id,
+                name: client.name,
+                avatar: client.avatar
+              } : null;
+            } catch (err) {
+              console.error(`❌ Error fetching client ${note.clientId}:`, err.message);
+              noteData.client = null;
+            }
           }
           return noteData;
         })
       );
+
+      console.log('🔍 [getNotes] RESPONSE:', {
+        notesCount: populatedNotes.length,
+        requestedClientId: effectiveClientId,
+        returnedClientIds: populatedNotes.map(n => n.clientId)
+      });
 
       res.json({
         success: true,
