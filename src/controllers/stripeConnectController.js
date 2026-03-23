@@ -125,20 +125,36 @@ const getConnectStatus = asyncHandler(async (req, res) => {
 
   try {
     console.log(`🔍 [getConnectStatus] Obteniendo estado para usuario: ${userId}`);
+    console.log(`🔍 [getConnectStatus] req.user completo:`, JSON.stringify(req.user, null, 2));
 
     // Obtener información del usuario
+    console.log(`🔍 [getConnectStatus] Consultando Supabase tabla 'users'...`);
     const { data: user, error: userError } = await supabase
       .from('users')
       .select('stripe_connect_account_id, stripe_connect_status')
       .eq('id', userId)
       .single();
 
-    if (userError || !user) {
+    console.log(`🔍 [getConnectStatus] Resultado consulta:`, { user, error: userError });
+
+    if (userError) {
+      console.error(`❌ [getConnectStatus] Error de Supabase:`, userError);
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado',
+        error: userError.message
+      });
+    }
+
+    if (!user) {
+      console.error(`❌ [getConnectStatus] Usuario no encontrado en la base de datos`);
       return res.status(404).json({
         success: false,
         message: 'Usuario no encontrado'
       });
     }
+
+    console.log(`✅ [getConnectStatus] Usuario encontrado:`, user);
 
     // Si no tiene cuenta conectada
     if (!user.stripe_connect_account_id) {

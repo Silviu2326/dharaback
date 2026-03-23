@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { User, Client } = require('../models');
+const { supabase } = require('../config/supabase');
 
 // Protect routes - require authentication
 const protect = async (req, res, next) => {
@@ -26,30 +26,48 @@ const protect = async (req, res, next) => {
     try {
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      console.log(`🔐 [protect] Token decodificado:`, decoded);
 
-      // Get user from token (password is not included by default)
-      const user = await User.findById(decoded.id);
+      // Get user from Supabase
+      console.log(`🔐 [protect] Buscando usuario en Supabase con ID:`, decoded.id);
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', decoded.id)
+        .single();
 
-      if (!user) {
+      console.log(`🔐 [protect] Resultado consulta Supabase:`, { user: user ? 'ENCONTRADO' : 'NO ENCONTRADO', error: userError });
+
+      if (userError) {
+        console.error('❌ [protect] Error de Supabase:', userError);
         return res.status(401).json({
           success: false,
           message: 'Access denied. User not found.'
         });
       }
 
+      if (!user) {
+        console.error('❌ [protect] Usuario no encontrado en Supabase para ID:', decoded.id);
+        return res.status(401).json({
+          success: false,
+          message: 'Access denied. User not found.'
+        });
+      }
+
+      console.log(`✅ [protect] Usuario encontrado:`, { id: user.id, email: user.email, role: user.role });
+
       // Check if user is active
-      if (!user.isActive) {
+      if (user.status !== 'active' && user.isActive === false) {
+        console.log(`❌ [protect] Usuario no está activo. status:`, user.status, 'isActive:', user.isActive);
         return res.status(401).json({
           success: false,
           message: 'Access denied. User account is deactivated.'
         });
       }
 
-      // Remove password from user object
-      user.password = undefined;
-
       // Add user to request object
       req.user = user;
+      console.log(`✅ [protect] Usuario agregado a req.user, llamando next()`);
       next();
 
     } catch (error) {
@@ -129,11 +147,14 @@ const optionalAuth = async (req, res, next) => {
         // Verify token
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-        // Get user from token
-        const user = await User.findById(decoded.id);
+        // Get user from Supabase
+        const { data: user, error: userError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', decoded.id)
+          .single();
 
-        if (user && user.isActive) {
-          user.password = undefined;
+        if (user && (user.status === 'active' || user.isActive !== false)) {
           req.user = user;
         }
       } catch (error) {
@@ -246,12 +267,16 @@ const protectClient = async (req, res, next) => {
         });
       }
 
-      // Get client from token
+      // Get client from Supabase
       console.log('👤 Buscando cliente con ID:', decoded.id);
-      const client = await Client.findById(decoded.id);
+      const { data: client, error: clientError } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('id', decoded.id)
+        .single();
 
-      if (!client) {
-        console.log('❌ Cliente no encontrado en la base de datos');
+      if (clientError || !client) {
+        console.log('❌ Cliente no encontrado en la base de datos:', clientError);
         return res.status(401).json({
           success: false,
           message: 'Access denied. Client not found.'
@@ -268,9 +293,6 @@ const protectClient = async (req, res, next) => {
           message: 'Access denied. Client account is not active.'
         });
       }
-
-      // Remove password from client object
-      client.password = undefined;
 
       // Add client to request object
       req.user = client;
@@ -320,12 +342,19 @@ const protectMixed = async (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
       let user;
-
-      // Check token type and get appropriate user
       let userType = 'therapist'; // default
+
+      // Check token type and get appropriate user from Supabase
       if (decoded.type === 'client') {
-        user = await Client.findById(decoded.id);
+        const { data: client, error: clientError } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('id', decoded.id)
+          .single();
+        
+        user = client;
         userType = 'client';
+        
         if (user && user.status !== 'active') {
           return res.status(401).json({
             success: false,
@@ -333,9 +362,16 @@ const protectMixed = async (req, res, next) => {
           });
         }
       } else {
-        // Default to User model for backward compatibility
-        user = await User.findById(decoded.id);
-        if (user && !user.isActive) {
+        // Default to users table for therapists
+        const { data: therapist, error: userError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', decoded.id)
+          .single();
+        
+        user = therapist;
+        
+        if (user && (user.status !== 'active' && user.isActive === false)) {
           return res.status(401).json({
             success: false,
             message: 'Access denied. User account is deactivated.'
@@ -350,15 +386,11 @@ const protectMixed = async (req, res, next) => {
         });
       }
 
-      // Remove password from user object
-      user.password = undefined;
-
-      // Convert to plain object and add type info
-      const userObj = user.toJSON ? user.toJSON() : JSON.parse(JSON.stringify(user));
+      // Add type info to user object
       req.user = {
-        ...userObj,
+        ...user,
         type: userType,
-        role: userType === 'client' ? 'client' : (userObj.role || 'therapist')
+        role: userType === 'client' ? 'client' : (user.role || 'therapist')
       };
       next();
 
