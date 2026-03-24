@@ -223,26 +223,40 @@ const createBookingWithPayment = asyncHandler(async (req, res, next) => {
     console.log('    - Status:', finalPaymentMethod === 'stripe' ? 'pending_payment' : 'pending');
     console.log('    - Payment Status:', finalPaymentMethod === 'stripe' ? 'pending' : (finalPaymentMethod === 'manual' ? 'manual' : 'exempt'));
     
+    // Build insert object
+    const insertData = {
+      therapist_id: therapistId,
+      client_id: clientId,
+      therapy_type: service.name || 'Sesión individual',
+      therapy_duration: service.duration || 60,
+      date: appointment.date,
+      start_time: appointment.time,
+      end_time: endTime,
+      status: finalPaymentMethod === 'stripe' ? 'pending_payment' : 'pending',
+      payment_status: finalPaymentMethod === 'stripe' ? 'pending' : 'unpaid',
+      amount: finalAmount / totalSessions,
+      currency: 'EUR',
+      payment_method: finalPaymentMethod === 'stripe' ? 'online' : 'cash',
+      location: 'No especificado',
+      original_amount: sessionPrice,
+      discount_amount: appliedCoupon ? (discountAmount / totalSessions) : 0,
+      final_amount: finalAmount / totalSessions,
+      coupon_code: appliedCoupon?.code || null,
+      requires_online_payment: finalPaymentMethod === 'stripe',
+      session_number: i + 1,
+      total_sessions: totalSessions,
+      notes: `Servicio: ${service.name}${appliedCoupon ? ` (Cupón: ${appliedCoupon.code})` : ''}${finalPaymentMethod === 'manual' ? ' (Pago manual)' : ''}`
+    };
+
+    // Only add service_id if it's a valid UUID (not a timestamp-based ID)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (serviceId && uuidRegex.test(serviceId)) {
+      insertData.service_id = serviceId;
+    }
+
     const { data: booking, error: bookingError } = await supabase
       .from('bookings')
-      .insert({
-        therapist_id: therapistId,
-        client_id: clientId,
-        service_id: serviceId,
-        date: appointment.date,
-        start_time: appointment.time,
-        end_time: endTime,
-        status: finalPaymentMethod === 'stripe' ? 'pending_payment' : 'pending',
-        payment_status: finalPaymentMethod === 'stripe' ? 'pending' : (finalPaymentMethod === 'manual' ? 'manual' : 'exempt'),
-        original_amount: sessionPrice,
-        discount_amount: appliedCoupon ? (discountAmount / totalSessions) : 0,
-        final_amount: finalAmount / totalSessions,
-        coupon_code: appliedCoupon?.code || null,
-        requires_online_payment: finalPaymentMethod === 'stripe',
-        session_number: i + 1,
-        total_sessions: totalSessions,
-        notes: `Servicio: ${service.name}${appliedCoupon ? ` (Cupón: ${appliedCoupon.code})` : ''}`
-      })
+      .insert(insertData)
       .select()
       .single();
     

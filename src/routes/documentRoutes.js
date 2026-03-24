@@ -96,7 +96,40 @@ const updateValidation = [
   body('tags')
     .optional()
     .isArray()
-    .withMessage('Tags must be an array')
+    .withMessage('Tags must be an array'),
+  body('clientIds')
+    .optional()
+    .isArray()
+    .withMessage('clientIds must be an array')
+    .custom((value) => {
+      if (!value || !Array.isArray(value)) return true;
+      // Accept both MongoDB ObjectId and UUID formats
+      const isValidId = (id) => {
+        const isMongoId = /^[0-9a-fA-F]{24}$/.test(id);
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+        return isMongoId || isUUID;
+      };
+      const allValid = value.every(id => isValidId(id));
+      if (!allValid) {
+        throw new Error('All clientIds must be valid IDs');
+      }
+      return true;
+    }),
+  body('clientId')
+    .optional()
+    .custom((value) => {
+      if (!value) return true;
+      const isMongoId = /^[0-9a-fA-F]{24}$/.test(value);
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+      if (!isMongoId && !isUUID) {
+        throw new Error('Client ID must be valid');
+      }
+      return true;
+    }),
+  body('description')
+    .optional()
+    .isString()
+    .withMessage('Description must be a string')
 ];
 
 const shareValidation = [

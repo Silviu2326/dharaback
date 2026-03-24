@@ -28,13 +28,65 @@ const protect = async (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       console.log(`🔐 [protect] Token decodificado:`, decoded);
 
-      // Get user from Supabase
+      let user;
+      let userError;
+
+      // Check if token is for client
+      if (decoded.type === 'client') {
+        console.log(`🔐 [protect] Token es de cliente, buscando en clients`);
+        const { data: client, error: clientError } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('id', decoded.id)
+          .single();
+        
+        user = client;
+        userError = clientError;
+
+        if (clientError) {
+          console.error('❌ [protect] Error de Supabase (clients):', clientError);
+          return res.status(401).json({
+            success: false,
+            message: 'Access denied. Client not found.'
+          });
+        }
+
+        if (!client) {
+          console.error('❌ [protect] Cliente no encontrado en Supabase para ID:', decoded.id);
+          return res.status(401).json({
+            success: false,
+            message: 'Access denied. Client not found.'
+          });
+        }
+
+        console.log(`✅ [protect] Cliente encontrado:`, { id: client.id, email: client.email });
+
+        // Check if client is active
+        if (client.status !== 'active') {
+          console.log(`❌ [protect] Cliente no está activo. status:`, client.status);
+          return res.status(401).json({
+            success: false,
+            message: 'Access denied. Client account is not active.'
+          });
+        }
+
+        req.user = client;
+        req.user.role = 'client'; // Ensure role is set for clients
+        console.log(`✅ [protect] Cliente agregado a req.user, llamando next()`);
+        next();
+        return;
+      }
+
+      // Get user from Supabase (for non-client tokens)
       console.log(`🔐 [protect] Buscando usuario en Supabase con ID:`, decoded.id);
-      const { data: user, error: userError } = await supabase
+      const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', decoded.id)
         .single();
+
+      user = data;
+      userError = error;
 
       console.log(`🔐 [protect] Resultado consulta Supabase:`, { user: user ? 'ENCONTRADO' : 'NO ENCONTRADO', error: userError });
 

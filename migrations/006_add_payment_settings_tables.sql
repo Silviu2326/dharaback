@@ -103,8 +103,7 @@ CREATE TRIGGER update_client_payment_preferences_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
--- Insert default settings for existing therapists (optional, based on your needs)
--- Uncomment if you want to create default entries for existing users
+-- Insert default settings for existing therapists (optional)
 -- INSERT INTO therapist_payment_settings (therapist_id, subscription_plan)
 -- SELECT id, 'basico' FROM users WHERE role = 'therapist'
 -- ON CONFLICT (therapist_id) DO NOTHING;

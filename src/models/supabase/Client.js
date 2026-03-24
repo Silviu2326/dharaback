@@ -376,7 +376,11 @@ class ClientModel {
     
     if (updateData.name) data.name = updateData.name;
     if (updateData.email) data.email = updateData.email;
-    if (updateData.password) data.password = updateData.password;
+    if (updateData.password) {
+      // Hashear la contraseña antes de guardarla
+      const salt = await bcrypt.genSalt(10);
+      data.password = await bcrypt.hash(updateData.password, salt);
+    }
     if (updateData.phone) data.phone = updateData.phone;
     if (updateData.avatar !== undefined) data.avatar = updateData.avatar;
     if (updateData.status) data.status = updateData.status;

@@ -16,7 +16,9 @@ const reviewController = {
         hasResponse,
         sortBy = 'created_at',
         sortOrder = 'desc',
-        tags
+        tags,
+        clientId,
+        reviewerId
       } = req.query;
 
       // Mapear nombres de columnas del frontend a nombres reales en PostgreSQL
@@ -37,6 +39,12 @@ const reviewController = {
         .from('reviews')
         .select('*, client:client_id(*), booking:booking_id(*)', { count: 'exact' })
         .eq('therapist_id', therapistId);
+
+      // Filtrar por cliente específico (el que escribió la review)
+      const effectiveClientId = clientId || reviewerId;
+      if (effectiveClientId) {
+        query = query.eq('client_id', effectiveClientId);
+      }
 
       if (rating) query = query.eq('rating', parseInt(rating));
       if (isPublic !== undefined) query = query.eq('is_public', isPublic === 'true');
