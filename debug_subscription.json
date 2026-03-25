@@ -1,0 +1,26 @@
+{
+  "timestamp": "2026-03-25T16:09:14.468Z",
+  "therapistId": "51c7c3c7-dc65-4776-8e51-cba2e19281a3",
+  "usersTable": {
+    "stripe_connect_account_id": "acct_1TEiXGE1hRL9BSKS",
+    "stripe_connect_status": "pending"
+  },
+  "therapistPaymentSettingsTable": {
+    "subscription_plan": "avanzado-pro",
+    "can_accept_online_payments": true
+  },
+  "calculatedValues": {
+    "hasActiveStripe": false,
+    "canAcceptOnlinePayments": true
+  },
+  "actions": {
+    "updatedSettings": false
+  },
+  "response": {
+    "plan": "avanzado-pro",
+    "isPro": true,
+    "canAcceptOnlinePayments": true,
+    "stripeConnectAccountId": "acct_1TEiXGE1hRL9BSKS",
+    "connectAccountStatus": "pending"
+  }
+}

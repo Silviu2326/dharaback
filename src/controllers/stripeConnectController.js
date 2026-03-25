@@ -212,6 +212,25 @@ const getConnectStatus = asyncHandler(async (req, res) => {
           updated_at: new Date().toISOString()
         })
         .eq('id', userId);
+
+      // Actualizar therapist_payment_settings para permitir pagos online
+      if (isFullyOnboarded) {
+        const { error: settingsError } = await supabase
+          .from('therapist_payment_settings')
+          .upsert({
+            therapist_id: userId,
+            can_accept_online_payments: true,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'therapist_id'
+          });
+
+        if (settingsError) {
+          console.error('❌ Error actualizando therapist_payment_settings:', settingsError);
+        } else {
+          console.log(`✅ can_accept_online_payments actualizado para usuario ${userId}`);
+        }
+      }
     }
 
     // Obtener URL del dashboard si está activa
@@ -501,6 +520,25 @@ async function handleAccountUpdated(account) {
         .eq('id', user.id);
 
       console.log(`✅ Estado actualizado para usuario ${user.id}: ${newStatus}`);
+    }
+
+    // Actualizar therapist_payment_settings para permitir pagos online
+    if (isFullyOnboarded) {
+      const { error: settingsError } = await supabase
+        .from('therapist_payment_settings')
+        .upsert({
+          therapist_id: user.id,
+          can_accept_online_payments: true,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'therapist_id'
+        });
+
+      if (settingsError) {
+        console.error('❌ Error actualizando therapist_payment_settings:', settingsError);
+      } else {
+        console.log(`✅ can_accept_online_payments actualizado para usuario ${user.id}`);
+      }
     }
 
   } catch (error) {

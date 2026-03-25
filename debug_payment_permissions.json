@@ -1,0 +1,22 @@
+{
+  "timestamp": "2026-03-25T16:06:30.982Z",
+  "therapistId": "24eb106f-dc32-40e6-9c4f-de4f5b065a06",
+  "clientId": "6bb42843-e46c-4971-b801-1eea8e87ed14",
+  "therapistSettings": {
+    "subscription_plan": "avanzado-pro",
+    "can_accept_online_payments": true
+  },
+  "userData": {
+    "stripe_connect_status": "active",
+    "stripe_connect_account_id": "acct_1TE4Z1CzMCYwOoPU"
+  },
+  "isPro": true,
+  "hasActiveStripeConnect": "acct_1TE4Z1CzMCYwOoPU",
+  "canUseStripe": true,
+  "clientPrefs": null,
+  "isNewClient": true,
+  "availableMethods": [
+    "stripe"
+  ],
+  "defaultMethod": "stripe"
+}

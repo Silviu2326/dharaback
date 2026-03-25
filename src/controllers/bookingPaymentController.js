@@ -38,9 +38,20 @@ const createBookingWithPayment = asyncHandler(async (req, res, next) => {
   
   // 1. Verificar permisos del terapeuta
   console.log('\n🔍 [Paso 1] Verificando configuración del terapeuta...');
+  
+  // Primero obtener stripe_connect_account_id de la tabla users
+  const { data: userData, error: userError } = await supabase
+    .from('users')
+    .select('stripe_connect_account_id, stripe_connect_status')
+    .eq('id', therapistId)
+    .single();
+  
+  console.log('   - stripe_connect_account_id (desde users):', userData?.stripe_connect_account_id || 'No configurado');
+  console.log('   - stripe_connect_status (desde users):', userData?.stripe_connect_status);
+  
   const { data: therapistSettings, error: therapistError } = await supabase
     .from('therapist_payment_settings')
-    .select('subscription_plan, can_accept_online_payments, stripe_connect_account_id, platform_fee_percent')
+    .select('subscription_plan, can_accept_online_payments, platform_fee_percent')
     .eq('therapist_id', therapistId)
     .single();
   
@@ -50,12 +61,13 @@ const createBookingWithPayment = asyncHandler(async (req, res, next) => {
   }
   
   const isProPlan = therapistSettings?.subscription_plan === 'avanzado-pro';
+  const stripeConnectAccountId = userData?.stripe_connect_account_id;
   
   console.log('✅ Configuración del terapeuta:');
   console.log('  - Plan:', therapistSettings?.subscription_plan || 'No configurado');
   console.log('  - isProPlan:', isProPlan);
   console.log('  - can_accept_online_payments:', therapistSettings?.can_accept_online_payments);
-  console.log('  - stripe_connect_account_id:', therapistSettings?.stripe_connect_account_id ? 'Configurado' : 'No configurado');
+  console.log('  - stripe_connect_account_id:', stripeConnectAccountId || 'No configurado');
   console.log('  - platform_fee_percent:', therapistSettings?.platform_fee_percent);
   
   // 2. Verificar preferencias del cliente
@@ -246,8 +258,8 @@ const createBookingWithPayment = asyncHandler(async (req, res, next) => {
     const endTime = `${String(endDateTime.getHours()).padStart(2, '0')}:${String(endDateTime.getMinutes()).padStart(2, '0')}`;
     
     console.log('    - Hora fin calculada:', endTime);
-    console.log('    - Status:', finalPaymentMethod === 'stripe' ? 'pending_payment' : 'pending');
-    console.log('    - Payment Status:', finalPaymentMethod === 'stripe' ? 'pending' : (finalPaymentMethod === 'manual' ? 'manual' : 'exempt'));
+    console.log('    - Status:', finalPaymentMethod === 'stripe' ? 'pending' : 'pending');
+    console.log('    - Payment Status:', finalPaymentMethod === 'stripe' ? 'unpaid' : (finalPaymentMethod === 'manual' ? 'unpaid' : 'paid'));
     
     // Build insert object
     const insertData = {
@@ -258,8 +270,8 @@ const createBookingWithPayment = asyncHandler(async (req, res, next) => {
       date: appointment.date,
       start_time: appointment.time,
       end_time: endTime,
-      status: finalPaymentMethod === 'stripe' ? 'pending_payment' : 'pending',
-      payment_status: finalPaymentMethod === 'stripe' ? 'pending' : 'unpaid',
+      status: 'pending',
+      payment_status: 'unpaid',
       amount: finalAmount / totalSessions,
       currency: 'EUR',
       payment_method: finalPaymentMethod === 'stripe' ? 'online' : 'cash',
@@ -366,17 +378,17 @@ const createBookingWithPayment = asyncHandler(async (req, res, next) => {
   
   // 9. Verificar Stripe Connect account
   console.log('\n🔍 [Paso 9] Verificando cuenta Stripe Connect...');
-  console.log('   - stripe_connect_account_id:', therapistSettings?.stripe_connect_account_id || 'NO CONFIGURADO');
+  console.log('   - stripe_connect_account_id:', stripeConnectAccountId || 'NO CONFIGURADO');
   
-  if (!therapistSettings?.stripe_connect_account_id) {
+  if (!stripeConnectAccountId) {
     console.log('   ❌ Error: Terapeuta no tiene cuenta Stripe Connect');
     return next(new AppError('El terapeuta no tiene configurada la cuenta de Stripe', 400));
   }
   
   console.log('   ✅ Cuenta Stripe Connect configurada');
   
-  // 10. Crear PaymentIntent en Stripe
-  console.log('\n🔍 [Paso 10] Creando PaymentIntent en Stripe...');
+  // 10. Crear Stripe Checkout Session (en vez de PaymentIntent directo)
+  console.log('\n🔍 [Paso 10] Creando Stripe Checkout Session...');
   const platformFeePercent = therapistSettings?.platform_fee_percent || 10;
   const platformFee = Math.round(finalAmount * 100 * (platformFeePercent / 100));
   const amountInCents = Math.round(finalAmount * 100);
@@ -384,7 +396,7 @@ const createBookingWithPayment = asyncHandler(async (req, res, next) => {
   console.log('   - Monto (céntimos):', amountInCents);
   console.log('   - Moneda: eur');
   console.log('   - Platform Fee (céntimos):', platformFee, `(${platformFeePercent}%)`);
-  console.log('   - Cuenta destino (Connect):', therapistSettings.stripe_connect_account_id);
+  console.log('   - Cuenta destino (Connect):', stripeConnectAccountId);
   console.log('   - Metadata:', {
     booking_ids: createdBookings.map(b => b.id),
     therapist_id: therapistId,
@@ -393,52 +405,91 @@ const createBookingWithPayment = asyncHandler(async (req, res, next) => {
     appointments_count: totalSessions,
     final_amount: finalAmount
   });
-  
+
   try {
-    console.log('   🚀 Llamando a stripe.paymentIntents.create()...');
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountInCents,
-      currency: 'eur',
-      application_fee_amount: platformFee,
-      transfer_data: {
-        destination: therapistSettings.stripe_connect_account_id,
+    console.log('   🚀 Llamando a stripe.checkout.sessions.create()...');
+    
+    // Obtener email del cliente si existe
+    const { data: clientData } = await supabase
+      .from('clients')
+      .select('email, name')
+      .eq('id', clientId)
+      .single();
+    
+    const clientEmail = clientData?.email || null;
+    const clientName = clientData?.name || null;
+    
+    const checkoutSession = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: 'eur',
+            product_data: {
+              name: `Cita con ${therapistSettings?.therapistName || 'terapeuta'} - ${service.name}`,
+              description: `${totalSessions} sesión(es) de ${service.duration || 50} minutos`
+            },
+            unit_amount: amountInCents,
+          },
+          quantity: 1,
+        },
+      ],
+      payment_intent_data: {
+        application_fee_amount: platformFee,
+        transfer_data: {
+          destination: stripeConnectAccountId,
+        },
+        metadata: {
+          booking_ids: JSON.stringify(createdBookings.map(b => b.id)),
+          therapist_id: therapistId,
+          client_id: clientId,
+          service_name: service.name,
+          appointments_count: totalSessions.toString(),
+          coupon_code: appliedCoupon?.code || '',
+          discount_amount: discountAmount.toFixed(2),
+          platform_fee_percent: platformFeePercent.toString(),
+          original_amount: totalAmount.toFixed(2),
+          final_amount: finalAmount.toFixed(2)
+        },
       },
       metadata: {
         booking_ids: JSON.stringify(createdBookings.map(b => b.id)),
         therapist_id: therapistId,
         client_id: clientId,
         service_name: service.name,
-        appointments_count: totalSessions,
-        coupon_code: appliedCoupon?.code || '',
-        discount_amount: discountAmount.toFixed(2),
-        platform_fee_percent: platformFeePercent,
-        original_amount: totalAmount.toFixed(2),
-        final_amount: finalAmount.toFixed(2)
       },
-      capture_method: 'automatic'
+      success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/booking/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/booking/cancel?session_id={CHECKOUT_SESSION_ID}`,
+      ...(clientEmail && { customer_email: clientEmail }),
+      ...(clientName && { billing_address_collection: 'required' }),
     });
     
-    console.log('   ✅ PaymentIntent creado exitosamente:');
-    console.log('      - ID:', paymentIntent.id);
-    console.log('      - Status:', paymentIntent.status);
-    console.log('      - Client Secret:', paymentIntent.client_secret?.substring(0, 20) + '...');
-    console.log('      - Amount:', paymentIntent.amount);
-    console.log('      - Application Fee:', paymentIntent.application_fee_amount);
+    console.log('   ✅ Checkout Session creada exitosamente:');
+    console.log('      - ID:', checkoutSession.id);
+    console.log('      - Status:', checkoutSession.status);
+    console.log('      - URL:', checkoutSession.url?.substring(0, 50) + '...');
+    console.log('      - Payment Intent:', checkoutSession.payment_intent);
     
-    // 11. Actualizar bookings con payment_intent_id
-    console.log('\n🔍 [Paso 11] Actualizando bookings con payment_intent_id...');
-    const { error: updateError } = await supabase
-      .from('bookings')
-      .update({ 
-        payment_intent_id: paymentIntent.id,
-        updated_at: new Date().toISOString()
-      })
-      .in('id', createdBookings.map(b => b.id));
+    // Guardar el payment intent ID para actualizar después
+    const stripePaymentIntentId = checkoutSession.payment_intent;
     
-    if (updateError) {
-      console.log('   ❌ Error actualizando bookings:', updateError);
-    } else {
-      console.log('   ✅ Bookings actualizados con payment_intent_id');
+    // 11. Actualizar bookings con payment_intent_id (ignoramos error si no existe la columna)
+    if (stripePaymentIntentId) {
+      console.log('\n🔍 [Paso 11] Actualizando bookings con payment_intent_id...');
+      const { error: updateError } = await supabase
+        .from('bookings')
+        .update({ 
+          payment_intent_id: stripePaymentIntentId,
+          updated_at: new Date().toISOString()
+        })
+        .in('id', createdBookings.map(b => b.id));
+      
+      if (updateError) {
+        console.log('   ⚠️ No se pudo actualizar payment_intent_id (columna puede no existir)');
+      } else {
+        console.log('   ✅ Bookings actualizados con payment_intent_id');
+      }
     }
     
     // 12. Crear o verificar conversación entre cliente y terapeuta
@@ -495,8 +546,9 @@ const createBookingWithPayment = asyncHandler(async (req, res, next) => {
       data: {
         bookings: createdBookings,
         conversationId: conversation?.id || null,
-        clientSecret: paymentIntent.client_secret,
-        paymentIntentId: paymentIntent.id,
+        checkoutUrl: checkoutSession.url,
+        checkoutSessionId: checkoutSession.id,
+        paymentIntentId: stripePaymentIntentId,
         amount: finalAmount,
         discount: discountAmount,
         paymentMethod: 'stripe'
@@ -721,25 +773,47 @@ async function handleRefund(charge) {
  * @access  Private
  */
 const getPaymentPermissions = asyncHandler(async (req, res, next) => {
+  const fs = require('fs');
+  const path = require('path');
+  const debugFilePath = path.join(__dirname, '..', '..', 'debug_payment_permissions.json');
+  
   const { therapistId } = req.params;
   const clientId = req.user.id;
   
-  // Verificar configuración del terapeuta
+  // Verificar configuración del terapeuta desde therapist_payment_settings
   const { data: therapistSettings, error } = await supabase
     .from('therapist_payment_settings')
-    .select('subscription_plan, can_accept_online_payments, connect_account_status')
+    .select('subscription_plan, can_accept_online_payments')
     .eq('therapist_id', therapistId)
     .single();
   
   if (error && error.code !== 'PGRST116') {
     return next(new AppError('Error al verificar permisos', 500));
   }
-  
+
+  // También verificar Stripe Connect status desde la tabla users
+  const { data: userData, error: userError } = await supabase
+    .from('users')
+    .select('stripe_connect_status, stripe_connect_account_id')
+    .eq('id', therapistId)
+    .single();
+
+  console.log('\n🔍 [getPaymentPermissions] Raw values:');
+  console.log('   therapistSettings:', therapistSettings);
+  console.log('   therapistSettings?.subscription_plan:', therapistSettings?.subscription_plan);
+  console.log('   therapistSettings?.can_accept_online_payments:', therapistSettings?.can_accept_online_payments);
+  console.log('   userData?.stripe_connect_status:', userData?.stripe_connect_status);
+  console.log('   userData?.stripe_connect_account_id:', userData?.stripe_connect_account_id ? 'Presente' : 'Ausente');
+
   const isPro = therapistSettings?.subscription_plan === 'avanzado-pro';
-  const canUseStripe = isPro && 
-                       therapistSettings?.can_accept_online_payments &&
-                       therapistSettings?.connect_account_status === 'active';
   
+  // Permitir Stripe si:
+  // 1. Terapeuta tiene plan Pro Y can_accept_online_payments = true, O
+  // 2. Terapeuta tiene stripe_connect_status = 'active' Y stripe_connect_account_id existe
+  const hasActiveStripeConnect = userData?.stripe_connect_status === 'active' && userData?.stripe_connect_account_id;
+  const canUseStripe = isPro && 
+                       (therapistSettings?.can_accept_online_payments || hasActiveStripeConnect);
+
   // Verificar preferencias del cliente
   const { data: clientPrefs, error: prefsError } = await supabase
     .from('client_payment_preferences')
@@ -771,6 +845,26 @@ const getPaymentPermissions = asyncHandler(async (req, res, next) => {
     defaultMethod = 'exempt';
   }
   
+  // Crear archivo debug (solo una vez)
+  if (!fs.existsSync(debugFilePath)) {
+    const debugData = {
+      timestamp: new Date().toISOString(),
+      therapistId,
+      clientId,
+      therapistSettings,
+      userData,
+      isPro,
+      hasActiveStripeConnect,
+      canUseStripe,
+      clientPrefs,
+      isNewClient,
+      availableMethods,
+      defaultMethod
+    };
+    fs.writeFileSync(debugFilePath, JSON.stringify(debugData, null, 2));
+    console.log('📄 Debug file creado:', debugFilePath);
+  }
+
   res.json({
     success: true,
     data: {

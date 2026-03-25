@@ -341,7 +341,7 @@ const registerTherapist = asyncHandler(async (req, res) => {
         defaultTrialDays: 90
       },
       'avanzado-pro': {
-        priceId: process.env.STRIPE_PLAN_AVANZADO_PRO_PRICE_ID || 'price_avanzado_pro_placeholder',
+        priceId: process.env.STRIPE_PLAN_AVANZADO_PRO_PRICE_ID || 'price_1TEsH1CWwvC7shbl6iDqFFck',
         defaultTrialDays: 0
       }
     };
@@ -462,7 +462,7 @@ const createTherapistSubscription = asyncHandler(async (req, res) => {
       nombre: 'Avanzado'
     },
     'avanzado-pro': {
-      priceId: process.env.STRIPE_PLAN_AVANZADO_PRO_PRICE_ID || 'price_1TCACNECp38q24a3lXLZEfgl',
+      priceId: process.env.STRIPE_PLAN_AVANZADO_PRO_PRICE_ID || 'price_1TEsH1CWwvC7shbl6iDqFFck',
       defaultTrialDays: 0,
       nombre: 'Avanzado Pro'
     }
@@ -475,6 +475,7 @@ const createTherapistSubscription = asyncHandler(async (req, res) => {
     const frontendUrl = process.env.FRONTEND_URL || 'https://dhara-peach.vercel.app';
 
     const session = await stripeService.createSubscriptionCheckout({
+      priceId: selectedPlan.priceId,
       email,
       name: nombre,
       trialDays: finalTrialDays,
@@ -496,6 +497,76 @@ const createTherapistSubscription = asyncHandler(async (req, res) => {
       plan: plan,
       trialDays: finalTrialDays
     });
+
+    // Actualizar el plan inmediatamente en la base de datos
+    // (el webhook también lo hará, pero esto asegura que el plan se actualice sin demora)
+    if (userId) {
+      // Actualizar subscription_status y stripe_customer_id en users
+      const updateData = {
+        subscription_status: plan === 'avanzado-pro' ? 'active' : 'trial',
+        updated_at: new Date().toISOString()
+      };
+      
+      if (session.customerId) {
+        updateData.stripe_customer_id = session.customerId;
+      }
+      
+      const { error: updateUserError } = await supabase
+        .from('users')
+        .update(updateData)
+        .eq('id', userId);
+
+      if (updateUserError) {
+        console.error('❌ Error updating user subscription_status:', updateUserError);
+      } else {
+        console.log('✅ User subscription_status updated to:', plan === 'avanzado-pro' ? 'active' : 'trial');
+        if (session.customerId) {
+          console.log('✅ stripe_customer_id saved:', session.customerId);
+        }
+      }
+
+      // Actualizar o crear therapist_payment_settings
+      const { data: existingSettings, error: settingsError } = await supabase
+        .from('therapist_payment_settings')
+        .select('*')
+        .eq('therapist_id', userId)
+        .single();
+
+      if (settingsError && settingsError.code !== 'PGRST116') {
+        console.error('❌ Error checking therapist_payment_settings:', settingsError);
+      } else if (existingSettings) {
+        const { error: updatePlanError } = await supabase
+          .from('therapist_payment_settings')
+          .update({
+            subscription_plan: plan,
+            can_accept_online_payments: plan === 'avanzado-pro' || existingSettings.can_accept_online_payments,
+            updated_at: new Date().toISOString()
+          })
+          .eq('therapist_id', userId);
+
+        if (updatePlanError) {
+          console.error('❌ Error updating subscription_plan:', updatePlanError);
+        } else {
+          console.log('✅ subscription_plan updated to:', plan);
+        }
+      } else {
+        const { error: insertPlanError } = await supabase
+          .from('therapist_payment_settings')
+          .insert({
+            therapist_id: userId,
+            subscription_plan: plan,
+            can_accept_online_payments: plan === 'avanzado-pro',
+            platform_fee_percent: 10.00,
+            default_payment_method: 'manual'
+          });
+
+        if (insertPlanError) {
+          console.error('❌ Error inserting subscription_plan:', insertPlanError);
+        } else {
+          console.log('✅ subscription_plan created with plan:', plan);
+        }
+      }
+    }
 
     res.status(200).json({
       success: true,

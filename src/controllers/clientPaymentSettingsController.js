@@ -132,16 +132,84 @@ const updateClientPaymentMethod = asyncHandler(async (req, res, next) => {
  */
 const getTherapistSubscription = asyncHandler(async (req, res, next) => {
   const therapistId = req.user.id;
+  const fs = require('fs');
+  const path = require('path');
+  const debugFilePath = path.join(__dirname, '..', '..', 'debug_subscription.json');
+
+  // Obtener el estado de Stripe Connect desde la tabla users
+  const { data: userData, error: userError } = await supabase
+    .from('users')
+    .select('stripe_connect_account_id, stripe_connect_status')
+    .eq('id', therapistId)
+    .single();
+
+  const stripeConnectAccountId = userData?.stripe_connect_account_id || null;
+  const stripeConnectStatus = userData?.stripe_connect_status || null;
 
   const { data: settings, error } = await supabase
     .from('therapist_payment_settings')
-    .select('subscription_plan, can_accept_online_payments, stripe_connect_account_id, connect_account_status')
+    .select('subscription_plan, can_accept_online_payments')
     .eq('therapist_id', therapistId)
     .single();
 
-  if (error && error.code !== 'PGRST116') {
-    console.error('Error fetching therapist subscription:', error);
-    return next(new AppError('Error al obtener información de suscripción', 500));
+  // Determinar si puede aceptar pagos online
+  const hasActiveStripe = stripeConnectStatus === 'active' && stripeConnectAccountId;
+  let canAcceptOnlinePayments = settings?.can_accept_online_payments || false;
+
+  // Si tiene Stripe activo pero can_accept_online_payments es false, actualizarlo
+  let updatedSettings = false;
+  if (hasActiveStripe && !canAcceptOnlinePayments) {
+    if (settings) {
+      await supabase
+        .from('therapist_payment_settings')
+        .update({ can_accept_online_payments: true, updated_at: new Date().toISOString() })
+        .eq('therapist_id', therapistId);
+    } else {
+      await supabase
+        .from('therapist_payment_settings')
+        .insert({
+          therapist_id: therapistId,
+          can_accept_online_payments: true,
+          subscription_plan: 'basico',
+          platform_fee_percent: 10.00,
+          default_payment_method: 'manual'
+        });
+    }
+    canAcceptOnlinePayments = true;
+    updatedSettings = true;
+  }
+
+  // Crear archivo debug (solo una vez)
+  if (!fs.existsSync(debugFilePath)) {
+    const debugData = {
+      timestamp: new Date().toISOString(),
+      therapistId,
+      usersTable: {
+        stripe_connect_account_id: stripeConnectAccountId,
+        stripe_connect_status: stripeConnectStatus
+      },
+      therapistPaymentSettingsTable: {
+        subscription_plan: settings?.subscription_plan || null,
+        can_accept_online_payments: settings?.can_accept_online_payments || null
+      },
+      calculatedValues: {
+        hasActiveStripe,
+        canAcceptOnlinePayments
+      },
+      actions: {
+        updatedSettings
+      },
+      response: {
+        plan: settings?.subscription_plan || 'basico',
+        isPro: (settings?.subscription_plan === 'avanzado-pro'),
+        canAcceptOnlinePayments,
+        stripeConnectAccountId,
+        connectAccountStatus: stripeConnectStatus
+      }
+    };
+    
+    fs.writeFileSync(debugFilePath, JSON.stringify(debugData, null, 2));
+    console.log('📄 Debug file creado:', debugFilePath);
   }
 
   // If no settings found, return defaults
@@ -151,9 +219,9 @@ const getTherapistSubscription = asyncHandler(async (req, res, next) => {
       data: {
         plan: 'basico',
         isPro: false,
-        canAcceptOnlinePayments: false,
-        stripeConnectAccountId: null,
-        connectAccountStatus: null
+        canAcceptOnlinePayments: canAcceptOnlinePayments,
+        stripeConnectAccountId: stripeConnectAccountId,
+        connectAccountStatus: stripeConnectStatus
       }
     });
   }
@@ -163,9 +231,9 @@ const getTherapistSubscription = asyncHandler(async (req, res, next) => {
     data: {
       plan: settings.subscription_plan,
       isPro: settings.subscription_plan === 'avanzado-pro',
-      canAcceptOnlinePayments: settings.can_accept_online_payments,
-      stripeConnectAccountId: settings.stripe_connect_account_id,
-      connectAccountStatus: settings.connect_account_status
+      canAcceptOnlinePayments: canAcceptOnlinePayments,
+      stripeConnectAccountId: stripeConnectAccountId,
+      connectAccountStatus: stripeConnectStatus
     }
   });
 });
