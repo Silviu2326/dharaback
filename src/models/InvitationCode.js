@@ -12,7 +12,7 @@ class InvitationCode {
     this.email = data.email;
     this.status = data.status || 'active';
     this.usedAt = data.used_at;
-    this.registeredUserId = data.registered_user_id;
+    this.registeredClientId = data.registered_client_id || data.registered_user_id;
     this.expiresAt = data.expires_at;
     this.createdAt = data.created_at;
     this.updatedAt = data.updated_at;
@@ -34,7 +34,7 @@ class InvitationCode {
   /**
    * Marcar código como usado
    */
-  async markAsUsed(userId) {
+  async markAsUsed(clientId) {
     const supabase = require('../config/supabase').supabase;
     
     const { data, error } = await supabase
@@ -42,7 +42,7 @@ class InvitationCode {
       .update({
         status: 'used',
         used_at: new Date().toISOString(),
-        registered_user_id: userId,
+        registered_client_id: clientId,
         updated_at: new Date().toISOString()
       })
       .eq('id', this.id)
@@ -53,7 +53,7 @@ class InvitationCode {
     
     this.status = 'used';
     this.usedAt = data.used_at;
-    this.registeredUserId = userId;
+    this.registeredClientId = clientId;
     
     return this;
   }
@@ -94,7 +94,7 @@ class InvitationCode {
       isValid: this.isValid,
       isExpired: this.isExpired,
       usedAt: this.usedAt,
-      registeredUserId: this.registeredUserId,
+      registeredClientId: this.registeredClientId,
       expiresAt: this.expiresAt,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,

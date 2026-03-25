@@ -10,6 +10,7 @@ module.exports = {
   // Core
   User: require('./supabase/User'),
   Client: require('./supabase/Client'),
+  ClientTherapist: require('./supabase/ClientTherapist'),
   Booking: require('./supabase/Booking'),
   
   // Perfil y Configuración

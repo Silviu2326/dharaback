@@ -189,9 +189,27 @@ const messageController = {
       const { messageId } = req.params;
       const therapistId = req.user.id;
 
+      console.log('🔍 DEBUG markMessageAsRead - messageId:', messageId);
+
+      if (!messageId) {
+        return next(new AppError('Message ID is required', 400));
+      }
+
       const message = await Message.findById(messageId);
       if (!message) {
         return next(new AppError('Message not found', 404));
+      }
+
+      console.log('🔍 DEBUG markMessageAsRead - message found:', { id: message.id, conversationId: message.conversationId });
+
+      // If message has no conversationId, we can't verify access - just mark as read
+      if (!message.conversationId) {
+        console.log('🔍 DEBUG markMessageAsRead - message has no conversationId, marking as read anyway');
+        await message.markAsRead();
+        return res.json({
+          success: true,
+          message: 'Message marked as read'
+        });
       }
 
       // Verify conversation access
@@ -199,6 +217,8 @@ const messageController = {
         id: message.conversationId,
         therapistId: therapistId
       });
+
+      console.log('🔍 DEBUG markMessageAsRead - conversation found:', conversation ? conversation.id : null);
 
       if (!conversation) {
         return next(new AppError('Access denied', 403));

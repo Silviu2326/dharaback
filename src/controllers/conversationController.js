@@ -9,7 +9,7 @@ const conversationController = {
     try {
       const userId = req.user.id;
       const userRole = req.user.role;
-      const { status = 'all', hasUnread = false, search = '', page = 1, limit = 20 } = req.query;
+      const { status = 'all', hasUnread = false, search = '', page = 1, limit = 20, include_last_message = true } = req.query;
 
       // Determine if user is a client (no role property means it's a client)
       const isClient = !userRole || userRole === 'client';
@@ -145,6 +145,34 @@ const conversationController = {
         });
       }
 
+      // Get last messages for all conversations if requested
+      let lastMessagesMap = new Map();
+      const shouldIncludeLastMessage = include_last_message === true || include_last_message === 'true';
+      if (shouldIncludeLastMessage && filteredConversations.length > 0) {
+        const conversationIds = filteredConversations.map(c => c.id);
+        
+        // Query messages table to get the last message for each conversation
+        // Limit to 1 message per conversation by using a subquery approach
+        const { data: lastMessages, error: lastMessagesError } = await supabase
+          .from('messages')
+          .select('id, conversation_id, content, sender_id, created_at')
+          .in('conversation_id', conversationIds)
+          .order('created_at', { ascending: false })
+          .limit(1000); // Limit to avoid too many results
+
+        if (!lastMessagesError && lastMessages) {
+          // Group by conversation_id and take the first (most recent) for each
+          const messageByConversation = new Map();
+          for (const msg of lastMessages) {
+            if (!messageByConversation.has(msg.conversation_id)) {
+              messageByConversation.set(msg.conversation_id, msg);
+            }
+          }
+          lastMessagesMap = messageByConversation;
+          console.log(`🔍 DEBUG: Fetched last messages for ${lastMessagesMap.size} conversations`);
+        }
+      }
+
       // Format conversations for frontend compatibility
       const formattedConversations = filteredConversations.map((c, index) => {
         const conv = c.toJSON();
@@ -205,11 +233,11 @@ const conversationController = {
             tags: clientInfo?.tags || [],
             sessionsCount: clientInfo?.sessions_count || 0
           },
-          lastMessage: conv.lastMessage ? {
-            id: conv.lastMessage.id,
-            content: conv.lastMessage.content,
-            timestamp: conv.lastMessage.created_at || conv.lastMessage.timestamp,
-            senderId: conv.lastMessage.sender_id
+          lastMessage: lastMessagesMap.has(conv.id) ? {
+            id: lastMessagesMap.get(conv.id).id,
+            content: lastMessagesMap.get(conv.id).content,
+            sentAt: lastMessagesMap.get(conv.id).created_at,
+            senderId: lastMessagesMap.get(conv.id).sender_id
           } : null,
           unreadCount: conv.unreadCount || 0,
           createdAt: conv.createdAt,
@@ -291,26 +319,51 @@ const conversationController = {
         return next(new AppError('Validation failed', 400, errors.array()));
       }
 
-      const therapistId = req.user.id;
-      const { clientId, participants, type, createdBy, title, metadata } = req.body;
-
-      let actualClientId = clientId;
-
-      // Handle new format with participants array
-      if (!clientId && participants && Array.isArray(participants)) {
-        const clientParticipant = participants.find(p => p.role === 'client');
-        if (clientParticipant) {
-          actualClientId = clientParticipant.id;
+      const { clientId: bodyClientId, therapistId: bodyTherapistId, participants, type, createdBy, title, metadata } = req.body;
+      
+      let therapistId;
+      let actualClientId;
+      
+      // Determine if the user is a client or therapist based on user type
+      const isClient = req.user.type === 'client';
+      
+      if (isClient) {
+        // When a client creates a conversation:
+        // - req.user.id is the clientId
+        // - therapistId comes from the body
+        actualClientId = req.user.id;
+        therapistId = bodyTherapistId;
+        
+        if (!therapistId) {
+          return next(new AppError('Therapist ID is required', 400));
         }
-      }
-
-      // Also check metadata for clientId
-      if (!actualClientId && metadata?.clientId) {
-        actualClientId = metadata.clientId;
-      }
-
-      if (!actualClientId) {
-        return next(new AppError('Client ID is required', 400));
+      } else {
+        // When a therapist creates a conversation:
+        // - req.user.id is the therapistId
+        // - clientId comes from the body or participants
+        therapistId = req.user.id;
+        
+        // Handle new format with participants array
+        if (!bodyClientId && participants && Array.isArray(participants)) {
+          const clientParticipant = participants.find(p => p.role === 'client');
+          if (clientParticipant) {
+            actualClientId = clientParticipant.id;
+          }
+        }
+        
+        // Also check metadata for clientId
+        if (!actualClientId && metadata?.clientId) {
+          actualClientId = metadata.clientId;
+        }
+        
+        // Fall back to body clientId
+        if (!actualClientId) {
+          actualClientId = bodyClientId;
+        }
+        
+        if (!actualClientId) {
+          return next(new AppError('Client ID is required', 400));
+        }
       }
 
       // Check if client exists

@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { User, Client } = require('../models');
+const { User, Client, ClientTherapist } = require('../models');
 const { InvitationCodeModel } = require('../models/InvitationCode');
 const InvitationCode = new InvitationCodeModel();
 const { AppError, asyncHandler } = require('../middleware/errorHandler');
@@ -501,6 +501,7 @@ const registerCliente = asyncHandler(async (req, res, next) => {
   console.log('=== REGISTER CLIENTE DEBUG ===');
   console.log('Received password:', password ? `Length: ${password.length}` : 'undefined');
   console.log('Invitation code:', invitationCodeInput || 'none');
+  console.log('Email received:', email);
 
   // Validate input
   if (!nombre || !apellidos || !email || !password) {
@@ -512,6 +513,7 @@ const registerCliente = asyncHandler(async (req, res, next) => {
   }
 
   const name = `${nombre.trim()} ${apellidos.trim()}`;
+  const normalizedEmail = email.toLowerCase().trim();
 
   let client = null;
   let therapistId = null;
@@ -541,7 +543,7 @@ const registerCliente = asyncHandler(async (req, res, next) => {
     console.log('Invitation code valid:', {
       therapistId,
       linkedClientId,
-      email: invitation.email
+      invitationEmail: invitation.email
     });
 
     // Buscar el cliente pre-registrado
@@ -557,45 +559,131 @@ const registerCliente = asyncHandler(async (req, res, next) => {
       currentName: client.name
     });
 
-    // ACTUALIZAR cliente existente con los nuevos datos
-    const updateData = {
-      name,
-      email: email.toLowerCase().trim(),
-      phone: telefono || client.phone,
-      password,
-      status: 'active'
-    };
-
-    console.log('Updating existing client with new data...');
-    client = await Client.findByIdAndUpdate(linkedClientId, updateData, { new: true });
+    // Verificar si el cliente ya tiene una relación activa con el terapeuta
+    const existingRelation = await ClientTherapist.findByClientAndTherapist(client.id, therapistId);
     
-    console.log('Client updated:', {
+    // Si el email es diferente al que tenía el cliente pre-registrado
+    if (normalizedEmail !== client.email) {
+      console.log('Email changed from', client.email, 'to', normalizedEmail);
+      
+      // Verificar si el nuevo email ya existe en otro cliente
+      const existingClientWithEmail = await Client.findOne({ email: normalizedEmail });
+      
+      if (existingClientWithEmail && (existingClientWithEmail.id || existingClientWithEmail._id) !== client.id) {
+        // El nuevo email ya existe en otro cliente
+        // En lugar de actualizar, usamos el cliente existente y lo vinculamos al terapeuta
+        console.log('Email already exists in another client, linking existing client');
+        
+        // Verificar si ya tiene relación con este terapeuta
+        const existingRelationForEmail = await ClientTherapist.findByClientAndTherapist(
+          existingClientWithEmail.id || existingClientWithEmail._id,
+          therapistId
+        );
+        
+        if (!existingRelationForEmail) {
+          // Crear relación con el terapeuta
+          await ClientTherapist.create(
+            existingClientWithEmail.id || existingClientWithEmail._id,
+            therapistId,
+            'active'
+          );
+        } else if (existingRelationForEmail.status !== 'active') {
+          // Reactivar relación existente
+          await ClientTherapist.reactivate(
+            existingClientWithEmail.id || existingClientWithEmail._id,
+            therapistId
+          );
+        }
+        
+        // Actualizar datos del cliente existente
+        client = await Client.findByIdAndUpdate(
+          existingClientWithEmail.id || existingClientWithEmail._id,
+          {
+            name,
+            phone: telefono || existingClientWithEmail.phone,
+            password
+          },
+          { new: true }
+        );
+        
+        // Marcar el código como usado
+        try {
+          await invitation.markAsUsed(client.id);
+        } catch (error) {
+          console.error('Error marking invitation code as used:', error);
+        }
+      } else {
+        // El nuevo email no existe en otro cliente, actualizar el cliente actual
+        console.log('Updating existing client with new email');
+        
+        const updateData = {
+          name,
+          email: normalizedEmail,
+          phone: telefono || client.phone,
+          password
+        };
+        
+        client = await Client.findByIdAndUpdate(linkedClientId, updateData, { new: true });
+        
+        // Asegurar que existe la relación con el terapeuta
+        if (!existingRelation) {
+          await ClientTherapist.create(client.id, therapistId, 'active');
+        } else if (existingRelation.status !== 'active') {
+          await ClientTherapist.reactivate(client.id, therapistId);
+        }
+        
+        // Marcar el código como usado
+        try {
+          await invitation.markAsUsed(client.id);
+        } catch (error) {
+          console.error('Error marking invitation code as used:', error);
+        }
+      }
+    } else {
+      // El email es el mismo, solo actualizar nombre, teléfono y contraseña
+      console.log('Same email, updating other fields');
+      
+      const updateData = {
+        name,
+        phone: telefono || client.phone,
+        password
+      };
+      
+      client = await Client.findByIdAndUpdate(linkedClientId, updateData, { new: true });
+      
+      // Asegurar que existe la relación con el terapeuta
+      if (!existingRelation) {
+        await ClientTherapist.create(client.id, therapistId, 'active');
+      } else if (existingRelation.status !== 'active') {
+        await ClientTherapist.reactivate(client.id, therapistId);
+      }
+      
+      // Marcar el código como usado
+      try {
+        await invitation.markAsUsed(client.id);
+      } catch (error) {
+        console.error('Error marking invitation code as used:', error);
+      }
+    }
+
+    console.log('Client processed:', {
       id: client.id,
       email: client.email,
       name: client.name
     });
-
-    // Marcar el código como usado
-    try {
-      await invitation.markAsUsed(client.id);
-      console.log('Invitation code marked as used:', invitationCodeInput);
-    } catch (error) {
-      console.error('Error marking invitation code as used:', error);
-      // No fallar el registro si esto falla
-    }
 
   } else {
     // SIN CÓDIGO: Registro normal de nuevo cliente
     console.log('No invitation code - creating new client...');
     
     // Check if client already exists
-    const existingClient = await Client.findOne({ email: email.toLowerCase() });
+    const existingClient = await Client.findOne({ email: normalizedEmail });
     if (existingClient) {
       return next(new AppError('Ya existe un cliente con este email', 400));
     }
 
     // Check if user (therapist) already exists with this email
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return next(new AppError('Ya existe un usuario con este email', 400));
     }
@@ -603,7 +691,7 @@ const registerCliente = asyncHandler(async (req, res, next) => {
     // Create client
     const clientData = {
       name,
-      email: email.toLowerCase().trim(),
+      email: normalizedEmail,
       password,
       phone: telefono || undefined,
       status: 'active'

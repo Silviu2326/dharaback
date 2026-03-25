@@ -1,6 +1,7 @@
 const stripe = require('../config/stripe');
 const { AppError, asyncHandler } = require('../middleware/errorHandler');
 const { supabase } = require('../config/supabase');
+const { ClientTherapist, Conversation } = require('../models');
 
 /**
  * @desc    Create booking with payment
@@ -202,6 +203,31 @@ const createBookingWithPayment = asyncHandler(async (req, res, next) => {
   console.log('  - discountAmount:', discountAmount);
   console.log('  - finalAmount:', finalAmount);
   
+  // 6.5. Crear o verificar relación cliente-terapeuta
+  console.log('\n🔍 [Paso 6.5] Verificando/Creando relación cliente-terapeuta...');
+  console.log('  - clientId:', clientId);
+  console.log('  - therapistId:', therapistId);
+  
+  try {
+    const existingRelation = await ClientTherapist.findByClientAndTherapist(clientId, therapistId);
+    console.log('  - Relación existente:', existingRelation);
+    
+    if (!existingRelation) {
+      console.log('  → Creando nueva relación client-therapist...');
+      await ClientTherapist.create(clientId, therapistId, 'active');
+      console.log('  ✅ Nueva relación creada');
+    } else if (existingRelation.status !== 'active') {
+      console.log('  → Reactivando relación archivada...');
+      await ClientTherapist.reactivate(clientId, therapistId);
+      console.log('  ✅ Relación reactivada');
+    } else {
+      console.log('  ✅ Relación ya existe y está activa');
+    }
+  } catch (error) {
+    console.error('  ⚠️ Error al gestionar relación client-therapist:', error.message);
+    // No bloqueamos la reserva si falla esto
+  }
+  
   // 7. Crear bookings en estado pendiente
   console.log('\n🔍 [Paso 7] Creando bookings...');
   const createdBookings = [];
@@ -277,11 +303,57 @@ const createBookingWithPayment = asyncHandler(async (req, res, next) => {
   console.log('   - finalPaymentMethod:', finalPaymentMethod);
   
   if (finalPaymentMethod !== 'stripe') {
+    // Crear o verificar conversación entre cliente y terapeuta
+    console.log('\n🔍 [Paso 8.5] Creando/verificando conversación entre cliente y terapeuta...');
+    let conversation = null;
+    try {
+      const bookingIds = createdBookings.map(b => b.id);
+      
+      // Buscar si ya existe una conversación
+      conversation = await Conversation.findBetweenUsers(clientId, therapistId);
+      
+      if (!conversation) {
+        // Crear nueva conversación
+        console.log('   → Creando nueva conversación...');
+        conversation = await Conversation.create({
+          clientId: clientId,
+          therapistId: therapistId,
+          type: 'therapy_session',
+          title: `Chat de terapia - ${service.name || 'Sesión'}`,
+          metadata: {
+            bookingIds: bookingIds,
+            serviceName: service.name,
+            createdFromBooking: true
+          }
+        });
+        console.log('   ✅ Conversación creada con ID:', conversation.id);
+      } else {
+        // Actualizar la conversación existente con los nuevos bookings
+        console.log('   → Conversación existente encontrada, actualizando metadata...');
+        const existingMetadata = conversation.metadata || {};
+        const existingBookingIds = existingMetadata.bookingIds || [];
+        conversation.metadata = {
+          ...existingMetadata,
+          bookingIds: [...new Set([...existingBookingIds, ...bookingIds])],
+          lastBookingAt: new Date().toISOString()
+        };
+        await Conversation.findByIdAndUpdate(conversation.id, {
+          metadata: conversation.metadata,
+          last_message_at: new Date().toISOString()
+        });
+        console.log('   ✅ Conversación actualizada con nuevos bookings');
+      }
+    } catch (convError) {
+      console.error('   ⚠️ Error al crear/actualizar conversación:', convError.message);
+      // No bloqueamos el flujo si falla la conversación
+    }
+
     console.log('   ✅ Método no-Stripe, retornando bookings creados');
     return res.status(201).json({
       success: true,
       data: {
         bookings: createdBookings,
+        conversationId: conversation?.id || null,
         paymentMethod: finalPaymentMethod,
         message: finalPaymentMethod === 'manual' 
           ? 'Reserva creada. El terapeuta te contactará para el pago.'
@@ -369,6 +441,52 @@ const createBookingWithPayment = asyncHandler(async (req, res, next) => {
       console.log('   ✅ Bookings actualizados con payment_intent_id');
     }
     
+    // 12. Crear o verificar conversación entre cliente y terapeuta
+    console.log('\n🔍 [Paso 12] Creando/verificando conversación entre cliente y terapeuta...');
+    let conversation = null;
+    try {
+      const bookingIds = createdBookings.map(b => b.id);
+      
+      // Buscar si ya existe una conversación
+      conversation = await Conversation.findBetweenUsers(clientId, therapistId);
+      
+      if (!conversation) {
+        // Crear nueva conversación
+        console.log('   → Creando nueva conversación...');
+        conversation = await Conversation.create({
+          clientId: clientId,
+          therapistId: therapistId,
+          type: 'therapy_session',
+          title: `Chat de terapia - ${service.name || 'Sesión'}`,
+          metadata: {
+            bookingIds: bookingIds,
+            serviceName: service.name,
+            paymentIntentId: paymentIntent.id,
+            createdFromBooking: true
+          }
+        });
+        console.log('   ✅ Conversación creada con ID:', conversation.id);
+      } else {
+        // Actualizar la conversación existente con los nuevos bookings
+        console.log('   → Conversación existente encontrada, actualizando metadata...');
+        const existingMetadata = conversation.metadata || {};
+        const existingBookingIds = existingMetadata.bookingIds || [];
+        conversation.metadata = {
+          ...existingMetadata,
+          bookingIds: [...new Set([...existingBookingIds, ...bookingIds])],
+          lastBookingAt: new Date().toISOString()
+        };
+        await Conversation.findByIdAndUpdate(conversation.id, {
+          metadata: conversation.metadata,
+          last_message_at: new Date().toISOString()
+        });
+        console.log('   ✅ Conversación actualizada con nuevos bookings');
+      }
+    } catch (convError) {
+      console.error('   ⚠️ Error al crear/actualizar conversación:', convError.message);
+      // No bloqueamos el flujo si falla la conversación
+    }
+    
     console.log('\n🎉 PROCESO COMPLETADO EXITOSAMENTE');
     console.log('═══════════════════════════════════════════════════════════\n');
     
@@ -376,6 +494,7 @@ const createBookingWithPayment = asyncHandler(async (req, res, next) => {
       success: true,
       data: {
         bookings: createdBookings,
+        conversationId: conversation?.id || null,
         clientSecret: paymentIntent.client_secret,
         paymentIntentId: paymentIntent.id,
         amount: finalAmount,

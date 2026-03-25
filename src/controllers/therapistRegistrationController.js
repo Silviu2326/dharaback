@@ -475,7 +475,6 @@ const createTherapistSubscription = asyncHandler(async (req, res) => {
     const frontendUrl = process.env.FRONTEND_URL || 'https://dhara-peach.vercel.app';
 
     const session = await stripeService.createSubscriptionCheckout({
-      priceId: selectedPlan.priceId,
       email,
       name: nombre,
       trialDays: finalTrialDays,

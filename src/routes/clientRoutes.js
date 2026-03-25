@@ -20,7 +20,8 @@ const {
   invalidateInvitationCodes,
   regenerateInvitationCode,
   getClientSettings,
-  updateClientSettings
+  updateClientSettings,
+  exportClientData
 } = require('../controllers/clientController');
 const { protect } = require('../middleware/auth');
 
@@ -55,6 +56,7 @@ router.route('/:id')
 // Client specific actions
 router.post('/:id/avatar', updateClientAvatar);
 router.get('/:id/summary', getClientSummary);
+router.get('/:id/export', exportClientData);
 
 // Invitation code routes
 router.post('/invitation-code', protect, generateInvitationCode);

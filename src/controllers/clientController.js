@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { Client, User, Booking, ProfessionalProfile } = require('../models');
+const { Client, User, Booking, ProfessionalProfile, ClientTherapist } = require('../models');
 const { InvitationCodeModel } = require('../models/InvitationCode');
 const InvitationCode = new InvitationCodeModel();
 const { AppError, asyncHandler } = require('../middleware/errorHandler');
@@ -14,19 +14,35 @@ const getClients = asyncHandler(async (req, res, next) => {
   const skip = (page - 1) * limit;
 
   const { status, search, tags, sortBy = 'created_at', sortOrder = 'desc' } = req.query;
+  const therapistId = req.user.id || req.user._id;
 
-  // Build filters
-  const filters = { therapist_id: req.user.id || req.user._id };
+  // Get client IDs from client_therapists table
+  const clientIds = await ClientTherapist.getClientIdsByTherapist(therapistId, 'active');
 
-  // Handle status filter - never show deleted (inactive) clients by default
+  if (clientIds.length === 0) {
+    return res.status(200).json({
+      success: true,
+      data: [],
+      pagination: {
+        currentPage: page,
+        totalPages: 0,
+        totalItems: 0,
+        itemsPerPage: limit,
+        hasNextPage: false,
+        hasPrevPage: false
+      }
+    });
+  }
+
+  // Build filters for clients
+  const filters = { id: { in: clientIds } };
+
+  // Handle status filter
   if (status === 'inactive') {
-    // Explicitly requesting inactive (deleted) clients
     filters.status = 'inactive';
   } else if (status && status !== 'all') {
-    // Specific status requested (active, demo, etc.)
     filters.status = status;
   } else {
-    // Default and 'all': show only active and demo clients, exclude inactive (deleted)
     filters.status = { in: ['active', 'demo'] };
   }
 
@@ -40,7 +56,6 @@ const getClients = asyncHandler(async (req, res, next) => {
   let total = 0;
 
   if (search) {
-    // For search, we need to fetch and filter in memory
     const allClients = await Client.find({ filters });
     const searchLower = search.toLowerCase();
     clients = allClients.filter(c => 
@@ -104,10 +119,17 @@ const getClients = asyncHandler(async (req, res, next) => {
 // @route   GET /api/clients/:id
 // @access  Private
 const getClient = asyncHandler(async (req, res, next) => {
-  const client = await Client.findOne({
-    id: req.params.id,
-    therapist_id: req.user.id || req.user._id
-  });
+  const therapistId = req.user.id || req.user._id;
+  const clientId = req.params.id;
+
+  // Verify the client-therapist relationship exists
+  const relation = await ClientTherapist.findByClientAndTherapist(clientId, therapistId);
+  
+  if (!relation || relation.status !== 'active') {
+    return next(new AppError('Client not found', 404));
+  }
+
+  const client = await Client.findById(clientId);
 
   if (!client) {
     return next(new AppError('Client not found', 404));
@@ -143,33 +165,56 @@ const createClient = asyncHandler(async (req, res, next) => {
     preferences
   } = req.body;
 
-  // Check if client with same email already exists for this therapist
-  const existingClient = await Client.findOne({
-    email: email.toLowerCase(),
-    therapist_id: req.user.id || req.user._id
-  });
-
-  if (existingClient) {
-    return next(new AppError('A client with this email already exists', 400));
-  }
+  const therapistId = req.user.id || req.user._id;
 
   // Validate required fields
   if (!name || !email) {
     return next(new AppError('Name and email are required', 400));
   }
 
-  const client = await Client.create({
-    name: name.trim(),
-    email: email.toLowerCase().trim(),
-    phone: phone?.trim() || null,
-    age,
-    address: address?.trim(),
-    emergencyContact,
-    notes: notes?.trim(),
-    tags: tags || [],
-    preferences,
-    therapist_id: req.user.id || req.user._id
+  // Check if client with same email already exists (globally)
+  const existingClient = await Client.findOne({
+    email: email.toLowerCase()
   });
+
+  let client;
+
+  if (existingClient) {
+    // Client exists, check if already has relationship with this therapist
+    const existingRelation = await ClientTherapist.findByClientAndTherapist(
+      existingClient.id,
+      therapistId
+    );
+
+    if (existingRelation) {
+      if (existingRelation.status === 'active') {
+        return next(new AppError('A client with this email already exists in your client list', 400));
+      }
+      // Reactivate archived relationship
+      await ClientTherapist.reactivate(existingClient.id, therapistId);client = existingClient;
+    } else {
+      // Create new relationship
+      await ClientTherapist.create(existingClient.id, therapistId, 'active');
+      client = existingClient;
+    }
+  } else {
+    // Create new client
+    client = await Client.create({
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      phone: phone?.trim() || null,
+      age,
+      address: address?.trim(),
+      emergencyContact,
+      notes: notes?.trim(),
+      tags: tags || [],
+      preferences,
+      therapist_id: therapistId
+    });
+
+    // Create client-therapist relationship
+    await ClientTherapist.create(client.id, therapistId, 'active');
+  }
 
   res.status(201).json({
     success: true,
@@ -182,10 +227,17 @@ const createClient = asyncHandler(async (req, res, next) => {
 // @route   PUT /api/clients/:id
 // @access  Private
 const updateClient = asyncHandler(async (req, res, next) => {
-  let client = await Client.findOne({
-    id: req.params.id,
-    therapist_id: req.user.id || req.user._id
-  });
+  const therapistId = req.user.id || req.user._id;
+  const clientId = req.params.id;
+
+  // Verify the client-therapist relationship exists
+  const relation = await ClientTherapist.findByClientAndTherapist(clientId, therapistId);
+  
+  if (!relation || relation.status !== 'active') {
+    return next(new AppError('Client not found', 404));
+  }
+
+  const client = await Client.findById(clientId);
 
   if (!client) {
     return next(new AppError('Client not found', 404));
@@ -194,11 +246,10 @@ const updateClient = asyncHandler(async (req, res, next) => {
   // Check if email is being changed and if it conflicts
   if (req.body.email && req.body.email !== client.email) {
     const existingClient = await Client.findOne({
-      email: req.body.email.toLowerCase(),
-      therapist_id: req.user.id || req.user._id
+      email: req.body.email.toLowerCase()
     });
 
-    if (existingClient && (existingClient.id || existingClient._id) !== req.params.id) {
+    if (existingClient && (existingClient.id || existingClient._id) !== clientId) {
       return next(new AppError('A client with this email already exists', 400));
     }
   }
@@ -229,109 +280,47 @@ const updateClient = asyncHandler(async (req, res, next) => {
     updateData.email = updateData.email.toLowerCase().trim();
   }
 
-  client = await Client.findByIdAndUpdate(
-    req.params.id,
+  const updatedClient = await Client.findByIdAndUpdate(
+    clientId,
     updateData,
-    {
-      new: true
-    }
+    { new: true }
   );
 
   res.status(200).json({
     success: true,
-    data: client.toJSON(),
+    data: updatedClient.toJSON(),
     message: 'Client updated successfully'
   });
 });
 
-// @desc    Delete client
+// @desc    Delete client (remove relationship with therapist)
 // @route   DELETE /api/clients/:id
 // @access  Private
 const deleteClient = asyncHandler(async (req, res, next) => {
   const clientId = req.params.id;
   const therapistId = req.user.id || req.user._id;
   
-  const client = await Client.findOne({
-    id: clientId,
-    therapist_id: therapistId
-  });
+  console.log('=== DELETE CLIENT ===');
+  console.log('Client ID:', clientId);
+  console.log('Therapist ID:', therapistId);
 
-  if (!client) {
+  // Verify the client-therapist relationship exists
+  const relation = await ClientTherapist.findByClientAndTherapist(clientId, therapistId);
+  
+  if (!relation) {
     return next(new AppError('Client not found', 404));
   }
 
-  // Check if client has upcoming bookings
-  const upcomingBookings = await Booking.find({
-    filters: {
-      client_id: clientId,
-      status: { in: ['upcoming', 'pending'] },
-      date: { gte: new Date().toISOString().split('T')[0] }
-    }
-  });
+  console.log('Relation found, deleting...');
 
-  if (upcomingBookings.length > 0) {
-    return next(new AppError('Cannot delete client with upcoming bookings. Please cancel all upcoming bookings first.', 400));
-  }
+  // Delete the relationship from client_therapists (just this therapist's relationship)
+  await ClientTherapist.deleteByClientAndTherapist(clientId, therapistId);
 
-  // Delete all client's bookings (citas) from database
-  const { error: bookingsError } = await supabase
-    .from('bookings')
-    .delete()
-    .eq('client_id', clientId);
-  
-  if (bookingsError) {
-    console.error('Error deleting client bookings:', bookingsError);
-    // Continue with deletion even if bookings deletion fails
-  }
-
-  // Delete all client's payments from database
-  const { error: paymentsError } = await supabase
-    .from('payments')
-    .delete()
-    .eq('client_id', clientId);
-  
-  if (paymentsError) {
-    console.error('Error deleting client payments:', paymentsError);
-    // Continue with deletion even if payments deletion fails
-  }
-
-  // Delete all client's notes from database
-  const { error: notesError } = await supabase
-    .from('notes')
-    .delete()
-    .eq('client_id', clientId);
-  
-  if (notesError) {
-    console.error('Error deleting client notes:', notesError);
-    // Continue with deletion even if notes deletion fails
-  }
-
-  // Delete all client's session notes from database
-  const { error: sessionNotesError } = await supabase
-    .from('session_notes')
-    .delete()
-    .eq('client_id', clientId);
-  
-  if (sessionNotesError) {
-    console.error('Error deleting client session notes:', sessionNotesError);
-    // Continue with deletion even if session notes deletion fails
-  }
-
-  // Soft delete - change status to inactive and anonymize email
-  await Client.findByIdAndUpdate(
-    clientId,
-    {
-      status: 'inactive',
-      email: `deleted_${Date.now()}_${client.email}`,
-      phone: null,
-      name: 'Usuario Eliminado'
-    },
-    { new: false }
-  );
+  console.log('Relation deleted successfully');
 
   res.status(200).json({
     success: true,
-    message: 'Client and all associated data deleted successfully'
+    message: 'Client removed from your list successfully'
   });
 });
 
@@ -340,13 +329,31 @@ const deleteClient = asyncHandler(async (req, res, next) => {
 // @access  Private
 const getClientsStats = asyncHandler(async (req, res, next) => {
   const therapistId = req.user.id || req.user._id;
-  const supabase = require('../config/supabase').supabase;
+
+  // Get client IDs from client_therapists table
+  const therapistClientIds = await ClientTherapist.getClientIdsByTherapist(therapistId, 'active');
+
+  if (therapistClientIds.length === 0) {
+    return res.status(200).json({
+      success: true,
+      data: {
+        totalClients: 0,
+        activeClients: 0,
+        inactiveClients: 0,
+        demoClients: 0,
+        avgSessionsPerClient: 0,
+        avgRating: 0,
+        totalSessions: 0,
+        recentClients: 0
+      }
+    });
+  }
 
   // Get counts by status
   const { data: stats, error } = await supabase
     .from('clients')
-    .select('status')
-    .eq('therapist_id', therapistId);
+    .select('status, created_at')
+    .in('id', therapistClientIds);
 
   if (error) {
     throw new Error(error.message);
@@ -367,13 +374,9 @@ const getClientsStats = asyncHandler(async (req, res, next) => {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const { count: recentCount } = await supabase
-    .from('clients')
-    .select('*', { count: 'exact', head: true })
-    .eq('therapist_id', therapistId)
-    .gte('created_at', thirtyDaysAgo.toISOString());
-
-  result.recentClients = recentCount || 0;
+  result.recentClients = stats?.filter(c => 
+    new Date(c.created_at) >= thirtyDaysAgo
+  ).length || 0;
 
   res.status(200).json({
     success: true,
@@ -385,12 +388,23 @@ const getClientsStats = asyncHandler(async (req, res, next) => {
 // @route   GET /api/clients/tags
 // @access  Private
 const getClientTags = asyncHandler(async (req, res, next) => {
-  const supabase = require('../config/supabase').supabase;
+  const therapistId = req.user.id || req.user._id;
 
+  // Get client IDs from client_therapists table
+  const clientIds = await ClientTherapist.getClientIdsByTherapist(therapistId, 'active');
+
+  if (clientIds.length === 0) {
+    return res.status(200).json({
+      success: true,
+      data: []
+    });
+  }
+
+  // Get tags from clients
   const { data: clients, error } = await supabase
     .from('clients')
     .select('tags')
-    .eq('therapist_id', req.user.id || req.user._id);
+    .in('id', clientIds);
 
   if (error) {
     throw new Error(error.message);
@@ -420,18 +434,18 @@ const getClientTags = asyncHandler(async (req, res, next) => {
 // @access  Private
 const updateClientAvatar = asyncHandler(async (req, res, next) => {
   const { avatar } = req.body;
+  const therapistId = req.user.id || req.user._id;
+  const clientId = req.params.id;
 
-  const client = await Client.findOne({
-    id: req.params.id,
-    therapist_id: req.user.id || req.user._id
-  });
-
-  if (!client) {
+  // Verify the client-therapist relationship exists
+  const relation = await ClientTherapist.findByClientAndTherapist(clientId, therapistId);
+  
+  if (!relation || relation.status !== 'active') {
     return next(new AppError('Client not found', 404));
   }
 
   await Client.findByIdAndUpdate(
-    req.params.id,
+    clientId,
     { avatar },
     { new: false }
   );
@@ -447,10 +461,17 @@ const updateClientAvatar = asyncHandler(async (req, res, next) => {
 // @route   GET /api/clients/:id/summary
 // @access  Private
 const getClientSummary = asyncHandler(async (req, res, next) => {
-  const client = await Client.findOne({
-    id: req.params.id,
-    therapist_id: req.user.id || req.user._id
-  });
+  const therapistId = req.user.id || req.user._id;
+  const clientId = req.params.id;
+
+  // Verify the client-therapist relationship exists
+  const relation = await ClientTherapist.findByClientAndTherapist(clientId, therapistId);
+  
+  if (!relation || relation.status !== 'active') {
+    return next(new AppError('Client not found', 404));
+  }
+
+  const client = await Client.findById(clientId);
 
   if (!client) {
     return next(new AppError('Client not found', 404));
@@ -469,20 +490,18 @@ const getClientSummary = asyncHandler(async (req, res, next) => {
 // @access  Private
 const bulkUpdateClients = asyncHandler(async (req, res, next) => {
   const { clientIds, updateData } = req.body;
+  const therapistId = req.user.id || req.user._id;
 
   if (!clientIds || !Array.isArray(clientIds) || clientIds.length === 0) {
     return next(new AppError('Client IDs are required', 400));
   }
 
-  // Validate that all clients belong to the therapist
-  const clients = await Client.find({
-    filters: {
-      id: { in: clientIds },
-      therapist_id: req.user.id || req.user._id
-    }
-  });
+  // Get therapist's client IDs from client_therapists table
+  const therapistClientIds = await ClientTherapist.getClientIdsByTherapist(therapistId, 'active');
 
-  if (clients.length !== clientIds.length) {
+  // Validate that all requested clients belong to the therapist
+  const unauthorizedClients = clientIds.filter(id => !therapistClientIds.includes(id));
+  if (unauthorizedClients.length > 0) {
     return next(new AppError('Some clients not found or access denied', 403));
   }
 
@@ -497,12 +516,10 @@ const bulkUpdateClients = asyncHandler(async (req, res, next) => {
   });
 
   // Update all clients
-  const supabase = require('../config/supabase').supabase;
   const { data, error } = await supabase
     .from('clients')
     .update(filteredUpdateData)
-    .in('id', clientIds)
-    .eq('therapist_id', req.user.id || req.user._id);
+    .in('id', clientIds);
 
   if (error) {
     throw new Error(error.message);
@@ -561,29 +578,49 @@ const registerClient = asyncHandler(async (req, res, next) => {
     return next(new AppError('Therapist not found', 404));
   }
 
-  // Check if client already exists for this therapist
+  // Check if client already exists (globally by email)
   const existingClient = await Client.findOne({
-    email: email.toLowerCase(),
-    therapist_id: therapistId
+    email: email.toLowerCase()
   });
+
+  let client;
 
   if (existingClient) {
-    return next(new AppError('Client with this email already exists for this therapist', 400));
-  }
+    // Client exists, check if already has relationship with this therapist
+    const existingRelation = await ClientTherapist.findByClientAndTherapist(
+      existingClient.id,
+      therapistId
+    );
 
-  // Create client
-  const client = await Client.create({
-    name: name.trim(),
-    email: email.toLowerCase().trim(),
-    password,
-    phone: phone.trim(),
-    therapist_id: therapistId,
-    gdprConsent: {
-      given: true,
-      date: new Date(),
-      ipAddress: req.ip
+    if (existingRelation && existingRelation.status === 'active') {
+      return next(new AppError('Client with this email already exists for this therapist', 400));
     }
-  });
+
+    // Reactivate or create relationship
+    if (existingRelation) {
+      await ClientTherapist.reactivate(existingClient.id, therapistId);
+    } else {
+      await ClientTherapist.create(existingClient.id, therapistId, 'active');
+    }
+    client = existingClient;
+  } else {
+    // Create new client
+    client = await Client.create({
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      password,
+      phone: phone.trim(),
+      therapist_id: therapistId,
+      gdprConsent: {
+        given: true,
+        date: new Date(),
+        ipAddress: req.ip
+      }
+    });
+
+    // Create client-therapist relationship
+    await ClientTherapist.create(client.id, therapistId, 'active');
+  }
 
   sendClientTokenResponse(client, 201, res);
 });
@@ -994,13 +1031,10 @@ const generateInvitationCode = asyncHandler(async (req, res, next) => {
   const { clientId, code, expiresIn, email } = req.body;
   const therapistId = req.user.id || req.user._id;
 
-  // Verify client exists and belongs to therapist
-  const client = await Client.findOne({
-    id: clientId,
-    therapist_id: therapistId
-  });
-
-  if (!client) {
+  // Verify client-therapist relationship exists
+  const relation = await ClientTherapist.findByClientAndTherapist(clientId, therapistId);
+  
+  if (!relation || relation.status !== 'active') {
     return next(new AppError('Client not found', 404));
   }
 
@@ -1036,11 +1070,15 @@ const sendInvitationEmail = asyncHandler(async (req, res, next) => {
   const { clientId, code } = req.body;
   const therapistId = req.user.id || req.user._id;
 
+  // Verify client-therapist relationship exists
+  const relation = await ClientTherapist.findByClientAndTherapist(clientId, therapistId);
+  
+  if (!relation || relation.status !== 'active') {
+    return next(new AppError('Client not found', 404));
+  }
+
   // Get client
-  const client = await Client.findOne({
-    id: clientId,
-    therapist_id: therapistId
-  });
+  const client = await Client.findById(clientId);
 
   if (!client) {
     return next(new AppError('Client not found', 404));
@@ -1134,13 +1172,10 @@ const invalidateInvitationCodes = asyncHandler(async (req, res, next) => {
   const { clientId } = req.body;
   const therapistId = req.user.id || req.user._id;
 
-  // Verify client exists and belongs to therapist
-  const client = await Client.findOne({
-    id: clientId,
-    therapist_id: therapistId
-  });
-
-  if (!client) {
+  // Verify client-therapist relationship exists
+  const relation = await ClientTherapist.findByClientAndTherapist(clientId, therapistId);
+  
+  if (!relation || relation.status !== 'active') {
     return next(new AppError('Client not found', 404));
   }
 
@@ -1160,15 +1195,15 @@ const regenerateInvitationCode = asyncHandler(async (req, res, next) => {
   const clientId = req.params.id;
   const therapistId = req.user.id || req.user._id;
 
-  // Verify client exists and belongs to therapist
-  const client = await Client.findOne({
-    id: clientId,
-    therapist_id: therapistId
-  });
-
-  if (!client) {
+  // Verify client-therapist relationship exists
+  const relation = await ClientTherapist.findByClientAndTherapist(clientId, therapistId);
+  
+  if (!relation || relation.status !== 'active') {
     return next(new AppError('Client not found', 404));
   }
+
+  // Get client for email
+  const client = await Client.findById(clientId);
 
   // Invalidate old codes
   await InvitationCode.invalidateByClient(clientId);
@@ -1181,7 +1216,7 @@ const regenerateInvitationCode = asyncHandler(async (req, res, next) => {
     clientId,
     therapist_id: therapistId,
     code: newCode,
-    email: client.email,
+    email: client?.email,
     expiresAt: expiresAt.toISOString()
   });
 
@@ -1300,6 +1335,195 @@ const updateClientSettings = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Export client data (GDPR compliance)
+// @route   GET /api/clients/:id/export
+// @access  Private
+const exportClientData = asyncHandler(async (req, res, next) => {
+  const clientId = req.params.id;
+  const therapistId = req.user.id || req.user._id;
+  
+  const { 
+    format = 'json', 
+    include_history = true, 
+    include_sessions = true, 
+    include_documents = true,
+    encrypt = false 
+  } = req.query;
+
+  console.log('=== EXPORT CLIENT DATA ===');
+  console.log('Client ID:', clientId);
+  console.log('Therapist ID:', therapistId);
+
+  // Verify client-therapist relationship exists
+  const relation = await ClientTherapist.findByClientAndTherapist(clientId, therapistId);
+  
+  if (!relation || relation.status !== 'active') {
+    return next(new AppError('Client not found', 404));
+  }
+
+  // Get client basic info
+  const client = await Client.findById(clientId);
+  if (!client) {
+    return next(new AppError('Client not found', 404));
+  }
+
+  console.log('Client found:', client.name);
+
+  // Prepare export data
+  const exportData = {
+    exportInfo: {
+      exportedAt: new Date().toISOString(),
+      format,
+      therapistId,
+      version: '1.0'
+    },
+    client: {
+      id: client.id,
+      name: client.name,
+      email: client.email,
+      phone: client.phone,
+      age: client.age,
+      address: client.address,
+      emergencyContact: client.emergencyContact,
+      notes: client.notes,
+      tags: client.tags,
+      status: client.status,
+      preferences: client.preferences,
+      gdprConsent: client.gdprConsent,
+      createdAt: client.createdAt,
+      updatedAt: client.updatedAt
+    },
+    bookings: [],
+    payments: [],
+    notes: [],
+    documents: [],
+    sessionNotes: [],
+    reviews: []
+  };
+
+  // Get bookings for this therapist-client relationship
+  if (include_history !== 'false') {
+    console.log('Fetching bookings...');
+    const { data: bookings, error: bookingsError } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('client_id', clientId)
+      .eq('therapist_id', therapistId)
+      .order('date', { ascending: false });
+
+    if (!bookingsError) {
+      exportData.bookings = bookings || [];
+    }
+    console.log('Bookings fetched:', exportData.bookings.length);
+  }
+
+  // Get payments
+  console.log('Fetching payments...');
+  const { data: payments, error: paymentsError } = await supabase
+    .from('payments')
+    .select('*')
+    .eq('client_id', clientId)
+    .eq('therapist_id', therapistId)
+    .order('created_at', { ascending: false });
+
+  if (!paymentsError) {
+    exportData.payments = payments || [];
+  }
+  console.log('Payments fetched:', exportData.payments.length);
+
+  // Get notes
+  console.log('Fetching notes...');
+  const { data: notes, error: notesError } = await supabase
+    .from('notes')
+    .select('*')
+    .eq('client_id', clientId)
+    .eq('user_id', therapistId)
+    .order('created_at', { ascending: false });
+
+  if (!notesError) {
+    exportData.notes = notes || [];
+  }
+  console.log('Notes fetched:', exportData.notes.length);
+
+  // Get session notes
+  if (include_sessions !== 'false') {
+    console.log('Fetching session notes...');
+    const { data: sessionNotes, error: sessionNotesError } = await supabase
+      .from('session_notes')
+      .select('*')
+      .eq('client_id', clientId)
+      .eq('therapist_id', therapistId)
+      .order('date', { ascending: false });
+
+    if (!sessionNotesError) {
+      exportData.sessionNotes = sessionNotes || [];
+    }
+    console.log('Session notes fetched:', exportData.sessionNotes.length);
+  }
+
+  // Get documents
+  if (include_documents !== 'false') {
+    console.log('Fetching documents...');
+    const { data: documents, error: documentsError } = await supabase
+      .from('documents')
+      .select('*')
+      .eq('client_id', clientId)
+      .eq('therapist_id', therapistId)
+      .order('created_at', { ascending: false });
+
+    if (!documentsError) {
+      exportData.documents = documents || [];
+    }
+    console.log('Documents fetched:', exportData.documents.length);
+  }
+
+  // Get reviews
+  console.log('Fetching reviews...');
+  const { data: reviews, error: reviewsError } = await supabase
+    .from('reviews')
+    .select('*')
+    .eq('client_id', clientId)
+    .order('created_at', { ascending: false });
+
+  if (!reviewsError) {
+    exportData.reviews = reviews || [];
+  }
+  console.log('Reviews fetched:', exportData.reviews.length);
+
+  // Calculate summary
+  exportData.summary = {
+    totalBookings: exportData.bookings.length,
+    completedSessions: exportData.bookings.filter(b => b.status === 'completed').length,
+    totalPayments: exportData.payments.length,
+    totalPaid: exportData.payments
+      .filter(p => p.status === 'completed')
+      .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0),
+    totalNotes: exportData.notes.length,
+    totalSessionNotes: exportData.sessionNotes.length,
+    totalDocuments: exportData.documents.length,
+    averageRating: exportData.reviews.length > 0 
+      ? exportData.reviews.reduce((sum, r) => sum + (parseFloat(r.rating) || 0), 0) / exportData.reviews.length 
+      : null
+  };
+
+  console.log('Export complete. Summary:', exportData.summary);
+
+  // Return based on format
+  if (format === 'json') {
+    res.status(200).json({
+      success: true,
+      data: exportData
+    });
+  } else {
+    // For other formats, return JSON for now
+    res.status(200).json({
+      success: true,
+      data: exportData,
+      message: 'Format not implemented, returning JSON'
+    });
+  }
+});
+
 module.exports = {
   getClients,
   getClient,
@@ -1321,5 +1545,6 @@ module.exports = {
   getClientSettings,
   updateClientSettings,
   invalidateInvitationCodes,
-  regenerateInvitationCode
+  regenerateInvitationCode,
+  exportClientData
 };

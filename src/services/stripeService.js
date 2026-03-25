@@ -334,6 +334,30 @@ class StripeService {
     }
   }
 
+  async createMonthlyPrice(amount, currency = 'eur') {
+    const product = await stripe.products.create({
+      name: 'Suscripción Dharaterapeutas',
+      metadata: {
+        platform: 'dharaterapeutas'
+      }
+    });
+
+    const price = await stripe.prices.create({
+      product: product.id,
+      unit_amount: amount,
+      currency: currency,
+      recurring: {
+        interval: 'month'
+      },
+      metadata: {
+        platform: 'dharaterapeutas'
+      }
+    });
+
+    console.log('✅ Created monthly price:', price.id, `- ${amount / 100}€`);
+    return price;
+  }
+
   /**
    * Crear sesión de Checkout para suscripción con trial
    * @param {Object} data - Datos de la suscripción
@@ -360,12 +384,15 @@ class StripeService {
         metadata = {} 
       } = data;
 
-      if (!priceId) {
-        throw new Error('Price ID is required');
-      }
-
       if (!successUrl || !cancelUrl) {
         throw new Error('Success and cancel URLs are required');
+      }
+
+      let stripePriceId = priceId;
+
+      if (!stripePriceId) {
+        const price = await this.createMonthlyPrice(4599, 'eur');
+        stripePriceId = price.id;
       }
 
       let stripeCustomerId = customerId;
@@ -387,7 +414,7 @@ class StripeService {
         mode: 'subscription',
         payment_method_types: ['card'],
         line_items: [{
-          price: priceId,
+          price: stripePriceId,
           quantity: 1
         }],
         subscription_data: {

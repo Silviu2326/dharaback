@@ -293,8 +293,25 @@ class ConversationModel {
       }
     };
 
-    const result = await this.service.create(conversationData);
-    return new Conversation(result);
+    try {
+      const result = await this.service.create(conversationData);
+      return new Conversation(result);
+    } catch (error) {
+      // Manejar condición de carrera: si hay error de constraint unique,
+      // buscar nuevamente la conversación que pudo haber sido creada por otra request
+      if (error.code === '23505' || error.message?.includes('duplicate key')) {
+        console.log('🔄 Conversation.create: duplicate key detected, searching for existing conversation');
+        const existingAfterRace = await this.findBetweenUsers(data.clientId, data.therapistId);
+        if (existingAfterRace) {
+          if (existingAfterRace.isArchived) {
+            await existingAfterRace.reactivate();
+          }
+          return existingAfterRace;
+        }
+      }
+      // Si no se encontró una conversación existente después del error, relanzar el error
+      throw error;
+    }
   }
 
   /**

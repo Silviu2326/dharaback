@@ -6,6 +6,8 @@
 const { AppError, asyncHandler } = require('../../middleware/errorHandler');
 const Booking = require('../../models/supabase/Booking');
 const User = require('../../models/supabase/User');
+const Client = require('../../models/supabase/Client');
+const { ClientTherapist } = require('../../models');
 const emailService = require('../../services/emailService');
 const { supabase } = require('../../config/supabase');
 
@@ -193,9 +195,49 @@ const requestReschedule = asyncHandler(async (req, res, next) => {
 // @access  Private (Client)
 const createClientBooking = asyncHandler(async (req, res, next) => {
   const { therapistId, date, startTime, endTime, therapyType, therapyDuration, location, notes, amount, currency } = req.body;
+  const clientId = req.user.id;
 
+  console.log('=== CREATE BOOKING DEBUG ===');
+  console.log('Client ID:', clientId);
+  console.log('Therapist ID:', therapistId);
+
+  // Verify therapist exists
   const therapist = await User.findById(therapistId);
-  if (!therapist) return next(new AppError('Therapist not found', 404));
+  if (!therapist) {
+    return next(new AppError('Therapist not found', 404));
+  }
+  console.log('Therapist found:', therapist.name);
+
+  // Verify client-therapist relationship exists and is active
+  // This allows clients with multiple therapists to book with any of them
+  console.log('Checking client-therapist relationship...');
+  const relation = await ClientTherapist.findByClientAndTherapist(clientId, therapistId);
+  console.log('Current relation:', relation);
+  
+  if (!relation) {
+    // If no relationship exists, create one (for clients registering without invitation code)
+    // This allows new clients to book with therapists directly
+    console.log(`Creating new client-therapist relationship: client=${clientId}, therapist=${therapistId}`);
+    try {
+      const newRelation = await ClientTherapist.create(clientId, therapistId, 'active');
+      console.log('New relation created:', newRelation);
+    } catch (error) {
+      console.error('Error creating relation:', error);
+      return next(new AppError(`Error creating client-therapist relation: ${error.message}`, 500));
+    }
+  } else if (relation.status !== 'active') {
+    // If relationship exists but is not active, reactivate it
+    console.log(`Reactivating client-therapist relationship: client=${clientId}, therapist=${therapistId}`);
+    try {
+      await ClientTherapist.reactivate(clientId, therapistId);
+      console.log('Relation reactivated');
+    } catch (error) {
+      console.error('Error reactivating relation:', error);
+      return next(new AppError(`Error reactivating client-therapist relation: ${error.message}`, 500));
+    }
+  } else {
+    console.log('Relation already exists and is active');
+  }
 
   // Check for conflicts
   const conflicts = await Booking.findConflicts(therapistId, date, startTime, endTime);
@@ -206,29 +248,34 @@ const createClientBooking = asyncHandler(async (req, res, next) => {
   // Validate amount - database requires it
   const bookingAmount = amount || 0;
 
+  // Get client info for email
+  const client = await Client.findById(clientId);
+  console.log('Client found:', client?.name);
+
   const booking = await Booking.create({
     therapistId,
-    clientId: req.user.id,
+    clientId: clientId,
     date, startTime, endTime, therapyType,
     therapyDuration: therapyDuration || 60,
     location, notes,
     amount: bookingAmount,
     currency: currency || 'EUR',
     status: 'upcoming',
-    paymentStatus: 'unpaid'  // Supabase constraint: only 'unpaid' or 'paid'
+    paymentStatus: 'unpaid'
   });
+  console.log('Booking created:', booking.id);
 
   // Send confirmation emails
   try {
     await emailService.sendAppointmentConfirmation({
-      to: req.user.email,
-      clientName: req.user.name,
+      to: client?.email || req.user.email,
+      clientName: client?.name || req.user.name,
       therapistName: therapist.name,
       date, time: startTime, location
     });
     await emailService.sendAppointmentConfirmation({
       to: therapist.email,
-      clientName: req.user.name,
+      clientName: client?.name || req.user.name,
       therapistName: therapist.name,
       date, time: startTime, location
     });

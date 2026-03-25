@@ -56,12 +56,8 @@ const upload = multer({
   }
 });
 
-// Validation rules
-const createConversationValidation = [
-  body('clientId')
-    .isMongoId()
-    .withMessage('Client ID must be valid')
-];
+// Validation rules - clientId validation is handled in controller since it can come from participants or metadata
+const createConversationValidation = [];
 
 const sendMessageValidation = [
   body('content')
