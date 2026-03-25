@@ -437,6 +437,47 @@ async function handleCheckoutSessionCompleted(session) {
       console.log('✅ User subscription status updated:', userId);
     }
 
+    // Actualizar subscription_plan en therapist_payment_settings
+    const { data: existingSettings, error: settingsError } = await supabase
+      .from('therapist_payment_settings')
+      .select('*')
+      .eq('therapist_id', userId)
+      .single();
+
+    if (settingsError && settingsError.code !== 'PGRST116') {
+      console.error('❌ Error checking therapist_payment_settings:', settingsError);
+    } else if (existingSettings) {
+      const { error: updatePlanError } = await supabase
+        .from('therapist_payment_settings')
+        .update({
+          subscription_plan: plan,
+          updated_at: new Date().toISOString()
+        })
+        .eq('therapist_id', userId);
+
+      if (updatePlanError) {
+        console.error('❌ Error updating subscription_plan:', updatePlanError);
+      } else {
+        console.log('✅ subscription_plan updated to:', plan);
+      }
+    } else {
+      const { error: insertPlanError } = await supabase
+        .from('therapist_payment_settings')
+        .insert({
+          therapist_id: userId,
+          subscription_plan: plan,
+          can_accept_online_payments: true,
+          platform_fee_percent: 10.00,
+          default_payment_method: 'stripe'
+        });
+
+      if (insertPlanError) {
+        console.error('❌ Error inserting subscription_plan:', insertPlanError);
+      } else {
+        console.log('✅ subscription_plan created with plan:', plan);
+      }
+    }
+
   } catch (error) {
     console.error('❌ Error handling checkout session completed:', error);
   }
