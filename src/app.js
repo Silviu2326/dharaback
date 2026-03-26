@@ -99,7 +99,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // Handle preflight requests explicitly for all routes
-app.options("*", cors(corsOptions));
+app.options(/(.*)/, cors(corsOptions));
 
 // Rate limiting - Disabled for development
 if (process.env.NODE_ENV === "production") {
