@@ -672,8 +672,8 @@ class StripeService {
     try {
       const accountLink = await stripe.accountLinks.create({
         account: accountId,
-        refresh_url: `${returnUrl}/stripe-connect/refresh`,
-        return_url: `${returnUrl}/stripe-connect/success`,
+        refresh_url: `${returnUrl}/app/configuracion-cuenta`,
+        return_url: `${returnUrl}/app/stripe-connect/success`,
         type: 'account_onboarding'
       });
       return accountLink.url;

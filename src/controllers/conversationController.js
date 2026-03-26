@@ -374,7 +374,7 @@ const conversationController = {
 
       // Find or create conversation
       let conversation = await Conversation.findBetweenUsers(actualClientId, therapistId);
-      
+
       if (!conversation) {
         conversation = await Conversation.create({
           clientId: actualClientId,
@@ -389,6 +389,24 @@ const conversationController = {
         await conversation.reactivate();
       }
 
+      // For the response, determine what info to return in the 'client' field.
+      // When a client creates the conversation, return therapist info (the other party).
+      // When a therapist creates the conversation, return client info.
+      let otherPartyInfo;
+      if (isClient) {
+        // Fetch therapist info from users table
+        const { data: therapistData } = await supabase
+          .from('users')
+          .select('id, name, email, avatar')
+          .eq('id', therapistId)
+          .single();
+        otherPartyInfo = therapistData
+          ? { id: therapistData.id, name: therapistData.name, email: therapistData.email, avatar: therapistData.avatar, isTherapist: true }
+          : { id: therapistId, name: 'Terapeuta', isTherapist: true };
+      } else {
+        otherPartyInfo = { id: client.id, name: client.name, email: client.email, avatar: client.avatar };
+      }
+
       res.status(201).json({
         id: conversation.id,
         participants: participants || [
@@ -399,12 +417,7 @@ const conversationController = {
         status: conversation.status,
         title: conversation.title || `Chat con ${client.name}`,
         metadata: conversation.metadata || metadata || {},
-        client: {
-          id: client.id,
-          name: client.name,
-          email: client.email,
-          avatar: client.avatar
-        },
+        client: otherPartyInfo,
         createdAt: conversation.createdAt,
         lastActivity: conversation.lastActivity || conversation.createdAt,
         messageCount: conversation.messageCount || 0
