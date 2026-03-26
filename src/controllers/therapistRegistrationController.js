@@ -432,7 +432,7 @@ const registerTherapist = asyncHandler(async (req, res) => {
 const createTherapistSubscription = asyncHandler(async (req, res) => {
   // Este endpoint ahora es solo para casos donde el usuario ya existe
   // y solo necesita crear/actualizar la suscripción
-  const { email, nombre, userId, plan = 'avanzado', trialDays } = req.body;
+  const { email, nombre, userId, plan = 'avanzado', trialDays, successUrl: customSuccessUrl, cancelUrl: customCancelUrl, context = 'registration' } = req.body;
 
   if (!email || !nombre) {
     return res.status(400).json({
@@ -479,8 +479,8 @@ const createTherapistSubscription = asyncHandler(async (req, res) => {
       email,
       name: nombre,
       trialDays: finalTrialDays,
-      successUrl: `${frontendUrl}/registro-exitoso?session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: `${frontendUrl}/registro-terapeuta?cancelled=true`,
+      successUrl: customSuccessUrl || `${frontendUrl}/registro-exitoso?session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: customCancelUrl || `${frontendUrl}/registro-terapeuta?cancelled=true`,
       metadata: {
         userId: userId || '',
         email,
@@ -498,9 +498,9 @@ const createTherapistSubscription = asyncHandler(async (req, res) => {
       trialDays: finalTrialDays
     });
 
-    // Actualizar el plan inmediatamente en la base de datos
-    // (el webhook también lo hará, pero esto asegura que el plan se actualice sin demora)
-    if (userId) {
+    // Actualizar el plan inmediatamente solo en registros nuevos.
+    // Para cambios de plan, esperar confirmación del webhook para no actualizar si se cancela.
+    if (userId && context !== 'plan_change') {
       // Actualizar subscription_status y stripe_customer_id en users
       const updateData = {
         subscription_status: plan === 'avanzado-pro' ? 'active' : 'trial',
