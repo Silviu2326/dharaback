@@ -4,8 +4,9 @@ const {
   createBookingWithPayment,
   handleStripeWebhook,
   getPaymentPermissions,
-  verifyPayment
-} = require('../controllers/bookingPaymentController');
+  verifyPayment,
+  validateCoupon
+} = require('../controllers/booking-payment');
 const { protect } = require('../middleware/auth');
 
 const router = express.Router();
@@ -15,6 +16,9 @@ router.post('/webhook',
   express.raw({ type: 'application/json' }),
   handleStripeWebhook
 );
+
+// Public routes (no auth required)
+router.get('/verify-payment', verifyPayment);
 
 // Protected routes
 router.use(protect);
@@ -54,7 +58,7 @@ router.post('/create-with-payment', createBookingValidation, createBookingWithPa
 // Get payment permissions for a therapist
 router.get('/payment-permissions/:therapistId', getPaymentPermissions);
 
-// Verify payment status
-router.get('/verify-payment', verifyPayment);
+// Validate coupon
+router.post('/validate-coupon', validateCoupon);
 
 module.exports = router;

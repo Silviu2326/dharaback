@@ -1,0 +1,18 @@
+  // Si el cliente NO existe en las preferencias (es nuevo), es un cliente nuevo
+  // PERO verificar primero si tiene relación activa con el terapeuta
+  let hasActiveRelation = false;
+  try {
+    const { data: relation } = await supabase
+      .from('client_therapists')
+      .select('id, status')
+      .eq('therapist_id', therapistId)
+      .eq('client_id', clientId)
+      .single();
+    hasActiveRelation = relation && relation.status === 'active';
+    console.log('  - Relación con terapeuta:', hasActiveRelation ? 'Sí (activa)' : 'No');
+  } catch (err) {
+    console.log('  - Relación con terapeuta: No encontrada');
+  }
+  
+  // Cliente es NUEVO solo si no tiene preferencias Y no tiene relación activa
+  const isNewClient = !clientPrefs && prefsError?.code === 'PGRST116' && !hasActiveRelation;

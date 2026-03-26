@@ -23,6 +23,10 @@ const {
   updateClientSettings,
   exportClientData
 } = require('../controllers/clientController');
+const { 
+  getClientPaymentMethod, 
+  updateClientPaymentMethod 
+} = require('../controllers/clientPaymentSettingsController');
 const { protect } = require('../middleware/auth');
 
 const router = express.Router();
@@ -68,5 +72,9 @@ router.post('/:id/regenerate-code', protect, regenerateInvitationCode);
 // Client settings routes
 router.get('/settings', protect, getClientSettings);
 router.put('/settings', protect, updateClientSettings);
+
+// Client payment method routes
+router.get('/:id/payment-method', protect, getClientPaymentMethod);
+router.put('/:id/payment-method', protect, updateClientPaymentMethod);
 
 module.exports = router;

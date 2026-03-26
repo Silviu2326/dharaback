@@ -10,6 +10,8 @@ const getClientPaymentMethod = asyncHandler(async (req, res, next) => {
   const { clientId } = req.params;
   const therapistId = req.user.id;
 
+  console.log('[getClientPaymentMethod] Fetching for client:', clientId, 'therapist:', therapistId);
+
   // Check if therapist has Pro plan
   const { data: therapistSettings, error: settingsError } = await supabase
     .from('therapist_payment_settings')
@@ -24,7 +26,19 @@ const getClientPaymentMethod = asyncHandler(async (req, res, next) => {
 
   const isProPlan = therapistSettings?.subscription_plan === 'avanzado-pro';
 
-  // Get client's payment preferences
+  // PRIMERO: Buscar en client_therapists (tabla principal)
+  console.log('[getClientPaymentMethod] Querying client_therapists...');
+  const { data: clientTherapist, error: ctError } = await supabase
+    .from('client_therapists')
+    .select('payment_method, status')
+    .eq('therapist_id', therapistId)
+    .eq('client_id', clientId)
+    .single();
+
+  console.log('[getClientPaymentMethod] client_therapists result:', { clientTherapist, ctError });
+
+  // SEGUNDO: Buscar en client_payment_preferences (fallback)
+  console.log('[getClientPaymentMethod] Querying client_payment_preferences...');
   const { data: preferences, error: prefError } = await supabase
     .from('client_payment_preferences')
     .select('payment_method, is_exempt_from_payment, exemption_reason, updated_at')
@@ -32,13 +46,12 @@ const getClientPaymentMethod = asyncHandler(async (req, res, next) => {
     .eq('client_id', clientId)
     .single();
 
-  if (prefError && prefError.code !== 'PGRST116') {
-    console.error('Error fetching payment preferences:', prefError);
-    return next(new AppError('Error al obtener método de pago', 500));
-  }
+  console.log('[getClientPaymentMethod] client_payment_preferences result:', { preferences, prefError });
 
-  // Default to manual if no preferences set
-  const paymentMethod = preferences?.payment_method || 'manual';
+  // Usar el método de client_therapists si existe, sino el de preferences, sino 'cash'
+  const paymentMethod = clientTherapist?.payment_method || preferences?.payment_method || 'cash';
+  
+  console.log('[getClientPaymentMethod] Final paymentMethod:', paymentMethod);
 
   res.status(200).json({
     success: true,
@@ -46,9 +59,10 @@ const getClientPaymentMethod = asyncHandler(async (req, res, next) => {
       paymentMethod,
       isExempt: preferences?.is_exempt_from_payment || false,
       exemptionReason: preferences?.exemption_reason || null,
-      updatedAt: preferences?.updated_at,
+      updatedAt: clientTherapist?.updated_at || preferences?.updated_at,
       therapistPlan: therapistSettings?.subscription_plan || 'basico',
-      canUseStripe: isProPlan && therapistSettings?.can_accept_online_payments
+      canUseStripe: isProPlan && therapistSettings?.can_accept_online_payments,
+      source: clientTherapist?.payment_method ? 'client_therapists' : (preferences?.payment_method ? 'client_payment_preferences' : 'default')
     }
   });
 });
@@ -64,8 +78,8 @@ const updateClientPaymentMethod = asyncHandler(async (req, res, next) => {
   const therapistId = req.user.id;
 
   // Validate payment method
-  if (!['stripe', 'manual'].includes(paymentMethod)) {
-    return next(new AppError('Método de pago inválido. Debe ser "stripe" o "manual"', 400));
+  if (!['stripe', 'manual', 'cash', 'card', 'transfer', 'other'].includes(paymentMethod)) {
+    return next(new AppError('Método de pago inválido', 400));
   }
 
   // Check if therapist has Pro plan
@@ -92,7 +106,24 @@ const updateClientPaymentMethod = asyncHandler(async (req, res, next) => {
     return next(new AppError('Cuenta Stripe Connect no activa', 403));
   }
 
-  // Upsert payment preferences (insert if not exists, update if exists)
+  // PRIMERO: Actualizar client_therapists (tabla principal)
+  const { data: updatedRelation, error: relationError } = await supabase
+    .from('client_therapists')
+    .update({
+      payment_method: paymentMethod,
+      updated_at: new Date().toISOString()
+    })
+    .eq('therapist_id', therapistId)
+    .eq('client_id', clientId)
+    .select()
+    .single();
+
+  if (relationError) {
+    console.error('Error updating client_therapists:', relationError);
+    return next(new AppError('Error al actualizar método de pago en relación cliente-terapeuta', 500));
+  }
+
+  // SEGUNDO: También actualizar client_payment_preferences (para backward compatibility)
   const { data: preferences, error: upsertError } = await supabase
     .from('client_payment_preferences')
     .upsert({
@@ -110,16 +141,16 @@ const updateClientPaymentMethod = asyncHandler(async (req, res, next) => {
 
   if (upsertError) {
     console.error('Error updating payment preferences:', upsertError);
-    return next(new AppError('Error al actualizar método de pago', 500));
+    // No fallamos aquí porque ya actualizamos client_therapists
   }
 
   res.status(200).json({
     success: true,
     data: {
-      paymentMethod: preferences.payment_method,
-      isExempt: preferences.is_exempt_from_payment,
-      exemptionReason: preferences.exemption_reason,
-      updatedAt: preferences.updated_at,
+      paymentMethod: updatedRelation.payment_method,
+      isExempt: preferences?.is_exempt_from_payment || false,
+      exemptionReason: preferences?.exemption_reason || null,
+      updatedAt: updatedRelation.updated_at,
       message: 'Método de pago actualizado correctamente'
     }
   });

@@ -82,40 +82,33 @@ const createBookingWithPayment = asyncHandler(async (req, res, next) => {
     .eq('client_id', clientId)
     .single();
   
-  // También verificar relación ClientTherapist para determinar si el cliente es realmente nuevo
-  const existingRelationEarly = await ClientTherapist.findByClientAndTherapist(clientId, therapistId);
-  const hasExistingRelation = !!existingRelationEarly;
-  const relationPaymentMethod = existingRelationEarly?._data?.payment_method || null;
-
-  // Si el cliente NO existe en las preferencias Y tampoco tiene relación con el terapeuta, es nuevo
-  const isNewClient = !clientPrefs && prefsError?.code === 'PGRST116' && !hasExistingRelation;
-
+  // Si el cliente NO existe en las preferencias (es nuevo), es un cliente nuevo
+  const isNewClient = !clientPrefs && prefsError?.code === 'PGRST116';
+  
   console.log('✅ Preferencias del cliente:');
   console.log('  - ¿Existe en BD?:', clientPrefs ? 'Sí' : 'No');
-  console.log('  - ¿Tiene relación ClientTherapist?:', hasExistingRelation ? 'Sí' : 'No');
-  console.log('  - relationPaymentMethod:', relationPaymentMethod || 'N/A');
   console.log('  - isNewClient:', isNewClient);
   if (prefsError) console.log('  - Error/Code:', prefsError.code);
-  console.log('  - clientPaymentMethod:', clientPrefs?.payment_method || relationPaymentMethod || 'manual (default)');
+  console.log('  - clientPaymentMethod:', clientPrefs?.payment_method || 'manual (default)');
   console.log('  - isExempt:', clientPrefs?.is_exempt_from_payment || false);
-
-  const clientPaymentMethod = clientPrefs?.payment_method || relationPaymentMethod || 'manual';
+  
+  const clientPaymentMethod = clientPrefs?.payment_method || 'manual';
   const isExempt = clientPrefs?.is_exempt_from_payment || false;
-
+  
   // 3. Determinar método de pago final
   console.log('\n🔍 [Paso 3] Determinando método de pago final...');
   console.log('  - paymentMethod recibido:', paymentMethod);
   console.log('  - clientPaymentMethod:', clientPaymentMethod);
-
+  
   let finalPaymentMethod = paymentMethod || clientPaymentMethod;
   console.log('  - Método inicial:', finalPaymentMethod);
-
-  // REGLA: Solo forzar Stripe si es cliente nuevo SIN relación previa y el terapeuta tiene Pro
+  
+  // REGLA IMPORTANTE: Si es cliente nuevo y terapeuta tiene Pro, FORZAR Stripe
   if (isNewClient && isProPlan) {
-    console.log('  ⚠️ REGLA APLICADA: Cliente nuevo (sin relación previa) + Terapeuta Pro = FORZAR Stripe');
+    console.log('  ⚠️ REGLA APLICADA: Cliente nuevo + Terapeuta Pro = FORZAR Stripe');
     finalPaymentMethod = 'stripe';
   }
-
+  
   // Si terapeuta no es Pro, forzar método manual
   if (!isProPlan && finalPaymentMethod === 'stripe') {
     console.log('  ⚠️ REGLA APLICADA: Terapeuta no es Pro = Forzar Manual');
@@ -231,7 +224,7 @@ const createBookingWithPayment = asyncHandler(async (req, res, next) => {
   console.log('  - therapistId:', therapistId);
   
   try {
-    const existingRelation = existingRelationEarly || await ClientTherapist.findByClientAndTherapist(clientId, therapistId);
+    const existingRelation = await ClientTherapist.findByClientAndTherapist(clientId, therapistId);
     console.log('  - Relación existente:', existingRelation);
     
     if (!existingRelation) {
