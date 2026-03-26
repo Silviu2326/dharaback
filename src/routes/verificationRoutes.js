@@ -32,31 +32,16 @@ router.post(
 
 router.use(protect);
 
-// Configure multer for verification document uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "uploads/verification/");
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, "verification-" + uniqueSuffix + path.extname(file.originalname));
-  },
-});
-
+// Configure multer for verification document uploads (memory storage → Supabase)
 const upload = multer({
-  storage: storage,
-  limits: { fileSize: 50 * 1024 * 1024, files: 1 },
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
   fileFilter: function (req, file, cb) {
-    const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt/;
-    const extname = allowedTypes.test(
-      path.extname(file.originalname).toLowerCase(),
-    );
-    const mimetype =
-      /image\/|application\/pdf|application\/msword|application\/vnd|text\//.test(
-        file.mimetype,
-      );
+    const allowed = /jpeg|jpg|png|pdf/;
+    const extname = allowed.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = /image\/(jpeg|jpg|png)|application\/pdf/.test(file.mimetype);
     if (mimetype && extname) return cb(null, true);
-    cb(new Error("Invalid file type."));
+    cb(new Error("Tipo de archivo no válido. Solo PDF, JPG, PNG."));
   },
 });
 
@@ -116,11 +101,17 @@ const idValidation = [
 router.get("/", verificationController.getVerificationDocuments);
 router.get("/documents", verificationController.getVerificationDocuments);
 router.post(
+  "/documents",
+  upload.single("document"),
+  verificationController.uploadDocument,
+);
+router.post(
   "/upload",
   upload.single("document"),
   uploadValidation,
   verificationController.uploadDocument,
 );
+router.post("/submit", verificationController.submitVerification);
 router.get("/stats", verificationController.getVerificationStats);
 router.get("/expiring", verificationController.getExpiringDocuments);
 
@@ -136,6 +127,9 @@ router.get(
   "/requirements/check",
   verificationController.getVerificationRequirements,
 );
+
+// Timeline route (must be before /:documentId)
+router.get("/timeline", verificationController.getVerificationTimeline);
 
 // Individual document routes
 router.get("/:documentId", idValidation, verificationController.getDocument);

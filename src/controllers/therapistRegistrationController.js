@@ -41,13 +41,6 @@ const registerTherapist = asyncHandler(async (req, res) => {
     });
   }
 
-  if (!especialidades || especialidades.length === 0) {
-    return res.status(400).json({
-      success: false,
-      message: 'Debes seleccionar al menos una especialidad'
-    });
-  }
-
   if (!titulacion || !sobreMi) {
     return res.status(400).json({
       success: false,
@@ -257,6 +250,47 @@ const registerTherapist = asyncHandler(async (req, res) => {
 
           console.log(`✅ Document moved in bucket: ${tempPath} → ${storagePath}`);
 
+          // Buscar coincidencia en terapias_diccionario con las terapias detectadas por la IA
+          const terapiasDetectadasIA = doc.aiAnalysis?.terapiasDetectadas || [];
+          let terapiaId = null;
+
+          if (terapiasDetectadasIA.length > 0) {
+            const { data: terapiaMatch } = await supabase
+              .from('terapias_diccionario')
+              .select('id, nombre')
+              .in('nombre', terapiasDetectadasIA)
+              .limit(1)
+              .maybeSingle();
+
+            if (terapiaMatch) {
+              terapiaId = terapiaMatch.id;
+              console.log(`✅ Terapia encontrada en diccionario: ${terapiaMatch.nombre} (id: ${terapiaId})`);
+            } else {
+              console.log(`⚠️ Ninguna terapia detectada coincide con terapias_diccionario:`, terapiasDetectadasIA);
+            }
+          }
+
+          // Guardar registro en verification_documents (Supabase)
+          // Si hay terapia asociada → aprobado automáticamente; si no → pendiente de verificación manual
+          const { error: docInsertError } = await supabase
+            .from('verification_documents')
+            .insert({
+              user_id: authUser.id,
+              type: 'degree',
+              document_number: numeroColegiado || null,
+              issuing_body: doc.aiAnalysis?.entidadEmisora || null,
+              status: terapiaId ? 'approved' : 'pending',
+              file_url: fileUrl,
+              notes: JSON.stringify({ originalName: originalName || null, fileSize: fileBuffer.length }),
+              terapia_id: terapiaId,
+            });
+
+          if (docInsertError) {
+            console.error('❌ Error saving document to Supabase verification_documents:', docInsertError.message);
+          } else {
+            console.log(`✅ Document saved to Supabase verification_documents (status: ${terapiaId ? 'approved' : 'pending'})`);
+          }
+
           // Crear registro en verification_documents usando MongoDB
           // Extraer terapias detectadas del análisis AI
           const terapiasDetectadas = doc.aiAnalysis?.terapiasDetectadas || [];
@@ -333,11 +367,11 @@ const registerTherapist = asyncHandler(async (req, res) => {
     
     const planConfig = {
       basico: {
-        priceId: process.env.STRIPE_PLAN_BASICO_PRICE_ID || 'price_basico_placeholder',
+        priceId: process.env.STRIPE_PLAN_BASICO_PRICE_ID || 'price_1TF520CWwvC7shbledurltKN',
         defaultTrialDays: 90
       },
       avanzado: {
-        priceId: process.env.STRIPE_PLAN_AVANZADO_PRICE_ID || 'price_1T1BngECp38q24a3IczRTdHW',
+        priceId: process.env.STRIPE_PLAN_AVANZADO_PRICE_ID || 'price_1TF4zwCWwvC7shblu5YwRnTt',
         defaultTrialDays: 90
       },
       'avanzado-pro': {
@@ -452,12 +486,12 @@ const createTherapistSubscription = asyncHandler(async (req, res) => {
   // Configuración de planes
   const planConfig = {
     basico: {
-      priceId: process.env.STRIPE_PLAN_BASICO_PRICE_ID || 'price_1TCACNECp38q24a3BPm1EwRX',
+      priceId: process.env.STRIPE_PLAN_BASICO_PRICE_ID || 'price_1TF520CWwvC7shbledurltKN',
       defaultTrialDays: 90,
       nombre: 'Básico'
     },
     avanzado: {
-      priceId: process.env.STRIPE_PLAN_AVANZADO_PRICE_ID || 'price_1T1BngECp38q24a3IczRTdHW',
+      priceId: process.env.STRIPE_PLAN_AVANZADO_PRICE_ID || 'price_1TF4zwCWwvC7shblu5YwRnTt',
       defaultTrialDays: 90,
       nombre: 'Avanzado'
     },
@@ -756,9 +790,182 @@ const processDegreeDocuments = asyncHandler(async (req, res) => {
   }
 });
 
+/**
+ * @desc    Confirmar cambio de plan después del checkout de Stripe
+ * @route   POST /api/terapeutas/confirmar-cambio-plan
+ * @access  Private
+ */
+const confirmPlanChange = asyncHandler(async (req, res) => {
+  const { session_id } = req.body;
+  const userId = req.user?.id;
+
+  if (!session_id) {
+    return res.status(400).json({ success: false, message: 'session_id es requerido' });
+  }
+
+  try {
+    const session = await stripeService.getCheckoutSession(session_id);
+
+    // Verificar que la sesión pertenece a este usuario
+    const sessionUserId = session.metadata?.userId;
+    if (sessionUserId && sessionUserId !== userId) {
+      return res.status(403).json({ success: false, message: 'La sesión no pertenece a este usuario' });
+    }
+
+    // Verificar que el pago se completó
+    if (session.paymentStatus !== 'paid' && session.status !== 'complete') {
+      return res.status(400).json({
+        success: false,
+        message: 'El pago no se ha completado',
+        paymentStatus: session.paymentStatus
+      });
+    }
+
+    const plan = session.metadata?.plan;
+    if (!plan) {
+      return res.status(400).json({ success: false, message: 'No se encontró el plan en la sesión' });
+    }
+
+    // Actualizar subscription_plan en therapist_payment_settings
+    const { data: existingSettings } = await supabase
+      .from('therapist_payment_settings')
+      .select('*')
+      .eq('therapist_id', userId)
+      .single();
+
+    if (existingSettings) {
+      await supabase
+        .from('therapist_payment_settings')
+        .update({
+          subscription_plan: plan,
+          can_accept_online_payments: plan === 'avanzado-pro' || existingSettings.can_accept_online_payments,
+          updated_at: new Date().toISOString()
+        })
+        .eq('therapist_id', userId);
+    } else {
+      await supabase
+        .from('therapist_payment_settings')
+        .insert({
+          therapist_id: userId,
+          subscription_plan: plan,
+          can_accept_online_payments: plan === 'avanzado-pro',
+          platform_fee_percent: 10.00,
+          default_payment_method: 'manual'
+        });
+    }
+
+    // Actualizar subscription_status y stripe_subscription_id en users
+    const updateData = {
+      subscription_status: plan === 'avanzado-pro' ? 'active' : 'trial',
+      updated_at: new Date().toISOString()
+    };
+    if (session.customerId) updateData.stripe_customer_id = session.customerId;
+    if (session.subscriptionId) updateData.stripe_subscription_id = session.subscriptionId;
+
+    const { error: updateError } = await supabase
+      .from('users')
+      .update(updateData)
+      .eq('id', userId);
+
+    if (updateError) {
+      console.error('❌ [confirmPlanChange] Error updating user in DB:', updateError);
+    } else {
+      console.log('✅ [confirmPlanChange] DB updated → subscription_status:', updateData.subscription_status, '| stripe_subscription_id:', updateData.stripe_subscription_id);
+    }
+
+    console.log('✅ Plan change confirmed for user:', userId, '→', plan);
+
+    return res.status(200).json({
+      success: true,
+      message: `Plan actualizado a ${plan}`,
+      data: { plan, sessionId: session_id }
+    });
+
+  } catch (error) {
+    console.error('❌ Error confirming plan change:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Error al confirmar el cambio de plan' });
+  }
+});
+
+/**
+ * @desc    Cancelar suscripción al final del período de facturación
+ * @route   POST /api/terapeutas/cancelar-plan
+ * @access  Private
+ */
+const cancelPlanAtPeriodEnd = asyncHandler(async (req, res) => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ success: false, message: 'No autenticado' });
+  }
+
+  try {
+    // Obtener stripe_subscription_id del usuario
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('stripe_subscription_id, stripe_customer_id, subscription_status')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !userData) {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    }
+
+    if (!userData.stripe_subscription_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'No se encontró una suscripción activa de Stripe para este usuario'
+      });
+    }
+
+    // Cancelar en Stripe al final del período
+    const cancelled = await stripeService.cancelSubscriptionAtPeriodEnd(userData.stripe_subscription_id);
+
+    // Marcar en la BD como pendiente de cancelación
+    const { error: updateStatusError } = await supabase
+      .from('users')
+      .update({
+        subscription_status: 'cancelling',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId);
+
+    if (updateStatusError) {
+      console.error('❌ [cancelPlanAtPeriodEnd] Error updating subscription_status in DB:', updateStatusError);
+    } else {
+      console.log('✅ [cancelPlanAtPeriodEnd] subscription_status updated to cancelling for user:', userId);
+    }
+
+    // También actualizar therapist_payment_settings si existe
+    await supabase
+      .from('therapist_payment_settings')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('therapist_id', userId);
+
+    const periodEndDate = new Date(cancelled.current_period_end * 1000).toISOString().split('T')[0];
+
+    console.log('✅ Subscription set to cancel at period end for user:', userId, '— ends:', periodEndDate);
+
+    return res.status(200).json({
+      success: true,
+      message: `Suscripción cancelada. Tendrás acceso hasta el ${periodEndDate}.`,
+      data: {
+        cancelAtPeriodEnd: true,
+        accessUntil: periodEndDate
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error cancelling plan:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Error al cancelar el plan' });
+  }
+});
+
 module.exports = {
   registerTherapist,
   createTherapistSubscription,
   verifyRegistration,
-  processDegreeDocuments
+  processDegreeDocuments,
+  confirmPlanChange,
+  cancelPlanAtPeriodEnd
 };

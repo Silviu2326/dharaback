@@ -688,6 +688,48 @@ const getAvailableTherapists = asyncHandler(async (req, res, next) => {
     );
   }
 
+  // Get review counts and ratings for all therapists in a single query
+  const therapistIds = therapists.map(t => t.id || t._id).filter(Boolean);
+  let reviewCountMap = {};
+  let reviewRatingMap = {};
+  if (therapistIds.length > 0) {
+    const { data: reviewData } = await supabase
+      .from('reviews')
+      .select('therapist_id, rating')
+      .in('therapist_id', therapistIds);
+    if (reviewData) {
+      reviewData.forEach(r => {
+        const id = r.therapist_id;
+        reviewCountMap[id] = (reviewCountMap[id] || 0) + 1;
+        if (!reviewRatingMap[id]) reviewRatingMap[id] = [];
+        reviewRatingMap[id].push(r.rating);
+      });
+    }
+  }
+
+  // Bulk-fetch verified specialties from verification_documents for all therapists
+  let verifiedSpecialtiesMap = {}; // therapistId -> [{id, name, verified: true}]
+  if (therapistIds.length > 0) {
+    const { data: verifiedDocs } = await supabase
+      .from('verification_documents')
+      .select('user_id, terapia_id, terapias_diccionario(id, nombre)')
+      .in('user_id', therapistIds)
+      .not('terapia_id', 'is', null);
+    if (verifiedDocs) {
+      verifiedDocs.forEach(doc => {
+        const uid = doc.user_id;
+        const nombre = doc.terapias_diccionario?.nombre;
+        if (!nombre) return;
+        if (!verifiedSpecialtiesMap[uid]) verifiedSpecialtiesMap[uid] = new Map();
+        verifiedSpecialtiesMap[uid].set(doc.terapia_id, { id: doc.terapia_id, name: nombre, verified: true });
+      });
+      // Convert maps to arrays
+      Object.keys(verifiedSpecialtiesMap).forEach(uid => {
+        verifiedSpecialtiesMap[uid] = [...verifiedSpecialtiesMap[uid].values()];
+      });
+    }
+  }
+
   // Get professional profiles for each therapist
   const therapistsWithProfiles = await Promise.all(
     therapists.map(async (therapist) => {
@@ -729,18 +771,34 @@ const getAvailableTherapists = asyncHandler(async (req, res, next) => {
           }
         }
 
+        const therapistIdStr = String(therapist.id || therapist._id);
+        const verifiedSpecs = verifiedSpecialtiesMap[therapistIdStr] || [];
+        const mongoSpecialties = profile?.therapies?.map(therapy => therapy.name) || [];
+        // Merge: verified doc terapias take priority, then add mongo specialties not already included
+        const verifiedNames = new Set(verifiedSpecs.map(s => s.name));
+        const mergedSpecialties = [
+          ...verifiedSpecs.map(s => s.name),
+          ...mongoSpecialties.filter(n => !verifiedNames.has(n))
+        ];
         const profileData = profile ? {
           about: profile.about,
           // El banner viene del modelo User, no del ProfessionalProfile
           banner: therapist.banner,
           isAvailable: profile.isAvailable,
-          rating: profile.rating,
-          clientsCount: profile.clientsCount,
-          yearsExperience: profile.yearsExperience,
+          rating: reviewRatingMap[therapistIdStr]?.length > 0
+            ? Math.round((reviewRatingMap[therapistIdStr].reduce((a, b) => a + b, 0) / reviewRatingMap[therapistIdStr].length) * 10) / 10
+            : 0,
+          reviewCount: reviewCountMap[therapistIdStr] || 0,
+          clientsCount: profile.stats?.totalClients || 0,
+          yearsExperience: profile.totalExperience || 0,
+          sessionPrice: profile.rates?.sessionPrice,
+          basePrice: profile.rates?.basePrice || profile.rates?.sessionPrice,
           languages: profile.languages,
           workLocations: workLocations,
-          specialties: profile.therapies?.map(therapy => therapy.name) || [],
-          specializations: profile.specializations || therapist.specializations || [],
+          specialties: mergedSpecialties,
+          specializations: verifiedSpecs.length > 0
+            ? verifiedSpecs
+            : (profile.specializations || therapist.specializations || []),
           // NUEVOS CAMPOS
           ciudad: profile.ciudad,
           modalidad: profile.modalidad,
@@ -748,7 +806,10 @@ const getAvailableTherapists = asyncHandler(async (req, res, next) => {
         } : {
           // Si no hay profile, usar datos del therapist
           banner: therapist.banner,
-          specialties: therapist.specialties || therapist.therapies || []
+          specialties: verifiedSpecs.map(s => s.name).length > 0
+            ? verifiedSpecs.map(s => s.name)
+            : (therapist.specialties || therapist.therapies || []),
+          specializations: verifiedSpecs
         };
         
         console.log(`🔍 [BACKEND] Returning profile.banner:`, profileData.banner);
@@ -843,6 +904,21 @@ const getTherapistById = asyncHandler(async (req, res, next) => {
 
   // Also check profile.work_locations (from therapist_profiles view or model)
   const workLocationsFromProfile = profileView?.work_locations || profile?.work_locations || [];
+
+  // Obtener especialidades desde verification_documents con terapia asociada
+  const { data: verifiedDocs } = await supabase
+    .from('verification_documents')
+    .select('terapia_id, terapias_diccionario(nombre)')
+    .eq('user_id', id)
+    .not('terapia_id', 'is', null);
+
+  const terapiasFromDocs = verifiedDocs
+    ? [...new Map(
+        verifiedDocs
+          .filter(d => d.terapias_diccionario?.nombre)
+          .map(d => [d.terapia_id, d.terapias_diccionario.nombre])
+      ).values()]
+    : [];
   
   console.log('🔍 [BACKEND] ========== WORK LOCATIONS ==========');
   console.log('🔍 [BACKEND] workLocations from table:', workLocationsFromTable);
@@ -887,12 +963,13 @@ const getTherapistById = asyncHandler(async (req, res, next) => {
     isActive: therapist.isActive,
     joinedAt: therapist.createdAt,
     bio: profileData?.about || therapist?.bio || '',
-    // Intentar obtener especialidades de múltiples fuentes
-    specialties: therapist?.specialties || 
-                 profileData?.specialties || 
-                 profileData?.therapies?.map(t => t.name) || 
-                 therapist?.therapies || [],
-    specializations: therapist?.specializations || profileData?.specializations || [],
+    // Especialidades desde documentos verificados (terapias_diccionario), con fallback al perfil
+    specialties: terapiasFromDocs.length > 0
+                 ? terapiasFromDocs
+                 : (therapist?.specialties || profileData?.specialties || therapist?.therapies || []),
+    specializations: terapiasFromDocs.length > 0
+                 ? terapiasFromDocs.map((nombre, i) => ({ id: `spec-${i}`, name: nombre, verified: true }))
+                 : (therapist?.specializations || profileData?.specializations || []),
     languages: profileData?.languages || therapist?.languages || [],
     rating: profileData?.rating || therapist?.rating || 0,
     clientsCount: profileData?.clientsCount || therapist?.clientsCount || 0,

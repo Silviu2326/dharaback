@@ -509,6 +509,29 @@ class StripeService {
   }
 
   /**
+   * Cancelar suscripción al final del período de facturación
+   * @param {string} subscriptionId - ID de la suscripción en Stripe
+   * @returns {Promise<Object>} Suscripción actualizada
+   */
+  async cancelSubscriptionAtPeriodEnd(subscriptionId) {
+    try {
+      const subscription = await stripe.subscriptions.update(subscriptionId, {
+        cancel_at_period_end: true
+      });
+
+      return {
+        id: subscription.id,
+        status: subscription.status,
+        cancel_at_period_end: subscription.cancel_at_period_end,
+        current_period_end: subscription.current_period_end
+      };
+    } catch (error) {
+      console.error('❌ Error cancelling subscription:', error);
+      throw new Error(`Stripe error: ${error.message}`);
+    }
+  }
+
+  /**
    * Obtener métodos de pago de un cliente
    * @param {string} customerId - ID del cliente en Stripe
    * @returns {Promise<Array>} Lista de métodos de pago

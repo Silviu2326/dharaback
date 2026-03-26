@@ -1,6 +1,5 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-const fs = require("fs");
-const path = require("path");
+const { supabase } = require("../config/supabase");
 
 /**
  * Servicio para análisis de documentos usando Google Gemini AI
@@ -12,8 +11,10 @@ class GeminiService {
     this.terapias = [];
     this.nombresTerapias = [];
 
-    // Cargar catálogo de terapias
-    this._loadTerapiasCatalog();
+    // Cargar catálogo de terapias desde Supabase
+    this._loadTerapiasCatalog().catch((err) =>
+      console.error("❌ Error inicializando catálogo de terapias:", err.message)
+    );
 
     // Inicializar solo si hay API key configurada
     if (process.env.GEMINI_API_KEY) {
@@ -30,45 +31,26 @@ class GeminiService {
   }
 
   /**
-   * Carga el catálogo de terapias desde el archivo JSON
+   * Carga el catálogo de terapias desde terapias_diccionario en Supabase
    */
-  _loadTerapiasCatalog() {
+  async _loadTerapiasCatalog() {
     try {
-      // Buscar el archivo en diferentes ubicaciones posibles
-      const possiblePaths = [
-        path.join(__dirname, "../../public/terapias.json"),
-        path.join(__dirname, "../../../public/terapias.json"),
-        path.join(__dirname, "../../../../public/terapias.json"),
-        "/app/public/terapias.json",
-        "./public/terapias.json",
-      ];
+      const { data, error } = await supabase
+        .from("terapias_diccionario")
+        .select("id, nombre");
 
-      let terapiasPath = null;
-      for (const p of possiblePaths) {
-        if (fs.existsSync(p)) {
-          terapiasPath = p;
-          break;
-        }
-      }
+      if (error) throw error;
 
-      if (!terapiasPath) {
-        console.warn(
-          "⚠️ No se encontró el archivo terapias.json. La identificación de terapias estará deshabilitada."
-        );
-        return;
-      }
-
-      const data = JSON.parse(fs.readFileSync(terapiasPath, "utf8"));
-      this.terapias = data.terapias || [];
+      this.terapias = data || [];
       this.nombresTerapias = this.terapias.map((t) =>
         t.nombre.toLowerCase().trim()
       );
 
       console.log(
-        `✅ Catálogo de terapias cargado: ${this.terapias.length} terapias disponibles`
+        `✅ Catálogo de terapias cargado desde Supabase: ${this.terapias.length} terapias disponibles`
       );
     } catch (error) {
-      console.error("❌ Error cargando catálogo de terapias:", error.message);
+      console.error("❌ Error cargando terapias desde Supabase:", error.message);
       this.terapias = [];
       this.nombresTerapias = [];
     }

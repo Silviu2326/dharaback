@@ -1,55 +1,19 @@
-const fs = require("fs").promises;
-const path = require("path");
-
-const getTerapiasPath = async () => {
-  const possiblePaths = [
-    // Rutas relativas desde el controlador
-    path.join(__dirname, "../data/terapias.json"),
-    path.join(__dirname, "../../data/terapias.json"),
-    // Rutas desde process.cwd() (directorio de trabajo)
-    path.join(process.cwd(), "src/data/terapias.json"),
-    path.join(process.cwd(), "backend/src/data/terapias.json"),
-    path.join(process.cwd(), "public/terapias.json"),
-    // Rutas Railway típicas
-    "/app/src/data/terapias.json",
-    "/app/backend/src/data/terapias.json",
-    "/app/public/terapias.json",
-  ];
-  
-  for (const p of possiblePaths) {
-    try {
-      await fs.access(p);
-      console.log("✓ Terapias encontradas en:", p);
-      return p;
-    } catch {
-      console.log("✗ No encontrado en:", p);
-      continue;
-    }
-  }
-  
-  // Si ninguna funciona, devolver la primera y dejar que falle con error claro
-  console.error("ERROR: No se encontró terapias.json en ninguna ruta");
-  return possiblePaths[0];
-};
+const { supabase } = require("../config/supabase");
 
 const getTerapias = async (req, res) => {
   try {
-    const terapiasPath = await getTerapiasPath();
-    console.log("Cargando terapias desde:", terapiasPath);
-    const data = await fs.readFile(terapiasPath, "utf-8");
-    const terapiasData = JSON.parse(data);
+    const { data, error } = await supabase
+      .from("terapias_diccionario")
+      .select("id, nombre")
+      .order("nombre", { ascending: true });
 
-    const especialidades = terapiasData.terapias.map((t) => ({
-      id: t.id,
-      nombre: t.nombre,
-      descripcion_corta: t.descripcion_corta,
-    }));
+    if (error) throw error;
 
     res.json({
       success: true,
       data: {
-        total: especialidades.length,
-        especialidades,
+        total: data.length,
+        especialidades: data,
       },
     });
   } catch (error) {
@@ -65,13 +29,14 @@ const getTerapias = async (req, res) => {
 const getTerapiaById = async (req, res) => {
   try {
     const { id } = req.params;
-    const terapiasPath = await getTerapiasPath();
-    const data = await fs.readFile(terapiasPath, "utf-8");
-    const terapiasData = JSON.parse(data);
 
-    const terapia = terapiasData.terapias.find((t) => t.id === parseInt(id));
+    const { data, error } = await supabase
+      .from("terapias_diccionario")
+      .select("*")
+      .eq("id", id)
+      .single();
 
-    if (!terapia) {
+    if (error || !data) {
       return res.status(404).json({
         success: false,
         message: "Terapia no encontrada",
@@ -80,7 +45,7 @@ const getTerapiaById = async (req, res) => {
 
     res.json({
       success: true,
-      data: terapia,
+      data,
     });
   } catch (error) {
     console.error("Error obteniendo terapia:", error);
@@ -103,28 +68,19 @@ const buscarTerapias = async (req, res) => {
       });
     }
 
-    const terapiasPath = await getTerapiasPath();
-    const data = await fs.readFile(terapiasPath, "utf-8");
-    const terapiasData = JSON.parse(data);
+    const { data, error } = await supabase
+      .from("terapias_diccionario")
+      .select("id, nombre")
+      .ilike("nombre", `%${q}%`)
+      .order("nombre", { ascending: true });
 
-    const termino = q.toLowerCase();
-    const resultados = terapiasData.terapias
-      .filter(
-        (t) =>
-          t.nombre.toLowerCase().includes(termino) ||
-          t.descripcion_corta.toLowerCase().includes(termino),
-      )
-      .map((t) => ({
-        id: t.id,
-        nombre: t.nombre,
-        descripcion_corta: t.descripcion_corta,
-      }));
+    if (error) throw error;
 
     res.json({
       success: true,
       data: {
-        total: resultados.length,
-        resultados,
+        total: data.length,
+        resultados: data,
       },
     });
   } catch (error) {
@@ -137,8 +93,99 @@ const buscarTerapias = async (req, res) => {
   }
 };
 
+const getDiccionario = async (req, res) => {
+  try {
+    const { q } = req.query;
+
+    let query = supabase
+      .from("terapias_diccionario")
+      .select("id, nombre, definicion, fundamento, que_trata, publico_recomendado, contraindicaciones, como_es_una_sesion, complementaria_con")
+      .order("nombre", { ascending: true });
+
+    if (q && q.length >= 2) {
+      query = query.or(
+        `nombre.ilike.%${q}%,definicion.ilike.%${q}%,que_trata.ilike.%${q}%,fundamento.ilike.%${q}%`
+      );
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      data: {
+        total: data.length,
+        terapias: data,
+      },
+    });
+  } catch (error) {
+    console.error("Error obteniendo diccionario:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener el diccionario de terapias",
+      error: error.message,
+    });
+  }
+};
+
+const createTerapia = async (req, res) => {
+  try {
+    const {
+      nombre,
+      definicion,
+      fundamento,
+      que_trata,
+      publico_recomendado,
+      contraindicaciones,
+      como_es_una_sesion,
+      complementaria_con,
+    } = req.body;
+
+    if (!nombre || !definicion) {
+      return res.status(400).json({
+        success: false,
+        message: "El nombre y la definición son obligatorios",
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("terapias_diccionario")
+      .insert([
+        {
+          nombre,
+          definicion,
+          fundamento,
+          que_trata,
+          publico_recomendado,
+          contraindicaciones,
+          como_es_una_sesion,
+          complementaria_con,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.status(201).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    console.error("Error creando terapia:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al crear la terapia",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getTerapias,
   getTerapiaById,
   buscarTerapias,
+  getDiccionario,
+  createTerapia,
 };

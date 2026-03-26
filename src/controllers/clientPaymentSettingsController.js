@@ -1,5 +1,6 @@
 const { AppError, asyncHandler } = require('../middleware/errorHandler');
 const { supabase } = require('../config/supabase');
+const stripeService = require('../services/stripeService');
 
 /**
  * @desc    Get payment method for a specific client
@@ -167,15 +168,28 @@ const getTherapistSubscription = asyncHandler(async (req, res, next) => {
   const path = require('path');
   const debugFilePath = path.join(__dirname, '..', '..', 'debug_subscription.json');
 
-  // Obtener el estado de Stripe Connect desde la tabla users
+  // Obtener el estado de Stripe Connect y suscripción desde la tabla users
   const { data: userData, error: userError } = await supabase
     .from('users')
-    .select('stripe_connect_account_id, stripe_connect_status')
+    .select('stripe_connect_account_id, stripe_connect_status, subscription_status, stripe_subscription_id')
     .eq('id', therapistId)
     .single();
 
   const stripeConnectAccountId = userData?.stripe_connect_account_id || null;
   const stripeConnectStatus = userData?.stripe_connect_status || null;
+  let subscriptionStatus = userData?.subscription_status || 'active';
+
+  // Si el estado en BD es 'active', verificar en Stripe si cancel_at_period_end está activado
+  if (subscriptionStatus === 'active' && userData?.stripe_subscription_id) {
+    try {
+      const stripeSub = await stripeService.getSubscription(userData.stripe_subscription_id);
+      if (stripeSub?.cancel_at_period_end) {
+        subscriptionStatus = 'cancelling';
+      }
+    } catch (stripeError) {
+      console.warn('⚠️ [getTherapistSubscription] Could not verify Stripe cancel_at_period_end:', stripeError.message);
+    }
+  }
 
   const { data: settings, error } = await supabase
     .from('therapist_payment_settings')
@@ -250,6 +264,7 @@ const getTherapistSubscription = asyncHandler(async (req, res, next) => {
       data: {
         plan: 'basico',
         isPro: false,
+        subscriptionStatus,
         canAcceptOnlinePayments: canAcceptOnlinePayments,
         stripeConnectAccountId: stripeConnectAccountId,
         connectAccountStatus: stripeConnectStatus
@@ -262,6 +277,7 @@ const getTherapistSubscription = asyncHandler(async (req, res, next) => {
     data: {
       plan: settings.subscription_plan,
       isPro: settings.subscription_plan === 'avanzado-pro',
+      subscriptionStatus,
       canAcceptOnlinePayments: canAcceptOnlinePayments,
       stripeConnectAccountId: stripeConnectAccountId,
       connectAccountStatus: stripeConnectStatus

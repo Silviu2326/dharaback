@@ -9,46 +9,48 @@ const multer = require("multer");
 // Get verification documents with filters
 const getVerificationDocuments = async (req, res) => {
   try {
-    const {
-      status,
-      type,
-      page = 1,
-      limit = 20,
-      sortBy = "created_at",
-      sortOrder = "desc",
-    } = req.query;
-
+    const { status, type } = req.query;
+    const { supabase } = require('../config/supabase');
     const userId = req.user.id || req.user._id;
 
-    // Build filters
-    const filters = {};
+    let query = supabase
+      .from('verification_documents')
+      .select('*, terapias_diccionario(nombre)')
+      .order('created_at', { ascending: false });
 
-    // Allow therapists to see only their documents, admins can see all
-    if (req.user.role === "therapist") {
-      filters.user_id = userId;
+    // Terapeuta solo ve sus propios documentos
+    if (req.user.role === 'therapist') {
+      query = query.eq('user_id', userId);
     }
 
-    if (status) filters.status = status;
-    if (type) filters.type = type;
+    if (status) query = query.eq('status', status);
+    if (type) query = query.eq('type', type);
 
-    // Get documents with pagination
-    const result = await VerificationDocument.paginate({
-      page: parseInt(page),
-      limit: parseInt(limit),
-      filters,
-      order: { column: sortBy, ascending: sortOrder === "asc" },
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    const documents = (data || []).map(doc => {
+      let notesData = {};
+      try { notesData = doc.notes ? JSON.parse(doc.notes) : {}; } catch { notesData = {}; }
+
+      return {
+        id: doc.id,
+        name: notesData.originalName || doc.file_url?.split('/').pop() || 'Documento',
+        type: doc.type,
+        size: notesData.fileSize || 0,
+        status: doc.status,
+        url: doc.file_url,
+        uploadDate: doc.created_at,
+        issuingBody: doc.issuing_body,
+        documentNumber: doc.document_number,
+        terapia: doc.terapias_diccionario?.nombre || null,
+      };
     });
 
     res.json({
       success: true,
-      data: result.data.map((doc) => doc.toJSON()),
-      pagination: {
-        currentPage: result.pagination.page,
-        totalPages: result.pagination.totalPages,
-        totalDocs: result.pagination.total,
-        hasNextPage: result.pagination.page < result.pagination.totalPages,
-        hasPrevPage: result.pagination.page > 1,
-      },
+      documents,
     });
   } catch (error) {
     console.error("Error fetching verification documents:", error);
@@ -63,84 +65,68 @@ const getVerificationDocuments = async (req, res) => {
 // Upload verification document
 const uploadDocument = async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: "Validation errors",
-        errors: errors.array(),
-      });
-    }
-
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: "No file uploaded",
-      });
+      return res.status(400).json({ success: false, message: "No se recibió ningún archivo" });
     }
 
-    const { name, type, documentNumber, issuingBody, issueDate, expiryDate } =
-      req.body;
-
+    const { supabase } = require('../config/supabase');
     const userId = req.user.id || req.user._id;
+    const fileBuffer = req.file.buffer;
+    const originalName = req.file.originalname;
+    const mimeType = req.file.mimetype;
+    const fileExt = path.extname(originalName) || '.pdf';
 
-    // Calculate file checksum
-    const fileBuffer = await fs.readFile(req.file.path);
-    const checksum = crypto
-      .createHash("sha256")
-      .update(fileBuffer)
-      .digest("hex");
+    // Subir a Supabase Storage
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const filename = `verification-${userId}-${uniqueSuffix}${fileExt}`;
+    const storagePath = `therapists/${userId}/verification/${filename}`;
 
-    // Check for duplicate documents by checksum
-    const existingDoc = await VerificationDocument.findOne({
-      user_id: userId,
-      checksum,
-    });
+    const { error: uploadError } = await supabase.storage
+      .from('documents')
+      .upload(storagePath, fileBuffer, { contentType: mimeType, upsert: false });
 
-    if (existingDoc && existingDoc.status !== "rejected") {
-      // Clean up uploaded file
-      await fs.unlink(req.file.path);
-      return res.status(400).json({
-        success: false,
-        message: "A document with identical content already exists",
-        duplicateId: existingDoc.id,
-      });
-    }
+    if (uploadError) throw uploadError;
 
-    // Create document record
-    const document = await VerificationDocument.create({
-      userId: userId,
-      type,
-      name,
-      fileUrl: `/uploads/verification/${req.file.filename}`,
-      documentNumber,
-      issuingBody,
-      issueDate: issueDate || null,
-      expiryDate: expiryDate || null,
-      status: "pending",
-    });
+    const { data: publicUrlData } = supabase.storage
+      .from('documents')
+      .getPublicUrl(storagePath);
+
+    const fileUrl = publicUrlData.publicUrl;
+
+    // Buscar coincidencia en terapias_diccionario si el frontend envía metadata
+    let terapiaId = null;
+    try {
+      const metadata = req.body.metadata ? JSON.parse(req.body.metadata) : {};
+      // No hay análisis IA aquí, terapia_id queda null (pendiente de verificación)
+    } catch (_) {}
+
+    // Insertar en verification_documents
+    const { data: docData, error: insertError } = await supabase
+      .from('verification_documents')
+      .insert({
+        user_id: userId,
+        type: 'degree',
+        issuing_body: req.body.issuingBody || null,
+        document_number: req.body.documentNumber || null,
+        status: 'pending',
+        file_url: fileUrl,
+        notes: JSON.stringify({ originalName, fileSize: fileBuffer.length }),
+        terapia_id: terapiaId,
+      })
+      .select()
+      .single();
+
+    if (insertError) throw insertError;
 
     res.status(201).json({
       success: true,
-      message: "Document uploaded successfully",
-      data: document.toJSON(),
+      message: "Documento subido correctamente",
+      id: docData.id,
+      url: fileUrl,
     });
   } catch (error) {
-    // Clean up uploaded file on error
-    if (req.file) {
-      try {
-        await fs.unlink(req.file.path);
-      } catch (unlinkError) {
-        console.error("Error cleaning up file:", unlinkError);
-      }
-    }
-
     console.error("Error uploading document:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error uploading document",
-      error: error.message,
-    });
+    res.status(500).json({ success: false, message: "Error al subir el documento", error: error.message });
   }
 };
 
@@ -760,6 +746,28 @@ const analizarTitulacion = async (req, res) => {
       tipoArchivo: isPDF ? 'PDF' : 'Imagen',
     });
 
+    // Verificar si alguna terapia detectada existe en terapias_diccionario
+    let terapiaEnDiccionario = false;
+    let terapiaIdEncontrada = null;
+    const terapiasDetectadas = aiAnalysis.terapiasDetectadas || [];
+
+    if (terapiasDetectadas.length > 0) {
+      const { data: terapiaMatch } = await supabase
+        .from('terapias_diccionario')
+        .select('id, nombre')
+        .in('nombre', terapiasDetectadas)
+        .limit(1)
+        .maybeSingle();
+
+      if (terapiaMatch) {
+        terapiaEnDiccionario = true;
+        terapiaIdEncontrada = terapiaMatch.id;
+        console.log(`✅ Terapia en diccionario: ${terapiaMatch.nombre}`);
+      } else {
+        console.log(`⚠️ Terapias detectadas no están en terapias_diccionario:`, terapiasDetectadas);
+      }
+    }
+
     res.status(200).json({
       success: true,
       data: {
@@ -768,7 +776,11 @@ const analizarTitulacion = async (req, res) => {
         fileUrl: fileUrl,
         fileType: isPDF ? 'pdf' : 'image',
         mimeType: mimeType,
-        aiAnalysis,
+        aiAnalysis: {
+          ...aiAnalysis,
+          terapiaEnDiccionario,
+          terapiaIdEncontrada,
+        },
       },
     });
   } catch (error) {
@@ -779,6 +791,40 @@ const analizarTitulacion = async (req, res) => {
       message: "Error al analizar el documento",
       error: error.message,
     });
+  }
+};
+
+const submitVerification = async (req, res) => {
+  // Los documentos ya están guardados en verification_documents al subirse.
+  // Este endpoint simplemente confirma el envío.
+  res.json({ success: true, message: 'Documentos enviados para verificación' });
+};
+
+const getVerificationTimeline = async (req, res) => {
+  try {
+    const { supabase } = require('../config/supabase');
+    const userId = req.user.id || req.user._id;
+
+    const { data, error } = await supabase
+      .from('verification_documents')
+      .select('id, status, created_at, updated_at, type, notes')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const events = (data || []).map(doc => ({
+      id: doc.id,
+      type: doc.status === 'approved' ? 'approved' : doc.status === 'rejected' ? 'rejected' : 'submitted',
+      date: doc.updated_at || doc.created_at,
+      description: doc.notes || 'Documento subido',
+      documentType: doc.type,
+    }));
+
+    res.json({ success: true, events });
+  } catch (error) {
+    console.error('Error fetching verification timeline:', error);
+    res.status(500).json({ success: false, message: 'Error fetching timeline', error: error.message });
   }
 };
 
@@ -795,5 +841,7 @@ module.exports = {
   bulkApprove,
   getVerificationStatus,
   getVerificationRequirements,
+  submitVerification,
+  getVerificationTimeline,
   analizarTitulacion,
 };
