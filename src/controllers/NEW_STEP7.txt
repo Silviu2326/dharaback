@@ -1,0 +1,114 @@
+// NUEVO PASO 7 - Código corregido para insertar en backend/src/controllers/bookingPaymentController.js
+// Reemplazar desde línea 246 hasta antes del "// 8. Si es pago manual"
+
+  // 7. Crear bookings o pending_bookings segun metodo de pago
+  console.log('\n[Paso 7] Creando reservas...');
+  const createdBookings = [];
+  const createdPendingBookings = [];
+  
+  for (let i = 0; i < appointments.length; i++) {
+    const appointment = appointments[i];
+    console.log('\n  Procesando cita ' + (i + 1) + '/' + appointments.length + ':');
+    console.log('    - Fecha:', appointment.date);
+    console.log('    - Hora:', appointment.time);
+    
+    // Calcular hora de fin
+    const [hours, minutes] = appointment.time.split(':');
+    const startDateTime = new Date(appointment.date + 'T' + appointment.time);
+    const duration = service.duration || 60;
+    const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
+    const endTime = String(endDateTime.getHours()).padStart(2, '0') + ':' + String(endDateTime.getMinutes()).padStart(2, '0');
+    
+    console.log('    - Hora fin calculada:', endTime);
+    
+    if (finalPaymentMethod === 'stripe') {
+      // Crear pending_booking para Stripe
+      console.log('    -> Creando pending_booking...');
+      
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 30);
+      
+      const insertData = {
+        therapist_id: therapistId,
+        client_id: clientId,
+        therapy_type: service.name || 'Sesion individual',
+        therapy_duration: service.duration || 60,
+        date: appointment.date,
+        start_time: appointment.time,
+        end_time: endTime,
+        amount: finalAmount / totalSessions,
+        currency: 'EUR',
+        service_id: serviceId,
+        service_name: service.name,
+        status: 'awaiting_payment',
+        expires_at: expiresAt.toISOString()
+      };
+      
+      const { data: pendingBooking, error: pendingError } = await supabase
+        .from('pending_bookings')
+        .insert(insertData)
+        .select()
+        .single();
+      
+      if (pendingError) {
+        console.error('Error creating pending booking:', pendingError);
+        return next(new AppError('Error al reservar el slot temporalmente', 500));
+      }
+      
+      console.log('    -> Pending booking creado:', pendingBooking.id);
+      createdPendingBookings.push(pendingBooking);
+    } else {
+      // Crear booking directamente para manual/exempt
+      console.log('    -> Creando booking directamente...');
+      
+      const insertData = {
+        therapist_id: therapistId,
+        client_id: clientId,
+        therapy_type: service.name || 'Sesion individual',
+        therapy_duration: service.duration || 60,
+        date: appointment.date,
+        start_time: appointment.time,
+        end_time: endTime,
+        status: 'pending',
+        payment_status: finalPaymentMethod === 'manual' ? 'unpaid' : 'paid',
+        amount: finalAmount / totalSessions,
+        currency: 'EUR',
+        payment_method: finalPaymentMethod === 'manual' ? 'cash' : 'exempt',
+        location: 'No especificado',
+        original_amount: sessionPrice,
+        discount_amount: appliedCoupon ? (discountAmount / totalSessions) : 0,
+        final_amount: finalAmount / totalSessions,
+        coupon_code: appliedCoupon?.code || null,
+        requires_online_payment: false,
+        session_number: i + 1,
+        total_sessions: totalSessions,
+        notes: 'Servicio: ' + (service.name || 'Sesion') + (appliedCoupon ? ' (Cupon: ' + appliedCoupon.code + ')' : '') + (finalPaymentMethod === 'manual' ? ' (Pago manual)' : ' (Exento)')
+      };
+
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (serviceId && uuidRegex.test(serviceId)) {
+        insertData.service_id = serviceId;
+      }
+
+      const { data: booking, error: bookingError } = await supabase
+        .from('bookings')
+        .insert(insertData)
+        .select()
+        .single();
+      
+      if (bookingError) {
+        console.error('Error creating booking:', bookingError);
+        return next(new AppError('Error al crear la reserva', 500));
+      }
+      
+      console.log('    -> Booking creado:', booking.id);
+      createdBookings.push(booking);
+    }
+  }
+  
+  console.log('\nTotal procesados:', finalPaymentMethod === 'stripe' ? createdPendingBookings.length : createdBookings.length);
+  if (finalPaymentMethod === 'stripe') {
+    console.log('   Pending Booking IDs:', createdPendingBookings.map(b => b.id));
+  } else {
+    console.log('   Booking IDs:', createdBookings.map(b => b.id));
+  }

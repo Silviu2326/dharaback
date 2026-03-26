@@ -21,7 +21,9 @@ const getBookings = asyncHandler(async (req, res, next) => {
   let query = supabase
     .from('bookings')
     .select('*, client:clients(id, name, email, phone, avatar)', { count: 'exact' })
-    .eq('therapist_id', req.user.id);
+    .eq('therapist_id', req.user.id)
+    // No mostrar citas que requieren pago online y aún no están pagadas
+    .or('requires_online_payment.eq.false,payment_status.neq.unpaid');
 
   if (status) query = query.eq('status', status);
   if (startDate && endDate) query = query.gte('date', startDate).lte('date', endDate);

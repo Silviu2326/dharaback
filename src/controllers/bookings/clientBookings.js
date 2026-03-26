@@ -24,7 +24,9 @@ const getClientBookings = asyncHandler(async (req, res, next) => {
       *,
       therapist:users!therapist_id(id, name, email, avatar)
     `, { count: 'exact' })
-    .eq('client_id', req.user.id);
+    .eq('client_id', req.user.id)
+    // No mostrar citas que requieren pago online y aún no están pagadas
+    .or('requires_online_payment.eq.false,payment_status.neq.unpaid');
 
   if (status) {
     query = query.eq('status', status);

@@ -3,7 +3,8 @@ const { body } = require('express-validator');
 const {
   createBookingWithPayment,
   handleStripeWebhook,
-  getPaymentPermissions
+  getPaymentPermissions,
+  verifyPayment
 } = require('../controllers/bookingPaymentController');
 const { protect } = require('../middleware/auth');
 
@@ -52,5 +53,8 @@ router.post('/create-with-payment', createBookingValidation, createBookingWithPa
 
 // Get payment permissions for a therapist
 router.get('/payment-permissions/:therapistId', getPaymentPermissions);
+
+// Verify payment status
+router.get('/verify-payment', verifyPayment);
 
 module.exports = router;
