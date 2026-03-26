@@ -491,7 +491,9 @@ const createBookingWithPayment = asyncHandler(async (req, res, next) => {
           destination: stripeConnectAccountId,
         },
         metadata: {
-          booking_ids: JSON.stringify(createdBookings.map(b => b.id)),
+          booking_ids: JSON.stringify(finalPaymentMethod === 'stripe' 
+            ? createdPendingBookings.map(b => b.id) 
+            : createdBookings.map(b => b.id)),
           therapist_id: therapistId,
           client_id: clientId,
           service_name: service.name,
@@ -504,7 +506,9 @@ const createBookingWithPayment = asyncHandler(async (req, res, next) => {
         },
       },
       metadata: {
-        booking_ids: JSON.stringify(createdBookings.map(b => b.id)),
+        booking_ids: JSON.stringify(finalPaymentMethod === 'stripe' 
+          ? createdPendingBookings.map(b => b.id) 
+          : createdBookings.map(b => b.id)),
         therapist_id: therapistId,
         client_id: clientId,
         service_name: service.name,
@@ -525,28 +529,50 @@ const createBookingWithPayment = asyncHandler(async (req, res, next) => {
     const stripePaymentIntentId = checkoutSession.payment_intent;
     
     // 11. Actualizar bookings con payment_intent_id (ignoramos error si no existe la columna)
+    // NOTA: Para Stripe, actualizamos pending_bookings en lugar de bookings
     if (stripePaymentIntentId) {
       console.log('\n🔍 [Paso 11] Actualizando bookings con payment_intent_id...');
-      const { error: updateError } = await supabase
-        .from('bookings')
-        .update({ 
-          payment_intent_id: stripePaymentIntentId,
-          updated_at: new Date().toISOString()
-        })
-        .in('id', createdBookings.map(b => b.id));
-      
-      if (updateError) {
-        console.log('   ⚠️ No se pudo actualizar payment_intent_id (columna puede no existir)');
+      if (finalPaymentMethod === 'stripe') {
+        // Actualizar pending_bookings con payment_intent_id
+        const { error: updatePendingError } = await supabase
+          .from('pending_bookings')
+          .update({ 
+            payment_intent_id: stripePaymentIntentId,
+            updated_at: new Date().toISOString()
+          })
+          .in('id', createdPendingBookings.map(b => b.id));
+        
+        if (updatePendingError) {
+          console.log('   ⚠️ No se pudo actualizar payment_intent_id en pending_bookings');
+        } else {
+          console.log('   ✅ Pending bookings actualizados con payment_intent_id');
+        }
       } else {
-        console.log('   ✅ Bookings actualizados con payment_intent_id');
+        // Para otros métodos, actualizar bookings normales
+        const { error: updateError } = await supabase
+          .from('bookings')
+          .update({ 
+            payment_intent_id: stripePaymentIntentId,
+            updated_at: new Date().toISOString()
+          })
+          .in('id', createdBookings.map(b => b.id));
+        
+        if (updateError) {
+          console.log('   ⚠️ No se pudo actualizar payment_intent_id (columna puede no existir)');
+        } else {
+          console.log('   ✅ Bookings actualizados con payment_intent_id');
+        }
       }
     }
     
     // 12. Crear o verificar conversación entre cliente y terapeuta
+    // NOTA: Para Stripe, la conversación se creará después del pago exitoso
     console.log('\n🔍 [Paso 12] Creando/verificando conversación entre cliente y terapeuta...');
     let conversation = null;
     try {
-      const bookingIds = createdBookings.map(b => b.id);
+      const bookingIds = finalPaymentMethod === 'stripe' 
+        ? createdPendingBookings.map(b => b.id)
+        : createdBookings.map(b => b.id);
       
       // Buscar si ya existe una conversación
       conversation = await Conversation.findBetweenUsers(clientId, therapistId);
@@ -744,8 +770,7 @@ async function handlePaymentSuccess(paymentIntent) {
       payment_method: 'online',
       location: 'No especificado',
       service_id: pb.service_id,
-      notes: `Servicio: ${pb.service_name || pb.therapy_type} (Pagado via Stripe)`,
-      paid_at: new Date().toISOString()
+      notes: `Servicio: ${pb.service_name || pb.therapy_type} (Pagado via Stripe)`
     };
     
     const { data: booking, error: createError } = await supabase
@@ -969,8 +994,7 @@ const getPaymentPermissions = asyncHandler(async (req, res, next) => {
  * @access  Private (Client only)
  */
 const verifyPayment = asyncHandler(async (req, res, next) => {
-  console.log('\n🚀 [verifyPayment] Verificando estado del pago');
-  console.log('═══════════════════════════════════════════════════════════');
+  console.log('\n[verifyPayment] Verificando estado del pago');
   
   const { session_id } = req.query;
   
@@ -978,20 +1002,127 @@ const verifyPayment = asyncHandler(async (req, res, next) => {
     return next(new AppError('Session ID es requerido', 400));
   }
   
-  console.log('📋 Session ID:', session_id);
+  console.log('Session ID:', session_id);
   
   try {
     // Recuperar la sesión de Stripe
     const session = await stripe.checkout.sessions.retrieve(session_id);
     
-    console.log('✅ Sesión recuperada de Stripe:');
-    console.log('  - ID:', session.id);
+    console.log('Session recuperada:');
     console.log('  - Status:', session.status);
     console.log('  - Payment Status:', session.payment_status);
     
-    // Verificar el estado del pago
     const isPaid = session.payment_status === 'paid';
     const isComplete = session.status === 'complete';
+    
+    // Si el pago fue exitoso, crear el booking real
+    let createdBookings = [];
+    if (isPaid && isComplete) {
+      console.log('Pago exitoso! Creando bookings desde pending_bookings...');
+      console.log('Session metadata:', session.metadata);
+      
+      const pendingBookingIds = JSON.parse(session.metadata?.booking_ids || '[]');
+      console.log('Pending booking IDs from metadata:', pendingBookingIds);
+      console.log('Length:', pendingBookingIds.length);
+      
+      if (pendingBookingIds.length > 0) {
+        console.log('Buscando pending_bookings en base de datos...');
+        // Buscar pending_bookings
+        const { data: pendingBookings, error: fetchError } = await supabase
+          .from('pending_bookings')
+          .select('*')
+          .in('id', pendingBookingIds)
+          .eq('status', 'awaiting_payment');
+        
+        console.log('Resultado de busqueda:');
+        console.log('  - fetchError:', fetchError);
+        console.log('  - pendingBookings:', pendingBookings);
+        console.log('  - pendingBookings.length:', pendingBookings?.length);
+        
+        if (fetchError) {
+          console.error('ERROR al buscar pending_bookings:', fetchError);
+        }
+        
+        if (!fetchError && pendingBookings && pendingBookings.length > 0) {
+          console.log(`Encontrados ${pendingBookings.length} pending_bookings`);
+          
+          // Check if booking already exists for this stripe session (prevent duplicates)
+          const { data: existingBookings } = await supabase
+            .from('bookings')
+            .select('id')
+            .eq('stripe_session_id', session.id);
+          
+          if (existingBookings && existingBookings.length > 0) {
+            console.log('⚠️ Booking ya existe para esta sesión de Stripe, evitando duplicado');
+            console.log('   Booking IDs existentes:', existingBookings.map(b => b.id));
+            createdBookings = existingBookings;
+          } else {
+            // Crear bookings reales
+            for (const pb of pendingBookings) {
+            console.log('Procesando pending_booking:', pb.id);
+            console.log('Datos del pending_booking:', pb);
+            
+            const bookingData = {
+              therapist_id: pb.therapist_id,
+              client_id: pb.client_id,
+              therapy_type: pb.therapy_type,
+              therapy_duration: pb.therapy_duration,
+              date: pb.date,
+              start_time: pb.start_time,
+              end_time: pb.end_time,
+              status: 'upcoming',
+              payment_status: 'paid',
+              amount: pb.amount,
+              currency: pb.currency || 'EUR',
+              payment_method: 'online',
+              location: 'No especificado',
+              service_id: pb.service_id,
+              notes: `Servicio: ${pb.service_name || pb.therapy_type} (Pagado via Stripe)`,
+              stripe_session_id: session.id
+            };
+            
+            console.log('Insertando booking con datos:', bookingData);
+            
+            const { data: booking, error: createError } = await supabase
+              .from('bookings')
+              .insert(bookingData)
+              .select()
+              .single();
+            
+            if (createError) {
+              console.error('ERROR creando booking:', createError);
+            }
+            
+            if (!createError && booking) {
+              console.log('✅ Booking creado:', booking.id);
+              createdBookings.push(booking);
+            }
+          }
+          }
+          
+          // Marcar pending_bookings como pagados
+          console.log('Marcando pending_bookings como pagados...');
+          const { error: updateError } = await supabase
+            .from('pending_bookings')
+            .update({
+              status: 'paid',
+              stripe_session_id: session.id,
+              paid_at: new Date().toISOString()
+            })
+            .in('id', pendingBookingIds);
+          
+          if (updateError) {
+            console.error('ERROR actualizando pending_bookings:', updateError);
+          }
+          
+          console.log('✅ Total bookings creados:', createdBookings.length);
+        } else {
+          console.log('⚠️ No se encontraron pending_bookings con status awaiting_payment');
+        }
+      } else {
+        console.log('⚠️ No hay pending_booking_ids en metadata');
+      }
+    }
     
     res.status(200).json({
       success: true,
@@ -1004,11 +1135,13 @@ const verifyPayment = asyncHandler(async (req, res, next) => {
         amountTotal: session.amount_total,
         currency: session.currency,
         customerEmail: session.customer_details?.email,
-        metadata: session.metadata
+        metadata: session.metadata,
+        bookingsCreated: createdBookings.length,
+        bookingIds: createdBookings.map(b => b.id)
       }
     });
   } catch (error) {
-    console.error('❌ Error verificando sesión de Stripe:', error);
+    console.error('Error verificando sesión:', error);
     return next(new AppError('Error al verificar el pago', 500));
   }
 });

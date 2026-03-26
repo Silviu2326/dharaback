@@ -2,8 +2,29 @@
 -- Created: 2026-03-24
 -- Description: Adds columns needed by bookingPaymentController
 
--- Add service_id column
-ALTER TABLE bookings ADD COLUMN IF NOT EXISTS service_id UUID;
+-- Fix: If service_id exists as UUID, change to VARCHAR (to support non-UUID service IDs like '1773994376803')
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'bookings' 
+        AND column_name = 'service_id'
+    ) THEN
+        -- Check if it's a UUID type
+        IF EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'bookings' 
+            AND column_name = 'service_id'
+            AND data_type = 'uuid'
+        ) THEN
+            -- Change column type from UUID to VARCHAR
+            ALTER TABLE bookings ALTER COLUMN service_id TYPE VARCHAR(100);
+        END IF;
+    ELSE
+        -- Add service_id column if it doesn't exist
+        ALTER TABLE bookings ADD COLUMN service_id VARCHAR(100);
+    END IF;
+END $$;
 
 -- Add amount columns
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS original_amount DECIMAL(10,2);
