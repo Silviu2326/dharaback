@@ -77,26 +77,29 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      } else {
-        console.log(`❌ CORS blocked origin: ${origin}`);
-        console.log(`✅ Allowed origins: ${allowedOrigins.join(", ")}`);
-        return callback(new Error("Not allowed by CORS"), false);
-      }
-    },
-    credentials: true,
-    optionsSuccessStatus: 200,
-    allowedHeaders: "*",
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  }),
-);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      console.log(`❌ CORS blocked origin: ${origin}`);
+      console.log(`✅ Allowed origins: ${allowedOrigins.join(", ")}`);
+      return callback(new Error("Not allowed by CORS"), false);
+    }
+  },
+  credentials: true,
+  optionsSuccessStatus: 200,
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "X-Request-ID", "X-Client-Version", "X-Client-Type", "X-Timestamp"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+};
+
+app.use(cors(corsOptions));
+
+// Handle preflight requests explicitly for all routes
+app.options("*", cors(corsOptions));
 
 // Rate limiting - Disabled for development
 if (process.env.NODE_ENV === "production") {

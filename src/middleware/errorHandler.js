@@ -132,6 +132,13 @@ const errorHandler = (err, req, res, next) => {
   // Log error
   console.error('Error:', err);
 
+  // Ensure CORS headers are always present on error responses
+  const origin = req.headers.origin;
+  if (origin && !res.getHeader('Access-Control-Allow-Origin')) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+
   // Supabase/PostgreSQL errors
   if (err.code && err.code.startsWith('23')) {
     error = handleSupabaseError(err);
