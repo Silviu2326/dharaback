@@ -99,7 +99,7 @@ const createBookingWithPayment = asyncHandler(async (req, res, next) => {
   console.log('  - clientPaymentMethod:', clientPrefs?.payment_method || relationPaymentMethod || 'manual (default)');
   console.log('  - isExempt:', clientPrefs?.is_exempt_from_payment || false);
 
-  const clientPaymentMethod = clientPrefs?.payment_method || relationPaymentMethod || 'manual';
+  const clientPaymentMethod = relationPaymentMethod || clientPrefs?.payment_method || 'manual';
   const isExempt = clientPrefs?.is_exempt_from_payment || false;
 
   // 3. Determinar método de pago final

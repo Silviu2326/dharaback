@@ -92,10 +92,10 @@ const createBookingWithPayment = async (req, res, next) => {
   console.log('  - ¿Tiene relación ClientTherapist?:', hasExistingRelation ? 'Sí' : 'No');
   console.log('  - relationPaymentMethod:', relationPaymentMethod || 'N/A');
   console.log('  - isNewClient:', isNewClient);
-  console.log('  - clientPaymentMethod:', clientPrefs?.payment_method || relationPaymentMethod || 'manual (default)');
+  console.log('  - clientPaymentMethod:', relationPaymentMethod || clientPrefs?.payment_method || 'manual (default)');
   console.log('  - isExempt:', clientPrefs?.is_exempt_from_payment || false);
 
-  const clientPaymentMethod = clientPrefs?.payment_method || relationPaymentMethod || 'manual';
+  const clientPaymentMethod = relationPaymentMethod || clientPrefs?.payment_method || 'manual';
   const isExempt = clientPrefs?.is_exempt_from_payment || false;
 
   // 3. Determinar método de pago final
@@ -309,10 +309,10 @@ const createBookingWithPayment = async (req, res, next) => {
         start_time: appointment.time,
         end_time: endTime,
         status: 'pending',
-        payment_status: finalPaymentMethod === 'manual' ? 'unpaid' : 'paid',
+        payment_status: (finalPaymentMethod === 'manual' || finalPaymentMethod === 'cash') ? 'unpaid' : 'paid',
         amount: finalAmount / totalSessions,
         currency: 'EUR',
-        payment_method: finalPaymentMethod === 'manual' ? 'cash' : 'exempt',
+        payment_method: (finalPaymentMethod === 'manual' || finalPaymentMethod === 'cash') ? 'cash' : 'exempt',
         location: 'No especificado',
         original_amount: sessionPrice,
         discount_amount: appliedCoupon ? (discountAmount / totalSessions) : 0,
@@ -321,7 +321,7 @@ const createBookingWithPayment = async (req, res, next) => {
         requires_online_payment: false,
         session_number: i + 1,
         total_sessions: totalSessions,
-        notes: `Servicio: ${service.name || 'Sesion'}${appliedCoupon ? ` (Cupon: ${appliedCoupon.code})` : ''}${finalPaymentMethod === 'manual' ? ' (Pago manual)' : ' (Exento)'}`
+        notes: `Servicio: ${service.name || 'Sesion'}${appliedCoupon ? ` (Cupon: ${appliedCoupon.code})` : ''}${(finalPaymentMethod === 'manual' || finalPaymentMethod === 'cash') ? ' (Pago manual)' : ' (Exento)'}`
       };
 
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -398,7 +398,7 @@ const createBookingWithPayment = async (req, res, next) => {
         bookings: createdBookings,
         conversationId: conversation?.id || null,
         paymentMethod: finalPaymentMethod,
-        message: finalPaymentMethod === 'manual' 
+        message: (finalPaymentMethod === 'manual' || finalPaymentMethod === 'cash')
           ? 'Reserva creada. El terapeuta te contactará para el pago.'
           : 'Reserva creada (cliente exento de pago).',
         amount: finalAmount,
