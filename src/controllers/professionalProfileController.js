@@ -170,7 +170,8 @@ const updateProfile = asyncHandler(async (req, res, next) => {
     'preferences',
     'legalInfo',
     'credentials', // Allow credentials from frontend
-    'banner' // Allow banner field from frontend
+    'banner', // Allow banner field from frontend
+    'telefono'
   ];
 
   // Filter allowed fields

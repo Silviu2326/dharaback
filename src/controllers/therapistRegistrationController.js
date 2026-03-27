@@ -1,5 +1,6 @@
 const asyncHandler = require('../middleware/asyncHandler');
 const stripeService = require('../services/stripeService');
+const emailService = require('../services/emailService');
 const fs = require('fs').promises;
 const path = require('path');
 const { supabase } = require('../config/supabase');
@@ -165,6 +166,7 @@ const registerTherapist = asyncHandler(async (req, res) => {
               ]
             : [],
           // NUEVOS CAMPOS DE UBICACIÓN
+          telefono: telefono || null,
           ciudad: ciudad || 'Madrid',
           modalidad: modalidad || 'hibrido',
           zonas_atencion: zonasAtencion?.length > 0 ? zonasAtencion : [ciudad || 'Madrid'],
@@ -418,6 +420,16 @@ const registerTherapist = asyncHandler(async (req, res) => {
         console.log('✅ Stripe customer ID saved:', session.customerId);
       }
     }
+
+    emailService.sendNewTherapistAdminNotification({
+      nombre,
+      apellidos,
+      email,
+      telefono,
+      plan,
+      especialidades,
+      ciudad
+    }).catch(err => console.error('❌ Error sending admin notification email:', err));
 
     console.log('✅ Therapist registration complete:', {
       userId: authUser.id,

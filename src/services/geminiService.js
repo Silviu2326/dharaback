@@ -318,6 +318,8 @@ REGLAS CLAVE:
 - Ante la duda -> aceptarlo (revisar_manualmente como máximo)
 - En "terapiasDetectadas" incluye SOLO nombres de terapias que realmente aparecen en el documento
 - "terapiasCoincidenConDeclaradas" debe ser true si alguna terapia detectada coincide con la especialidad declarada
+- Si el nombre visible en el documento (nombreTitulado) NO coincide con el nombre del terapeuta indicado en el contexto -> recomendacion: "revisar_manualmente" aunque el documento sea válido
+- Si ninguna de las terapias detectadas coincide con el catálogo de terapias reconocidas -> recomendacion: "revisar_manualmente"
 
 IMPORTANTE: Responde ÚNICAMENTE con el JSON válido, sin texto adicional.`;
   }
@@ -387,6 +389,8 @@ REGLAS CLAVE:
 - Para PDFs con múltiples páginas: mencionar en observaciones si todas las páginas son relevantes
 - En "terapiasDetectadas" incluye SOLO nombres de terapias que realmente aparecen en el documento
 - "terapiasCoincidenConDeclaradas" debe ser true si alguna terapia detectada coincide con la especialidad declarada
+- Si el nombre visible en el documento (nombreTitulado) NO coincide con el nombre del terapeuta indicado en el contexto -> recomendacion: "revisar_manualmente" aunque el documento sea válido
+- Si ninguna de las terapias detectadas coincide con el catálogo de terapias reconocidas -> recomendacion: "revisar_manualmente"
 
 IMPORTANTE: Responde ÚNICAMENTE con el JSON válido, sin texto adicional.`;
   }

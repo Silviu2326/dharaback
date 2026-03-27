@@ -1,5 +1,8 @@
 const sgMail = require('@sendgrid/mail');
 const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
+const FormData = require('form-data');
+const Mailgun = require('mailgun.js');
 
 /**
  * Servicio de Email
@@ -29,7 +32,26 @@ class EmailService {
    * Inicializar servicio de email
    */
   initialize() {
-    if (this.provider === 'sendgrid') {
+    if (this.provider === 'mailgun') {
+      const apiKey = process.env.MAILGUN_API_KEY;
+      if (apiKey) {
+        const mailgun = new Mailgun(FormData);
+        const url = process.env.MAILGUN_REGION === 'eu' ? 'https://api.eu.mailgun.net' : 'https://api.mailgun.net';
+        this.mailgunClient = mailgun.client({ username: 'api', key: apiKey, url });
+        this.mailgunDomain = process.env.MAILGUN_DOMAIN;
+        console.log('✅ Mailgun email service initialized');
+      } else {
+        console.warn('⚠️  Mailgun API key not configured. Email features will be disabled.');
+      }
+    } else if (this.provider === 'resend') {
+      const apiKey = process.env.RESEND_API_KEY;
+      if (apiKey) {
+        this.resend = new Resend(apiKey);
+        console.log('✅ Resend email service initialized');
+      } else {
+        console.warn('⚠️  Resend API key not configured. Email features will be disabled.');
+      }
+    } else if (this.provider === 'sendgrid') {
       const apiKey = process.env.SENDGRID_API_KEY;
 
       if (apiKey) {
@@ -58,7 +80,11 @@ class EmailService {
    * @returns {boolean}
    */
   isConfigured() {
-    if (this.provider === 'sendgrid') {
+    if (this.provider === 'mailgun') {
+      return !!process.env.MAILGUN_API_KEY && !!process.env.MAILGUN_DOMAIN;
+    } else if (this.provider === 'resend') {
+      return !!process.env.RESEND_API_KEY;
+    } else if (this.provider === 'sendgrid') {
       return process.env.SENDGRID_API_KEY !== undefined;
     } else if (this.provider === 'smtp') {
       return process.env.EMAIL_USER && process.env.EMAIL_PASS;
@@ -98,7 +124,11 @@ class EmailService {
     }
 
     try {
-      if (this.provider === 'sendgrid') {
+      if (this.provider === 'mailgun') {
+        return await this.sendWithMailgun({ to, subject, html, text });
+      } else if (this.provider === 'resend') {
+        return await this.sendWithResend({ to, subject, html, text });
+      } else if (this.provider === 'sendgrid') {
         return await this.sendWithSendGrid({ to, subject, html, text });
       } else {
         return await this.sendWithSMTP({ to, subject, html, text });
@@ -109,6 +139,49 @@ class EmailService {
         success: false,
         error: error.message || 'Error sending email'
       };
+    }
+  }
+
+  /**
+   * Enviar con Mailgun
+   */
+  async sendWithMailgun({ to, subject, html, text }) {
+    try {
+      const msg = await this.mailgunClient.messages.create(this.mailgunDomain, {
+        from: `${this.fromName} <noreply@${this.mailgunDomain}>`,
+        to: Array.isArray(to) ? to : [to],
+        subject,
+        html: html || `<p>${text}</p>`,
+        text: text || (html ? this.stripHtml(html) : '')
+      });
+
+      console.log('✅ Email sent via Mailgun:', msg.id);
+      return { success: true, data: { messageId: msg.id } };
+    } catch (error) {
+      console.error('❌ Mailgun error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Enviar con Resend
+   */
+  async sendWithResend({ to, subject, html, text }) {
+    try {
+      const { data, error } = await this.resend.emails.send({
+        from: `${this.fromName} <${this.fromEmail}>`,
+        to,
+        subject,
+        html: html || `<p>${text}</p>`
+      });
+
+      if (error) throw new Error(error.message);
+
+      console.log('✅ Email sent via Resend:', data.id);
+      return { success: true, data: { messageId: data.id } };
+    } catch (error) {
+      console.error('❌ Resend error:', error);
+      throw error;
     }
   }
 
@@ -424,6 +497,35 @@ class EmailService {
     return await this.sendEmail({
       to,
       subject: 'Confirmación de Pago - Dhara Dimensión Humana',
+      html
+    });
+  }
+
+  /**
+   * Notificación al admin cuando se registra un nuevo terapeuta
+   */
+  async sendNewTherapistAdminNotification({ nombre, apellidos, email, telefono, plan, especialidades, ciudad }) {
+    const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || process.env.EMAIL_USER;
+    if (!adminEmail) return;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #8CA48F;">Nuevo terapeuta registrado</h2>
+        <table style="width:100%; border-collapse: collapse;">
+          <tr><td style="padding:8px; font-weight:bold;">Nombre</td><td style="padding:8px;">${nombre} ${apellidos}</td></tr>
+          <tr style="background:#f5f5f5;"><td style="padding:8px; font-weight:bold;">Email</td><td style="padding:8px;">${email}</td></tr>
+          <tr><td style="padding:8px; font-weight:bold;">Teléfono</td><td style="padding:8px;">${telefono || '—'}</td></tr>
+          <tr style="background:#f5f5f5;"><td style="padding:8px; font-weight:bold;">Plan</td><td style="padding:8px;">${plan}</td></tr>
+          <tr><td style="padding:8px; font-weight:bold;">Ciudad</td><td style="padding:8px;">${ciudad || '—'}</td></tr>
+          <tr style="background:#f5f5f5;"><td style="padding:8px; font-weight:bold;">Especialidades</td><td style="padding:8px;">${Array.isArray(especialidades) ? especialidades.join(', ') : (especialidades || '—')}</td></tr>
+          <tr><td style="padding:8px; font-weight:bold;">Fecha</td><td style="padding:8px;">${new Date().toLocaleString('es-ES')}</td></tr>
+        </table>
+      </div>
+    `;
+
+    return await this.sendEmail({
+      to: adminEmail,
+      subject: `Nuevo terapeuta registrado: ${nombre} ${apellidos}`,
       html
     });
   }

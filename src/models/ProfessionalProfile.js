@@ -522,6 +522,11 @@ const professionalProfileSchema = new mongoose.Schema({
       type: Boolean,
       default: false
     }
+  },
+  telefono: {
+    type: String,
+    trim: true,
+    maxlength: [20, 'Phone number cannot exceed 20 characters']
   }
 }, {
   timestamps: true,

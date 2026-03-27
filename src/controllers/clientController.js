@@ -730,6 +730,20 @@ const getAvailableTherapists = asyncHandler(async (req, res, next) => {
     }
   }
 
+  // Bulk-fetch subscription plans from therapist_payment_settings
+  let planTypeMap = {}; // therapistId -> subscription_plan
+  if (therapistIds.length > 0) {
+    const { data: planSettings } = await supabase
+      .from('therapist_payment_settings')
+      .select('therapist_id, subscription_plan')
+      .in('therapist_id', therapistIds);
+    if (planSettings) {
+      planSettings.forEach(s => {
+        planTypeMap[String(s.therapist_id)] = s.subscription_plan || 'basico';
+      });
+    }
+  }
+
   // Get professional profiles for each therapist
   const therapistsWithProfiles = await Promise.all(
     therapists.map(async (therapist) => {
@@ -802,7 +816,9 @@ const getAvailableTherapists = asyncHandler(async (req, res, next) => {
           // NUEVOS CAMPOS
           ciudad: profile.ciudad,
           modalidad: profile.modalidad,
-          zonasAtencion: profile.zonas_atencion
+          zonasAtencion: profile.zonas_atencion,
+          telefono: profile.telefono || null,
+          planType: planTypeMap[therapistIdStr] || 'basico'
         } : {
           // Si no hay profile, usar datos del therapist
           banner: therapist.banner,
@@ -926,6 +942,14 @@ const getTherapistById = asyncHandler(async (req, res, next) => {
   console.log('🔍 [BACKEND] workLocations from profileView:', profileView?.work_locations);
   console.log('🔍 [BACKEND] workLocations from profile model:', profile?.work_locations);
   console.log('🔍 [BACKEND] ======================================');
+
+  // Fetch subscription plan from therapist_payment_settings
+  const { data: paymentSettings } = await supabase
+    .from('therapist_payment_settings')
+    .select('subscription_plan')
+    .eq('therapist_id', id)
+    .single();
+  const planType = paymentSettings?.subscription_plan || 'basico';
 
   // Build response with services/packages
   // Buscar en múltiples ubicaciones donde pueden estar los datos
@@ -1072,9 +1096,11 @@ const getTherapistById = asyncHandler(async (req, res, next) => {
       console.log('🔍 [BACKEND] ======================================');
       return rawLinks || [];
     })(),
+    telefono: profileData?.telefono || null,
+    planType,
     // Incluir redes sociales si existen
-    socialMedia: profileView?.social_media || profileView?.socialMedia || 
-                profile?.social_media || profile?.socialMedia || 
+    socialMedia: profileView?.social_media || profileView?.socialMedia ||
+                profile?.social_media || profile?.socialMedia ||
                 therapist?.social_media || therapist?.socialMedia,
     // Incluir servicios y paquetes
     services: sessions,
