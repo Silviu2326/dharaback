@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { User, Client, ClientTherapist } = require('../models');
+const { User, Client, ClientTherapist, Conversation } = require('../models');
 const { InvitationCodeModel } = require('../models/InvitationCode');
 const InvitationCode = new InvitationCodeModel();
 const { AppError, asyncHandler } = require('../middleware/errorHandler');
@@ -268,8 +268,14 @@ const logout = asyncHandler(async (req, res, next) => {
 // @route   GET /api/auth/me
 // @access  Private
 const getMe = asyncHandler(async (req, res, next) => {
-  // Get fresh user data from database
-  const user = await User.findById(req.user.id || req.user._id);
+  const userId = req.user.id || req.user._id;
+  let user;
+
+  if (req.user.role === 'client') {
+    user = await Client.findById(userId);
+  } else {
+    user = await User.findById(userId);
+  }
 
   if (!user) {
     return next(new AppError('User not found', 404));
@@ -605,7 +611,23 @@ const registerCliente = asyncHandler(async (req, res, next) => {
           },
           { new: true }
         );
-        
+
+        // Crear conversación entre terapeuta y cliente
+        console.log('🗨️  [CONVERSATION] Intentando crear conversación...');
+        console.log('🗨️  [CONVERSATION] clientId:', client.id, '| therapistId:', therapistId);
+        try {
+          const conversation = await Conversation.create({ clientId: client.id, therapistId });
+          console.log('✅ [CONVERSATION] Conversación creada/encontrada:', {
+            id: conversation?.id,
+            clientId: conversation?.clientId,
+            therapistId: conversation?.therapistId,
+            status: conversation?.status
+          });
+        } catch (convError) {
+          console.error('❌ [CONVERSATION] Error al crear conversación:', convError.message);
+          console.error('❌ [CONVERSATION] Stack:', convError.stack);
+        }
+
         // Marcar el código como usado
         try {
           await invitation.markAsUsed(client.id);
@@ -615,23 +637,39 @@ const registerCliente = asyncHandler(async (req, res, next) => {
       } else {
         // El nuevo email no existe en otro cliente, actualizar el cliente actual
         console.log('Updating existing client with new email');
-        
+
         const updateData = {
           name,
           email: normalizedEmail,
           phone: telefono || client.phone,
           password
         };
-        
+
         client = await Client.findByIdAndUpdate(linkedClientId, updateData, { new: true });
-        
+
         // Asegurar que existe la relación con el terapeuta
         if (!existingRelation) {
           await ClientTherapist.create(client.id, therapistId, 'active');
         } else if (existingRelation.status !== 'active') {
           await ClientTherapist.reactivate(client.id, therapistId);
         }
-        
+
+        // Crear conversación entre terapeuta y cliente
+        console.log('🗨️  [CONVERSATION] Intentando crear conversación...');
+        console.log('🗨️  [CONVERSATION] clientId:', client.id, '| therapistId:', therapistId);
+        try {
+          const conversation = await Conversation.create({ clientId: client.id, therapistId });
+          console.log('✅ [CONVERSATION] Conversación creada/encontrada:', {
+            id: conversation?.id,
+            clientId: conversation?.clientId,
+            therapistId: conversation?.therapistId,
+            status: conversation?.status
+          });
+        } catch (convError) {
+          console.error('❌ [CONVERSATION] Error al crear conversación:', convError.message);
+          console.error('❌ [CONVERSATION] Stack:', convError.stack);
+        }
+
         // Marcar el código como usado
         try {
           await invitation.markAsUsed(client.id);
@@ -642,22 +680,38 @@ const registerCliente = asyncHandler(async (req, res, next) => {
     } else {
       // El email es el mismo, solo actualizar nombre, teléfono y contraseña
       console.log('Same email, updating other fields');
-      
+
       const updateData = {
         name,
         phone: telefono || client.phone,
         password
       };
-      
+
       client = await Client.findByIdAndUpdate(linkedClientId, updateData, { new: true });
-      
+
       // Asegurar que existe la relación con el terapeuta
       if (!existingRelation) {
         await ClientTherapist.create(client.id, therapistId, 'active');
       } else if (existingRelation.status !== 'active') {
         await ClientTherapist.reactivate(client.id, therapistId);
       }
-      
+
+      // Crear conversación entre terapeuta y cliente
+      console.log('🗨️  [CONVERSATION] Intentando crear conversación...');
+      console.log('🗨️  [CONVERSATION] clientId:', client.id, '| therapistId:', therapistId);
+      try {
+        const conversation = await Conversation.create({ clientId: client.id, therapistId });
+        console.log('✅ [CONVERSATION] Conversación creada/encontrada:', {
+          id: conversation?.id,
+          clientId: conversation?.clientId,
+          therapistId: conversation?.therapistId,
+          status: conversation?.status
+        });
+      } catch (convError) {
+        console.error('❌ [CONVERSATION] Error al crear conversación:', convError.message);
+        console.error('❌ [CONVERSATION] Stack:', convError.stack);
+      }
+
       // Marcar el código como usado
       try {
         await invitation.markAsUsed(client.id);

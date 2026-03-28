@@ -6,6 +6,7 @@
 const stripe = require('../../config/stripe');
 const { AppError } = require('../../middleware/errorHandler');
 const { supabase } = require('../../config/supabase');
+const emailService = require('../../services/emailService');
 
 const verifyPayment = async (req, res, next) => {
   console.log('\n[verifyPayment] Verificando estado del pago');
@@ -71,14 +72,18 @@ const verifyPayment = async (req, res, next) => {
             console.log('   Booking IDs existentes:', existingBookings.map(b => b.id));
             createdBookings = existingBookings;
           } else {
-            // Marcar atómicamente los pending_bookings como 'processing' para evitar race conditions
-            // Usamos { count: 'exact' } para obtener el conteo desde los headers HTTP,
-            // que es fiable incluso con políticas RLS en la respuesta
+            // Atomic claim: marcar directamente como 'paid' para evitar race conditions.
+            // Solo actualiza si el status sigue siendo 'awaiting_payment', y usa el count
+            // para saber si esta petición ganó el lock.
             const { count: claimedCount, error: claimError } = await supabase
               .from('pending_bookings')
-              .update({ status: 'processing' }, { count: 'exact' })
+              .update({
+                status: 'paid',
+                stripe_session_id: session.id,
+                paid_at: new Date().toISOString()
+              }, { count: 'exact' })
               .in('id', pendingBookingIds)
-              .eq('status', 'awaiting_payment'); // Solo actualiza si aún están en awaiting_payment
+              .eq('status', 'awaiting_payment');
 
             if (claimError) {
               console.error('ERROR en atomic claim:', claimError);
@@ -181,24 +186,36 @@ const verifyPayment = async (req, res, next) => {
                 } else {
                   console.log('  ✅ Registro de payment creado');
                 }
+
+                // Enviar email de confirmación al cliente
+                try {
+                  const [{ data: client }, { data: therapist }] = await Promise.all([
+                    supabase.from('clients').select('name, email').eq('id', pb.client_id).single(),
+                    supabase.from('users').select('name').eq('id', pb.therapist_id).single()
+                  ]);
+
+                  if (client?.email) {
+                    const appointmentDate = new Date(pb.date + 'T' + pb.start_time).toLocaleDateString('es-ES', {
+                      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+                    });
+                    const appointmentTime = pb.start_time.substring(0, 5);
+
+                    emailService.sendAppointmentConfirmation({
+                      to: client.email,
+                      clientName: client.name,
+                      therapistName: therapist?.name || 'tu terapeuta',
+                      date: appointmentDate,
+                      time: appointmentTime,
+                      location: null
+                    }).catch(err => console.error('  ⚠️ Error enviando email de confirmación:', err));
+
+                    console.log('  ✅ Email de confirmación enviado a:', client.email);
+                  }
+                } catch (emailErr) {
+                  console.error('  ⚠️ Error preparando email de confirmación:', emailErr.message);
+                }
               }
             }
-          }
-          
-          // Marcar pending_bookings como pagados (solo los que estaban en 'processing')
-          console.log('Marcando pending_bookings como pagados...');
-          const { error: updateError } = await supabase
-            .from('pending_bookings')
-            .update({
-              status: 'paid',
-              stripe_session_id: session.id,
-              paid_at: new Date().toISOString()
-            })
-            .in('id', pendingBookingIds)
-            .in('status', ['processing', 'awaiting_payment']);
-          
-          if (updateError) {
-            console.error('ERROR actualizando pending_bookings:', updateError);
           }
           
           console.log('✅ Total bookings creados:', createdBookings.length);
