@@ -72,14 +72,21 @@ const verifyPayment = async (req, res, next) => {
             createdBookings = existingBookings;
           } else {
             // Marcar atómicamente los pending_bookings como 'processing' para evitar race conditions
-            const { data: claimedBookings, error: claimError } = await supabase
+            // Usamos { count: 'exact' } para obtener el conteo desde los headers HTTP,
+            // que es fiable incluso con políticas RLS en la respuesta
+            const { count: claimedCount, error: claimError } = await supabase
               .from('pending_bookings')
-              .update({ status: 'processing' })
+              .update({ status: 'processing' }, { count: 'exact' })
               .in('id', pendingBookingIds)
-              .eq('status', 'awaiting_payment') // Solo actualiza si aún están en awaiting_payment
-              .select('id');
+              .eq('status', 'awaiting_payment'); // Solo actualiza si aún están en awaiting_payment
 
-            if (!claimedBookings || claimedBookings.length === 0) {
+            if (claimError) {
+              console.error('ERROR en atomic claim:', claimError);
+            }
+
+            console.log(`  → Atomic claim: ${claimedCount} pending_booking(s) reclamados`);
+
+            if (claimedCount === null || claimedCount === 0) {
               console.log('⚠️ Otra petición ya está procesando estos bookings (race condition evitada)');
               // Devolver los bookings que ya se crearon por la otra petición
               const { data: alreadyCreated } = await supabase
