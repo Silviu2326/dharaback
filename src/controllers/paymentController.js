@@ -16,9 +16,24 @@ const paymentController = {
         endDate,
         page = 1,
         limit = 20,
-        sortBy = 'created_at',
-        sortOrder = 'desc'
+        sort_by,
+        sortBy,
+        sort_order,
+        sortOrder
       } = req.query;
+
+      const sortField = sort_by || sortBy || 'created_at';
+      const sortDir = sort_order || sortOrder || 'desc';
+
+      const sortColumnMap = {
+        createdAt: 'created_at',
+        created_at: 'created_at',
+        amount: 'amount',
+        method: 'method',
+        status: 'status',
+        clientName: 'created_at' // fallback: join sort not supported
+      };
+      const sortColumn = sortColumnMap[sortField] || 'created_at';
 
       // Build query with Supabase
       let query = supabase
@@ -33,7 +48,7 @@ const paymentController = {
       if (endDate) query = query.lte('created_at', endDate);
 
       // Apply sorting and pagination
-      query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+      query = query.order(sortColumn, { ascending: sortDir === 'asc' });
       
       const offset = (parseInt(page) - 1) * parseInt(limit);
       query = query.range(offset, offset + parseInt(limit) - 1);
@@ -313,6 +328,75 @@ const paymentController = {
   },
 
   // Get payment statistics
+  async getKpis(req, res, next) {
+    try {
+      const therapistId = req.user.id;
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+
+      const { data, error } = await supabase
+        .from('payments')
+        .select('amount, net_amount, platform_fee, status, created_at, paid_at')
+        .eq('therapist_id', therapistId);
+
+      if (error) throw new Error(error.message);
+
+      const payments = data || [];
+
+      let monthlyRevenue = 0;
+      let yearlyRevenue = 0;
+      let monthlyPaid = 0;
+      let yearlyPaid = 0;
+      let totalCount = payments.length;
+      let paidCount = 0;
+      let pendingCount = 0;
+      let lastPayment = null;
+
+      payments.forEach(p => {
+        const amount = parseFloat(p.amount) || 0;
+        const date = new Date(p.created_at);
+        const isPaid = p.status === 'completed';
+
+        if (isPaid) {
+          paidCount++;
+          if (date >= startOfYear) yearlyPaid += amount;
+          if (date >= startOfMonth) monthlyPaid += amount;
+        }
+        if (p.status === 'pending') pendingCount++;
+
+        if (date >= startOfMonth) monthlyRevenue += amount;
+        if (date >= startOfYear) yearlyRevenue += amount;
+
+        if (!lastPayment || date > new Date(lastPayment.created_at)) {
+          lastPayment = p;
+        }
+      });
+
+      const IVA_RATE = 0.21;
+
+      res.json({
+        success: true,
+        data: {
+          monthlyRevenue,
+          monthlyPaid,
+          monthlyNet: monthlyPaid / (1 + IVA_RATE),
+          monthlyIva: monthlyPaid - monthlyPaid / (1 + IVA_RATE),
+          yearlyRevenue,
+          yearlyPaid,
+          totalCount,
+          paidCount,
+          pendingCount,
+          lastPayment: lastPayment
+            ? { amount: parseFloat(lastPayment.amount), date: lastPayment.created_at }
+            : null
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async getPaymentStats(req, res, next) {
     try {
       const therapistId = req.user.id;
@@ -686,14 +770,18 @@ const paymentController = {
         startDate,
         endDate,
         page = 1,
-        limit = 20,
+        limit = 50,
         sortBy = 'created_at',
         sortOrder = 'desc'
       } = req.query;
 
       let query = supabase
         .from('payments')
-        .select('*, therapist:therapist_id(*), booking:booking_id(*)', { count: 'exact' })
+        .select(`
+          *,
+          therapist:therapist_id(id, name, email, avatar),
+          booking:booking_id(id, date, start_time, therapy_type, location)
+        `, { count: 'exact' })
         .eq('client_id', clientId);
 
       if (status) query = query.eq('status', status);
@@ -703,7 +791,7 @@ const paymentController = {
       if (endDate) query = query.lte('created_at', endDate);
 
       query = query.order(sortBy, { ascending: sortOrder === 'asc' });
-      
+
       const offset = (parseInt(page) - 1) * parseInt(limit);
       query = query.range(offset, offset + parseInt(limit) - 1);
 
@@ -711,17 +799,33 @@ const paymentController = {
 
       if (error) throw new Error(error.message);
 
-      const payments = (data || []).map(p => new Payment.Payment(p));
+      const payments = (data || []).map(p => ({
+        _id: p.id,
+        id: p.id,
+        date: p.paid_at || p.created_at,
+        amount: parseFloat(p.amount) || 0,
+        currency: p.currency || 'EUR',
+        status: p.status || 'pending',
+        description: p.description || (p.booking ? `Sesión de ${p.booking.therapy_type || 'terapia'}` : 'Pago de sesión'),
+        methodDetail: p.method ? p.method.charAt(0).toUpperCase() + p.method.slice(1) : 'Otro',
+        receiptUrl: p.receipt_url || null,
+        therapist: p.therapist ? { id: p.therapist.id, name: p.therapist.name, avatar: p.therapist.avatar } : null,
+        booking: p.booking ? {
+          id: p.booking.id,
+          date: p.booking.date,
+          startTime: p.booking.start_time,
+          serviceType: p.booking.therapy_type,
+          location: p.booking.location
+        } : null,
+      }));
 
       res.json({
         success: true,
-        data: {
-          payments: payments.map(p => p.toJSON()),
-          pagination: {
-            current: parseInt(page),
-            pages: Math.ceil((count || 0) / parseInt(limit)),
-            total: count || 0
-          }
+        payments,
+        pagination: {
+          current: parseInt(page),
+          pages: Math.ceil((count || 0) / parseInt(limit)),
+          total: count || 0
         }
       });
     } catch (error) {

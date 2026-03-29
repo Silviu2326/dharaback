@@ -18,6 +18,8 @@ const initializeSocket = (httpServer) => {
         "http://localhost:3000",
         "http://localhost:8081",
         "https://dhara-peach.vercel.app",
+        "https://www.appdhara.com",
+        "https://appdhara.com",
         process.env.FRONTEND_URL
       ].filter(Boolean),
       credentials: true,

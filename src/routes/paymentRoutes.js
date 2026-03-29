@@ -108,6 +108,7 @@ const payoutIdValidation = [
 // Payment Routes
 router.get('/', paymentController.getPayments);
 router.post('/', createPaymentValidation, paymentController.createPayment);
+router.get('/kpi', paymentController.getKpis);
 router.get('/stats', paymentController.getPaymentStats);
 router.get('/statistics', paymentController.getPaymentStats);
 router.get('/balance', paymentController.getBalanceSummary);

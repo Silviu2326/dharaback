@@ -86,14 +86,14 @@ const createBooking = asyncHandler(async (req, res, next) => {
 
   const { clientId, date, startTime, endTime, therapyType, therapyDuration, amount, currency, location, notes, meetingLink, planId } = req.body;
 
-  const existingBooking = await Booking.findOne({
-    where: {
-      therapistId: req.user.id,
-      date,
-      startTime,
-      status: { notIn: ['cancelled', 'no_show'] }
-    }
-  });
+  const { data: existingBooking } = await supabase
+    .from('bookings')
+    .select('id')
+    .eq('therapist_id', req.user.id)
+    .eq('date', date)
+    .eq('start_time', startTime)
+    .not('status', 'in', '("cancelled","no_show")')
+    .maybeSingle();
 
   if (existingBooking) return next(new AppError('Time slot is already booked', 409));
 
@@ -104,7 +104,7 @@ const createBooking = asyncHandler(async (req, res, next) => {
     amount: amount || 0,
     currency: currency || 'EUR',
     location, notes, meetingLink, planId,
-    status: 'upcoming',
+    status: 'pending',
     paymentStatus: 'unpaid'  // Supabase constraint: only 'unpaid' or 'paid'
   });
 
@@ -149,12 +149,26 @@ const updateBooking = asyncHandler(async (req, res, next) => {
     .single();
 
   if (fetchError || !booking) return next(new AppError('Booking not found', 404));
-  if (booking.status === 'completed') return next(new AppError('Cannot update completed bookings', 400));
+
+  // Payment fields are always allowed to be updated, even on completed bookings
+  const paymentFields = ['paymentStatus', 'paymentMethod'];
+  const requestedFields = Object.keys(req.body);
+  const isPaymentOnlyUpdate = requestedFields.length > 0 && requestedFields.every(f => paymentFields.includes(f));
+
+  if (booking.status === 'completed' && !isPaymentOnlyUpdate) {
+    return next(new AppError('Cannot update completed bookings', 400));
+  }
 
   // Build update data
   const updateData = {};
-  const updateFields = ['date', 'start_time', 'end_time', 'therapy_type', 'therapy_duration', 'amount', 'currency', 'location', 'notes', 'meeting_link', 'plan_id', 'status'];
-  
+
+  // Handle combined dateTime field (sent by frontend on reschedule)
+  if (req.body.dateTime) {
+    const dt = new Date(req.body.dateTime);
+    updateData['date'] = dt.toISOString().split('T')[0];
+    updateData['start_time'] = req.body.dateTime.split('T')[1]?.slice(0, 5) || dt.toISOString().split('T')[1].slice(0, 5);
+  }
+
   // Map camelCase to snake_case
   const fieldMap = {
     'date': 'date',
@@ -168,10 +182,13 @@ const updateBooking = asyncHandler(async (req, res, next) => {
     'notes': 'notes',
     'meetingLink': 'meeting_link',
     'planId': 'plan_id',
-    'status': 'status'
+    'status': 'status',
+    'paymentStatus': 'payment_status',
+    'paymentMethod': 'payment_method'
   };
 
   Object.keys(req.body).forEach(field => {
+    if (field === 'dateTime') return; // already handled above
     const dbField = fieldMap[field];
     if (dbField && req.body[field] !== undefined) {
       updateData[dbField] = req.body[field];

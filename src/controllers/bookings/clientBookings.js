@@ -262,7 +262,7 @@ const createClientBooking = asyncHandler(async (req, res, next) => {
     location, notes,
     amount: bookingAmount,
     currency: currency || 'EUR',
-    status: 'upcoming',
+    status: 'pending',
     paymentStatus: 'unpaid'
   });
   console.log('Booking created:', booking.id);

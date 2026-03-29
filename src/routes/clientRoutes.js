@@ -28,6 +28,7 @@ const {
   updateClientPaymentMethod 
 } = require('../controllers/clientPaymentSettingsController');
 const { protect } = require('../middleware/auth');
+const reviewController = require('../controllers/reviewController');
 
 const router = express.Router();
 
@@ -36,6 +37,7 @@ router.post('/register', registerClient);
 router.post('/login', loginClient);
 router.get('/available-therapists', getAvailableTherapists);
 router.get('/therapists/:id', getTherapistById);
+router.get('/therapists/:therapistId/reviews', protect, reviewController.getTherapistPublicReviews);
 
 // All other routes are protected
 router.use(protect);

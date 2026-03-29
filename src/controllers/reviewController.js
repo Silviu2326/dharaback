@@ -730,6 +730,56 @@ const reviewController = {
     }
   },
 
+  // Get public reviews for a therapist (accessible by clients)
+  async getTherapistPublicReviews(req, res, next) {
+    try {
+      const { therapistId } = req.params;
+      const {
+        page = 1,
+        limit = 20,
+        sortBy = 'created_at',
+        sortOrder = 'desc'
+      } = req.query;
+
+      if (!therapistId) {
+        return next(new AppError('Therapist ID is required', 400));
+      }
+
+      const offset = (parseInt(page) - 1) * parseInt(limit);
+
+      const { data, error, count } = await supabase
+        .from('reviews')
+        .select('id, rating, title, comment, tags, is_verified, therapist_response, responded_at, created_at, client:client_id(id, name, avatar)', { count: 'exact' })
+        .eq('therapist_id', therapistId)
+        .eq('is_public', true)
+        .order(sortBy, { ascending: sortOrder === 'asc' })
+        .range(offset, offset + parseInt(limit) - 1);
+
+      if (error) throw new Error(error.message);
+
+      const reviews = (data || []).map(review => ({
+        ...review,
+        hasResponse: !!review.therapist_response,
+        response: review.therapist_response,
+        responseDate: review.responded_at
+      }));
+
+      res.json({
+        success: true,
+        data: {
+          reviews,
+          pagination: {
+            current: parseInt(page),
+            pages: Math.ceil((count || 0) / parseInt(limit)),
+            total: count || 0
+          }
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   // Get client's review statistics
   async getClientReviewStats(req, res, next) {
     try {

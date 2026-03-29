@@ -74,6 +74,8 @@ const allowedOrigins = [
   "http://127.0.0.1:8081",
   "https://dhara-peach.vercel.app", // Frontend en Vercel
   "https://dharaterapeutas.com", // Dominio personalizado si existe
+  "https://www.appdhara.com", // Dominio principal
+  "https://appdhara.com", // Dominio sin www
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 

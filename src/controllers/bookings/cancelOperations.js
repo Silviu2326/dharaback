@@ -44,16 +44,18 @@ const cancelBooking = asyncHandler(async (req, res, next) => {
 
 // @desc    Cancel booking via PATCH (alternative endpoint for frontend compatibility)
 // @route   PATCH /api/bookings/:id/cancel
-// @access  Private (Therapist)
+// @access  Private (Therapist or Client)
 const patchCancelBooking = asyncHandler(async (req, res, next) => {
   const { reason, cancellationReason } = req.body;
 
-  const { data: booking, error: fetchError } = await supabase
+  const isClient = req.user.role === 'client' || req.user.type === 'client';
+  const query = supabase
     .from('bookings')
     .select('*')
     .eq('id', req.params.id)
-    .eq('therapist_id', req.user.id)
-    .single();
+    .eq(isClient ? 'client_id' : 'therapist_id', req.user.id);
+
+  const { data: booking, error: fetchError } = await query.single();
 
   if (fetchError || !booking) return next(new AppError('Booking not found', 404));
 
