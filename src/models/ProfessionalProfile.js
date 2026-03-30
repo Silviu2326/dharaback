@@ -130,6 +130,10 @@ const professionalProfileSchema = new mongoose.Schema({
     description: {
       type: String,
       maxlength: [500, 'Education description cannot exceed 500 characters']
+    },
+    therapy: {
+      type: String,
+      trim: true
     }
   }],
   experience: [{

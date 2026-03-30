@@ -13,6 +13,7 @@ const {
   checkTimeBlockConflicts,
   checkExistingAppointments,
   createTimeBlock,
+  bulkCreateTimeBlocks,
   getTimeBlockById,
   updateTimeBlock,
   deleteTimeBlock,
@@ -122,6 +123,7 @@ router.get('/conflicts/check', protect, checkTimeBlockConflicts);
 router.get('/appointments/check', protect, checkExistingAppointments);
 
 // Time block management routes (real CRUD)
+router.post('/blocks/bulk', protect, bulkCreateTimeBlocks);
 router.post('/blocks', protect, createTimeBlock);
 router.get('/blocks/:id', protect, getTimeBlockById);
 router.put('/blocks/:id', protect, updateTimeBlock);

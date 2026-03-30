@@ -57,21 +57,44 @@ const paymentController = {
 
       if (error) throw new Error(error.message);
 
-      const payments = (data || []).map(p => new Payment.Payment(p));
+      const rawData = data || [];
 
-      // Transform payments to include external client data if applicable
-      const transformedPayments = payments.map(p => {
-        const paymentJson = p.toJSON();
-        
-        // If no client but has metadata with client info (external client)
-        if (!paymentJson.clientId && paymentJson.metadata?.clientName) {
-          paymentJson.externalClient = {
-            name: paymentJson.metadata.clientName,
-            email: paymentJson.metadata.clientEmail,
-            isExternal: true
-          };
+      // Collect client_ids that didn't resolve via the clients-table join.
+      // payments.client_id stores the auth user UUID (users.id), while the
+      // Supabase join client:client_id(*) looks up clients.id — a different
+      // table. When the join returns null we fall back to the users table.
+      const unresolvedIds = [
+        ...new Set(
+          rawData
+            .filter(p => !p.client && p.client_id && !p.metadata?.clientName)
+            .map(p => p.client_id)
+        )
+      ];
+
+      let userMap = {};
+      if (unresolvedIds.length > 0) {
+        const { data: users } = await supabase
+          .from('users')
+          .select('id, name, email')
+          .in('id', unresolvedIds);
+        (users || []).forEach(u => { userMap[u.id] = u; });
+      }
+
+      const payments = rawData.map(p => new Payment.Payment(p));
+
+      const transformedPayments = rawData.map((raw, i) => {
+        const paymentJson = payments[i].toJSON();
+
+        // Priority: clients-table join → metadata → users-table fallback
+        if (raw.client?.name) {
+          paymentJson.client = { name: raw.client.name, email: raw.client.email || '' };
+        } else if (raw.metadata?.clientName) {
+          paymentJson.client = { name: raw.metadata.clientName, email: raw.metadata.clientEmail || '' };
+        } else if (raw.client_id && userMap[raw.client_id]) {
+          const u = userMap[raw.client_id];
+          paymentJson.client = { name: u.name, email: u.email || '' };
         }
-        
+
         return paymentJson;
       });
 

@@ -29,6 +29,7 @@ const registerTherapist = asyncHandler(async (req, res) => {
     documentos = [], // Array de documentos con tempId, aiAnalysis, etc.
     // NUEVOS CAMPOS
     ciudad,
+    direccion,
     modalidad,
     zonasAtencion,
     idiomas
@@ -168,6 +169,7 @@ const registerTherapist = asyncHandler(async (req, res) => {
           // NUEVOS CAMPOS DE UBICACIÓN
           telefono: telefono || null,
           ciudad: ciudad || 'Madrid',
+          direccion: direccion || null,
           modalidad: modalidad || 'hibrido',
           zonas_atencion: zonasAtencion?.length > 0 ? zonasAtencion : [ciudad || 'Madrid'],
           // IDIOMAS

@@ -32,7 +32,8 @@ const getProfile = asyncHandler(async (req, res, next) => {
       title: edu.degree,
       institution: edu.institution,
       year: edu.year,
-      description: edu.description || ''
+      description: edu.description || '',
+      therapy: edu.therapy || ''
     }));
   }
 
@@ -171,7 +172,12 @@ const updateProfile = asyncHandler(async (req, res, next) => {
     'legalInfo',
     'credentials', // Allow credentials from frontend
     'banner', // Allow banner field from frontend
-    'telefono'
+    'telefono',
+    'featuredTestimonials',
+    'ciudad',
+    'direccion',
+    'modalidad',
+    'zonasAtencion'
   ];
 
   // Filter allowed fields
@@ -191,13 +197,20 @@ const updateProfile = asyncHandler(async (req, res, next) => {
     delete updateData.specialties; // Remove specialties to avoid conflicts
   }
 
+  // Map zonasAtencion (camelCase frontend) → zonas_atencion (snake_case Supabase)
+  if (updateData.zonasAtencion !== undefined) {
+    updateData.zonas_atencion = updateData.zonasAtencion;
+    delete updateData.zonasAtencion;
+  }
+
   // Map credentials to education for backend compatibility
   if (req.body.credentials) {
     updateData.education = req.body.credentials.map(credential => ({
       degree: credential.title,
       institution: credential.institution,
       year: credential.year ? parseInt(credential.year) : new Date().getFullYear(),
-      description: credential.description || ''
+      description: credential.description || '',
+      therapy: credential.therapy || ''
     }));
     delete updateData.credentials; // Remove credentials to avoid conflicts
   }
@@ -238,7 +251,8 @@ const updateProfile = asyncHandler(async (req, res, next) => {
       title: edu.degree,
       institution: edu.institution,
       year: edu.year,
-      description: edu.description || ''
+      description: edu.description || '',
+      therapy: edu.therapy || ''
     }));
   }
 

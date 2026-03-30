@@ -35,8 +35,10 @@ class ProfessionalProfile {
     this.legalInfo = data.legal_info || {};
     // NUEVOS CAMPOS DE UBICACIÓN
     this.ciudad = data.ciudad;
+    this.direccion = data.direccion;
     this.modalidad = data.modalidad;
     this.zonas_atencion = data.zonas_atencion || [];
+    this.telefono = data.telefono;
     this.createdAt = data.created_at;
     this.updatedAt = data.updated_at;
 
@@ -160,7 +162,12 @@ class ProfessionalProfile {
       external_links: this.externalLinks,
       pricing_packages: this.pricingPackages,
       preferences: this.preferences,
-      legal_info: this.legalInfo
+      legal_info: this.legalInfo,
+      ciudad: this.ciudad,
+      direccion: this.direccion,
+      modalidad: this.modalidad,
+      zonas_atencion: this.zonas_atencion,
+      telefono: this.telefono
     };
 
     if (this.id) {

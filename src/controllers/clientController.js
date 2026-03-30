@@ -815,6 +815,7 @@ const getAvailableTherapists = asyncHandler(async (req, res, next) => {
             : (profile.specializations || therapist.specializations || []),
           // NUEVOS CAMPOS
           ciudad: profile.ciudad,
+          direccion: profile.direccion,
           modalidad: profile.modalidad,
           zonasAtencion: profile.zonas_atencion,
           telefono: profile.telefono || null,

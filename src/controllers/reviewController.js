@@ -749,7 +749,7 @@ const reviewController = {
 
       const { data, error, count } = await supabase
         .from('reviews')
-        .select('id, rating, title, comment, tags, is_verified, therapist_response, responded_at, created_at, client:client_id(id, name, avatar)', { count: 'exact' })
+        .select('id, rating, title, comment, is_verified, therapist_response, responded_at, created_at, client:client_id(id, name, avatar)', { count: 'exact' })
         .eq('therapist_id', therapistId)
         .eq('is_public', true)
         .order(sortBy, { ascending: sortOrder === 'asc' })

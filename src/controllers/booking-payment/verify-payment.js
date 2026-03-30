@@ -158,6 +158,18 @@ const verifyPayment = async (req, res, next) => {
                   : 0;
                 const netAmount = pb.amount - platformFee;
 
+                // Resolver nombre y email del cliente.
+                // client_id es el users.id del cliente registrado; buscar primero en
+                // la tabla clients del terapeuta, y como fallback en users.
+                const [{ data: clientRecord }, { data: userRecord }, { data: therapist }] = await Promise.all([
+                  supabase.from('clients').select('name, email').eq('id', pb.client_id).single(),
+                  supabase.from('users').select('name, email').eq('id', pb.client_id).single(),
+                  supabase.from('users').select('name').eq('id', pb.therapist_id).single()
+                ]);
+
+                const resolvedClientName = clientRecord?.name || userRecord?.name || session.customer_details?.name || 'Cliente';
+                const resolvedClientEmail = clientRecord?.email || userRecord?.email || session.customer_details?.email || null;
+
                 const { error: paymentError } = await supabase
                   .from('payments')
                   .insert({
@@ -177,22 +189,24 @@ const verifyPayment = async (req, res, next) => {
                     metadata: {
                       stripe_session_id: session.id,
                       service_id: pb.service_id,
-                      service_name: pb.service_name
+                      service_name: pb.service_name,
+                      clientName: resolvedClientName,
+                      clientEmail: resolvedClientEmail
                     }
                   });
 
                 if (paymentError) {
                   console.error('  ⚠️ Error creando registro de payment:', paymentError);
                 } else {
-                  console.log('  ✅ Registro de payment creado');
+                  console.log('  ✅ Registro de payment creado para:', resolvedClientName);
                 }
 
                 // Enviar email de confirmación al cliente
                 try {
-                  const [{ data: client }, { data: therapist }] = await Promise.all([
-                    supabase.from('clients').select('name, email').eq('id', pb.client_id).single(),
-                    supabase.from('users').select('name').eq('id', pb.therapist_id).single()
-                  ]);
+                  // Reutilizar datos ya resueltos
+                  const client = clientRecord || userRecord
+                    ? { name: resolvedClientName, email: resolvedClientEmail }
+                    : null;
 
                   if (client?.email) {
                     const appointmentDate = new Date(pb.date + 'T' + pb.start_time).toLocaleDateString('es-ES', {

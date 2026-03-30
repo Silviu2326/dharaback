@@ -6,8 +6,44 @@
 const { AppError } = require('../../middleware/errorHandler');
 const { supabase } = require('../../config/supabase');
 
+/**
+ * Returns the number of completed/upcoming bookings a client has with a therapist.
+ * Used to enforce onlyNewClients and firstSessionOnly conditions.
+ */
+const getClientBookingCount = async (clientId, therapistId) => {
+  if (!clientId) return null; // unknown client, skip check
+
+  const { count, error } = await supabase
+    .from('bookings')
+    .select('id', { count: 'exact', head: true })
+    .eq('client_id', clientId)
+    .eq('therapist_id', therapistId)
+    .in('status', ['completed', 'upcoming', 'pending', 'client_arrived']);
+
+  if (error) return null; // if we can't query, skip the restriction
+  return count ?? 0;
+};
+
+/**
+ * Returns how many times a specific client has used a coupon code
+ * with a given therapist (tracked via bookings.coupon_code).
+ */
+const getClientCouponUsageCount = async (clientId, therapistId, couponCode) => {
+  if (!clientId) return 0;
+
+  const { count, error } = await supabase
+    .from('bookings')
+    .select('id', { count: 'exact', head: true })
+    .eq('client_id', clientId)
+    .eq('therapist_id', therapistId)
+    .eq('coupon_code', couponCode.toUpperCase());
+
+  if (error) return 0;
+  return count ?? 0;
+};
+
 const validateCoupon = async (req, res, next) => {
-  const { couponCode, therapistId, amount } = req.body;
+  const { couponCode, therapistId, amount, clientId } = req.body;
 
   if (!couponCode || !therapistId) {
     return next(new AppError('couponCode y therapistId son requeridos', 400));
@@ -52,7 +88,42 @@ const validateCoupon = async (req, res, next) => {
     });
   }
 
-  // Calcular descuento
+  // ── Condiciones de uso ─────────────────────────────────────────────────────
+
+  // Solo nuevos clientes: el cliente no debe tener ninguna reserva previa
+  if (coupon.onlyNewClients) {
+    const bookingCount = await getClientBookingCount(clientId, therapistId);
+    if (bookingCount !== null && bookingCount > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Este cupón es exclusivo para nuevos clientes',
+      });
+    }
+  }
+
+  // Solo primera sesión: igual que onlyNewClients pero más explícito
+  if (coupon.firstSessionOnly) {
+    const bookingCount = await getClientBookingCount(clientId, therapistId);
+    if (bookingCount !== null && bookingCount > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Este cupón solo es válido para la primera sesión',
+      });
+    }
+  }
+
+  // Máximo de usos por cliente
+  if (coupon.maxUsesPerClient) {
+    const usageCount = await getClientCouponUsageCount(clientId, therapistId, coupon.code);
+    if (usageCount >= parseInt(coupon.maxUsesPerClient)) {
+      return res.status(400).json({
+        success: false,
+        error: `Has alcanzado el límite de ${coupon.maxUsesPerClient} uso(s) de este cupón`,
+      });
+    }
+  }
+
+  // ── Calcular descuento ─────────────────────────────────────────────────────
   const totalAmount = parseFloat(amount) || 0;
   let discountAmount = 0;
 
@@ -72,6 +143,11 @@ const validateCoupon = async (req, res, next) => {
       discountValue: coupon.discountValue,
       discountAmount: parseFloat(discountAmount.toFixed(2)),
       description: coupon.description,
+      conditions: {
+        onlyNewClients: coupon.onlyNewClients || false,
+        firstSessionOnly: coupon.firstSessionOnly || false,
+        maxUsesPerClient: coupon.maxUsesPerClient || null,
+      },
     },
   });
 };

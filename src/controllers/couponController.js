@@ -95,7 +95,10 @@ const couponController = {
         validUntil,
         targetAudience = 'all',
         applicableServices,
-        excludedServices
+        excludedServices,
+        // Condiciones de uso
+        onlyNewClients = false,
+        firstSessionOnly = false,
       } = req.body;
 
       // Generate unique code if not provided
@@ -122,14 +125,16 @@ const couponController = {
         maxDiscount,
         minOrderAmount,
         maxUsageCount: maxUsageCount || -1,
-        maxUsagePerClient: maxUsagePerClient || 1,
+        maxUsagePerClient: maxUsagePerClient || null,
         validFrom: validFrom || new Date().toISOString(),
         validUntil,
         targetAudience,
         applicableServices: applicableServices || [],
         excludedServices: excludedServices || [],
         isActive: true,
-        usageCount: 0
+        usageCount: 0,
+        only_new_clients: onlyNewClients,
+        first_session_only: firstSessionOnly,
       };
 
       const coupon = await Coupon.create(couponData);
@@ -163,7 +168,22 @@ const couponController = {
         return next(new AppError('Not authorized', 403));
       }
 
-      const updated = await Coupon.findByIdAndUpdate(couponId, req.body);
+      // Normalize condition fields to snake_case for the DB
+      const updateData = { ...req.body };
+      if ('onlyNewClients' in updateData) {
+        updateData.only_new_clients = updateData.onlyNewClients;
+        delete updateData.onlyNewClients;
+      }
+      if ('firstSessionOnly' in updateData) {
+        updateData.first_session_only = updateData.firstSessionOnly;
+        delete updateData.firstSessionOnly;
+      }
+      if ('maxUsesPerClient' in updateData) {
+        updateData.max_uses_per_client = updateData.maxUsesPerClient ?? null;
+        delete updateData.maxUsesPerClient;
+      }
+
+      const updated = await Coupon.findByIdAndUpdate(couponId, updateData);
 
       res.json({
         success: true,

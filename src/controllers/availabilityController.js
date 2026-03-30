@@ -414,6 +414,20 @@ const createTimeBlock = asyncHandler(async (req, res, next) => {
     return next(new AppError('Missing required fields: therapistId, startDate, startTime, endTime', 400));
   }
 
+  // Comprobar duplicado: mismo terapeuta, misma fecha, mismo horario
+  const { data: existing } = await supabase
+    .from('availability_slots')
+    .select('id')
+    .eq('therapist_id', therapistId)
+    .eq('valid_from', startDate)
+    .eq('start_time', startTime)
+    .eq('end_time', endTime)
+    .limit(1);
+
+  if (existing && existing.length > 0) {
+    return next(new AppError('Ya existe un bloque de disponibilidad para esa fecha y horario', 409));
+  }
+
   // Determinar el día de la semana del slot
   const dayOfWeek = new Date(startDate).getDay();
 
@@ -650,6 +664,109 @@ const getTherapistTimeBlocks = asyncHandler(async (req, res, next) => {
   res.status(200).json((data || []).map(formatSlot));
 });
 
+// @desc  Bulk create time blocks
+// @route POST /api/availability/blocks/bulk
+// @access Private
+const bulkCreateTimeBlocks = asyncHandler(async (req, res, next) => {
+  const { slots } = req.body;
+
+  if (!slots || !Array.isArray(slots) || slots.length === 0) {
+    return next(new AppError('No slots provided for bulk create', 400));
+  }
+
+  const therapistId = req.user?.id || req.user?._id;
+
+  // 1. Deduplicar dentro del propio array entrante (misma fecha+hora)
+  const seen = new Set();
+  const uniqueSlots = slots.filter(s => {
+    const key = `${s.startDate}|${s.startTime}|${s.endTime}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  // 2. Obtener slots ya existentes para este terapeuta en las fechas del request
+  const dates = [...new Set(uniqueSlots.map(s => s.startDate))];
+  const { data: existingSlots } = await supabase
+    .from('availability_slots')
+    .select('valid_from, start_time, end_time')
+    .eq('therapist_id', therapistId)
+    .in('valid_from', dates);
+
+  const existingKeys = new Set(
+    (existingSlots || []).map(e => `${e.valid_from}|${e.start_time}|${e.end_time}`)
+  );
+
+  // 3. Filtrar los que ya existen en BD
+  const newSlots = uniqueSlots.filter(s => {
+    const key = `${s.startDate}|${s.startTime}|${s.endTime}`;
+    return !existingKeys.has(key);
+  });
+
+  if (newSlots.length === 0) {
+    return res.status(200).json({ success: true, created: [], total: 0, skipped: uniqueSlots.length });
+  }
+
+  const rows = newSlots.map(slot => {
+    const { startDate, endDate, startTime, endTime, location, color, repeat, notes, timezone, title } = slot;
+    const [sh, sm] = startTime.split(':').map(Number);
+    const [eh, em] = endTime.split(':').map(Number);
+    const durationMinutes = (eh * 60 + em) - (sh * 60 + sm);
+
+    return {
+      therapist_id:  therapistId,
+      day_of_week:   new Date(startDate).getDay(),
+      start_time:    startTime,
+      end_time:      endTime,
+      is_available:  true,
+      location:      location || 'online',
+      location_type: 'office',
+      slot_duration: durationMinutes > 0 ? durationMinutes : 60,
+      valid_from:    startDate,
+      valid_until:   endDate || startDate,
+      title:         title || 'Disponible',
+      color:         color || 'sage',
+      repeat:        repeat === 'never' ? 'none' : (repeat || 'none'),
+      notes:         notes || null,
+      timezone:      timezone || 'Europe/Madrid',
+    };
+  });
+
+  let data, error;
+
+  ({ data, error } = await supabase.from('availability_slots').insert(rows).select());
+
+  if (error) {
+    // Retry with only the columns that are guaranteed to exist
+    const minimalRows = rows.map(({ title, color, repeat, notes, timezone, ...rest }) => rest);
+    ({ data, error } = await supabase.from('availability_slots').insert(minimalRows).select());
+  }
+
+  if (error) {
+    console.error('❌ Error bulk creating time blocks:', error.message);
+    return next(new AppError(`Failed to bulk create time blocks: ${error.message}`, 500));
+  }
+
+  // Merge back the extra fields that weren't stored
+  const enriched = (data || []).map((row, i) => ({
+    ...row,
+    title:    rows[i]?.title    ?? 'Disponible',
+    color:    rows[i]?.color    ?? 'sage',
+    repeat:   rows[i]?.repeat   ?? 'none',
+    notes:    rows[i]?.notes    ?? null,
+    timezone: rows[i]?.timezone ?? 'Europe/Madrid',
+  }));
+
+  const skipped = slots.length - newSlots.length;
+
+  res.status(201).json({
+    success: true,
+    created: enriched.map(formatSlot),
+    total: enriched.length,
+    skipped,
+  });
+});
+
 // @desc  Bulk update time blocks
 // @route POST /api/availability/bulk-update
 // @access Private
@@ -765,6 +882,7 @@ module.exports = {
   checkTimeBlockConflicts,
   checkExistingAppointments,
   createTimeBlock,
+  bulkCreateTimeBlocks,
   getTimeBlockById,
   updateTimeBlock,
   deleteTimeBlock,
