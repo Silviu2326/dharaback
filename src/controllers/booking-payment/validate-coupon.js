@@ -36,24 +36,29 @@ const getClientBookingCount = async (clientId, therapistId) => {
   console.log(`[COUPON] client_therapists → relation=${JSON.stringify(relation)}, error=${ctError?.code}`);
 
   if (!ctError && relation) {
-    // Any relation (active, archived, etc.) means the client is not new
-    console.log(`[COUPON] Relación encontrada en client_therapists (status=${relation.status}) → cliente NO es nuevo`);
-    return 1;
+    console.log(`[COUPON] client_therapists → status="${relation.status}", id=${relation.id}`);
+    if (relation.status === 'active') {
+      console.log(`[COUPON] Relación ACTIVA → cliente NO es nuevo, retorna 1`);
+      return 1;
+    }
+    console.log(`[COUPON] Relación encontrada pero status="${relation.status}" (no activa) → continúa a bookings`);
+  } else {
+    console.log(`[COUPON] client_therapists → sin relación (ctError.code=${ctError?.code}) → continúa a bookings`);
   }
 
-  // ── 2. Fallback: check bookings table ────────────────────────────────────────
-  const { count, error: bookingsError } = await supabase
+  // ── 2. Check bookings table (source of truth for actual sessions) ─────────────
+  const { data: bookingsData, count, error: bookingsError } = await supabase
     .from('bookings')
-    .select('id', { count: 'exact', head: true })
+    .select('id, status', { count: 'exact' })
     .eq('client_id', clientId)
     .eq('therapist_id', therapistId)
     .in('status', ['completed', 'upcoming', 'pending', 'client_arrived']);
 
   if (bookingsError) {
-    console.log('[COUPON] Error consultando bookings:', bookingsError.message, '→ saltando verificación (retorna null)');
+    console.log('[COUPON] Error consultando bookings:', bookingsError.message, '→ retorna null');
     return null;
   }
-  console.log(`[COUPON] Reservas en bookings table: ${count}`);
+  console.log(`[COUPON] Reservas en bookings table: count=${count}, registros=${JSON.stringify(bookingsData?.map(b => ({ id: b.id, status: b.status })))}`);
   return count ?? 0;
 };
 
@@ -120,19 +125,26 @@ const validateCoupon = async (req, res, next) => {
     discountValue: coupon.discountValue,
   }));
 
+  console.log(`[COUPON] ── CHECK isActive=${coupon.isActive} ──`);
   if (!coupon.isActive) {
+    console.log(`[COUPON] RECHAZADO: cupón inactivo`);
     return res.status(400).json({ success: false, error: 'El cupón no está activo' });
   }
 
   const now = new Date();
+  console.log(`[COUPON] ── CHECK fechas → now=${now.toISOString()}, validFrom=${coupon.validFrom ?? 'null'}, validUntil=${coupon.validUntil ?? 'null'} ──`);
   if (coupon.validFrom && new Date(coupon.validFrom) > now) {
+    console.log(`[COUPON] RECHAZADO: cupón aún no válido (validFrom=${coupon.validFrom})`);
     return res.status(400).json({ success: false, error: 'El cupón aún no es válido' });
   }
   if (coupon.validUntil && new Date(coupon.validUntil) < now) {
+    console.log(`[COUPON] RECHAZADO: cupón expirado (validUntil=${coupon.validUntil})`);
     return res.status(400).json({ success: false, error: 'El cupón ha expirado' });
   }
 
+  console.log(`[COUPON] ── CHECK minAmount=${coupon.minAmount ?? 'null'}, amount=${amount} ──`);
   if (coupon.minAmount && amount && parseFloat(amount) < parseFloat(coupon.minAmount)) {
+    console.log(`[COUPON] RECHAZADO: importe insuficiente (${amount} < ${coupon.minAmount})`);
     return res.status(400).json({
       success: false,
       error: `El importe mínimo para este cupón es €${coupon.minAmount}`,
@@ -140,9 +152,8 @@ const validateCoupon = async (req, res, next) => {
   }
 
   // ── Condiciones de uso ─────────────────────────────────────────────────────
+  console.log(`[COUPON] ── CHECK condiciones → onlyNewClients=${coupon.onlyNewClients}, firstSessionOnly=${coupon.firstSessionOnly}, maxUsesPerClient=${coupon.maxUsesPerClient} ──`);
 
-  // Solo nuevos clientes: el cliente no debe tener ninguna reserva previa
-  console.log(`[COUPON] Verificando onlyNewClients=${coupon.onlyNewClients}, firstSessionOnly=${coupon.firstSessionOnly}`);
   if (coupon.onlyNewClients) {
     const bookingCount = await getClientBookingCount(clientId, therapistId);
     console.log(`[COUPON] onlyNewClients check → bookingCount=${bookingCount}`);
@@ -153,10 +164,9 @@ const validateCoupon = async (req, res, next) => {
         error: 'Este cupón es exclusivo para nuevos clientes',
       });
     }
-    console.log(`[COUPON] onlyNewClients: check pasado (bookingCount=${bookingCount})`);
+    console.log(`[COUPON] onlyNewClients: check pasado`);
   }
 
-  // Solo primera sesión: igual que onlyNewClients pero más explícito
   if (coupon.firstSessionOnly) {
     const bookingCount = await getClientBookingCount(clientId, therapistId);
     console.log(`[COUPON] firstSessionOnly check → bookingCount=${bookingCount}`);
@@ -167,20 +177,20 @@ const validateCoupon = async (req, res, next) => {
         error: 'Este cupón solo es válido para la primera sesión',
       });
     }
-    console.log(`[COUPON] firstSessionOnly: check pasado (bookingCount=${bookingCount})`);
+    console.log(`[COUPON] firstSessionOnly: check pasado`);
   }
 
-  // Máximo de usos por cliente
   if (coupon.maxUsesPerClient) {
     const usageCount = await getClientCouponUsageCount(clientId, therapistId, coupon.code);
     console.log(`[COUPON] maxUsesPerClient check → usageCount=${usageCount}, límite=${coupon.maxUsesPerClient}`);
     if (usageCount >= parseInt(coupon.maxUsesPerClient)) {
-      console.log(`[COUPON] RECHAZADO: límite de usos por cliente alcanzado`);
+      console.log(`[COUPON] RECHAZADO: límite de usos por cliente alcanzado (usageCount=${usageCount} >= ${coupon.maxUsesPerClient})`);
       return res.status(400).json({
         success: false,
         error: `Has alcanzado el límite de ${coupon.maxUsesPerClient} uso(s) de este cupón`,
       });
     }
+    console.log(`[COUPON] maxUsesPerClient: check pasado (usageCount=${usageCount})`);
   }
 
   console.log(`[COUPON] ✅ Cupón VÁLIDO, aplicando descuento`);
