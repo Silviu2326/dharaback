@@ -9,7 +9,7 @@ const getClientDashboard = asyncHandler(async (req, res, next) => {
   const clientId = req.user.id;
 
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
   // Get next upcoming booking
   const { data: nextBooking } = await supabase
@@ -17,7 +17,7 @@ const getClientDashboard = asyncHandler(async (req, res, next) => {
     .select('*, therapist:therapist_id(*)')
     .eq('client_id', clientId)
     .in('status', ['upcoming', 'pending', 'confirmed'])
-    .gte('date', today.toISOString())
+    .gte('date', todayStr)
     .order('date', { ascending: true })
     .order('start_time', { ascending: true })
     .limit(1)
@@ -104,17 +104,18 @@ const getTherapistDashboard = asyncHandler(async (req, res, next) => {
   const therapistId = req.user.id;
 
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
 
   // Get today's bookings
   const { data: todaysBookings } = await supabase
     .from('bookings')
     .select('*, client:client_id(*)')
     .eq('therapist_id', therapistId)
-    .gte('date', today.toISOString())
-    .lt('date', tomorrow.toISOString())
+    .gte('date', todayStr)
+    .lt('date', tomorrowStr)
     .in('status', ['upcoming', 'pending', 'confirmed'])
     .order('start_time', { ascending: true });
 
@@ -124,7 +125,7 @@ const getTherapistDashboard = asyncHandler(async (req, res, next) => {
     .select('*, client:client_id(*)')
     .eq('therapist_id', therapistId)
     .in('status', ['upcoming', 'pending', 'confirmed'])
-    .gte('date', today.toISOString())
+    .gte('date', todayStr)
     .order('date', { ascending: true })
     .order('start_time', { ascending: true })
     .limit(1)
@@ -132,12 +133,13 @@ const getTherapistDashboard = asyncHandler(async (req, res, next) => {
 
   // Get completed sessions this month
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const startOfMonthStr = `${startOfMonth.getFullYear()}-${String(startOfMonth.getMonth() + 1).padStart(2, '0')}-01`;
   const { count: completedSessions } = await supabase
     .from('bookings')
     .select('*', { count: 'exact', head: true })
     .eq('therapist_id', therapistId)
     .eq('status', 'completed')
-    .gte('date', startOfMonth.toISOString());
+    .gte('date', startOfMonthStr);
 
   // Get total active clients
   const { count: activeClients } = await supabase

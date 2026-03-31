@@ -188,6 +188,24 @@ const registerTherapist = asyncHandler(async (req, res) => {
 
     console.log('✅ Professional profile created');
 
+    // 5a. Crear therapist_payment_settings con el plan correcto desde el inicio
+    const { error: paymentSettingsError } = await supabase
+      .from('therapist_payment_settings')
+      .insert({
+        therapist_id: authUser.id,
+        subscription_plan: plan,
+        can_accept_online_payments: plan === 'avanzado-pro',
+        platform_fee_percent: 10.00,
+        default_payment_method: 'manual'
+      });
+
+    if (paymentSettingsError) {
+      console.error('❌ Error creating therapist_payment_settings:', paymentSettingsError);
+      // No es un error fatal, continuamos
+    } else {
+      console.log('✅ therapist_payment_settings created with plan:', plan);
+    }
+
     // 5. Procesar y guardar documentos de titulación en Supabase Storage
     if (documentos && documentos.length > 0) {
       const bucketName = 'documents';
@@ -423,6 +441,11 @@ const registerTherapist = asyncHandler(async (req, res) => {
       }
     }
 
+    // Email de bienvenida al terapeuta
+    emailService.sendTherapistWelcomeEmail({ email, nombre, apellidos, plan })
+      .catch(err => console.error('❌ Error sending welcome email to therapist:', err));
+
+    // Notificación al admin
     emailService.sendNewTherapistAdminNotification({
       nombre,
       apellidos,

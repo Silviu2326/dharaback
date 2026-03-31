@@ -202,6 +202,11 @@ class ProfessionalProfile {
       pricingPackages: this.pricingPackages,
       preferences: this.preferences,
       legalInfo: this.legalInfo,
+      telefono: this.telefono,
+      ciudad: this.ciudad,
+      direccion: this.direccion,
+      modalidad: this.modalidad,
+      zonas_atencion: this.zonas_atencion,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
       totalExperience: this.totalExperience,
@@ -310,6 +315,11 @@ class ProfessionalProfileModel {
     if (updateData.pricingPackages) data.pricing_packages = updateData.pricingPackages;
     if (updateData.preferences) data.preferences = updateData.preferences;
     if (updateData.legalInfo) data.legal_info = updateData.legalInfo;
+    if (updateData.telefono !== undefined) data.telefono = updateData.telefono;
+    if (updateData.ciudad !== undefined) data.ciudad = updateData.ciudad;
+    if (updateData.direccion !== undefined) data.direccion = updateData.direccion;
+    if (updateData.modalidad !== undefined) data.modalidad = updateData.modalidad;
+    if (updateData.zonasAtencion !== undefined) data.zonas_atencion = updateData.zonasAtencion;
 
     console.log('🔍 [MODEL] Data to update in Supabase:', JSON.stringify(data, null, 2));
     

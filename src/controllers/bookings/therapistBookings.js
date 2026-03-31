@@ -356,8 +356,6 @@ const rescheduleBooking = asyncHandler(async (req, res, next) => {
   const updateData = {
     date: date,
     start_time: startTime,
-    reschedule_reason: reason,
-    rescheduled_at: new Date().toISOString()
   };
   if (endTime) updateData.end_time = endTime;
 

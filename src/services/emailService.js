@@ -502,6 +502,74 @@ class EmailService {
   }
 
   /**
+   * Email de bienvenida específico para terapeutas recién registrados
+   */
+  async sendTherapistWelcomeEmail({ email, nombre, apellidos, plan }) {
+    const name = `${nombre} ${apellidos}`;
+    const planLabel = plan === 'basico' ? 'Básico' : plan === 'avanzado' ? 'Avanzado' : plan;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #8CA48F; color: white; padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0; }
+            .header h1 { margin: 0; font-size: 24px; }
+            .content { background-color: #f9f7f4; padding: 30px; border-radius: 0 0 8px 8px; }
+            .highlight { background-color: #fff; border-left: 4px solid #8CA48F; padding: 15px 20px; margin: 20px 0; border-radius: 0 6px 6px 0; }
+            .steps { list-style: none; padding: 0; }
+            .steps li { padding: 8px 0; padding-left: 28px; position: relative; }
+            .steps li::before { content: "✓"; position: absolute; left: 0; color: #8CA48F; font-weight: bold; }
+            .button { display: inline-block; background-color: #8CA48F; color: white !important; padding: 14px 28px; text-decoration: none; border-radius: 6px; margin-top: 20px; font-weight: bold; }
+            .footer { text-align: center; margin-top: 24px; font-size: 12px; color: #999; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>¡Bienvenido/a a Dhara Dimensión Humana!</h1>
+              <p style="margin:8px 0 0; opacity:0.9;">Tu perfil de terapeuta está en camino</p>
+            </div>
+            <div class="content">
+              <h2>Hola ${name},</h2>
+              <p>Gracias por registrarte como terapeuta en nuestra plataforma. Hemos recibido tu solicitud y estamos revisando tu documentación.</p>
+
+              <div class="highlight">
+                <strong>Plan contratado:</strong> ${planLabel}<br/>
+                <strong>Estado:</strong> Pendiente de verificación
+              </div>
+
+              <p><strong>¿Qué ocurre ahora?</strong></p>
+              <ul class="steps">
+                <li>Nuestro equipo revisará los documentos que has aportado.</li>
+                <li>Recibirás un email de confirmación cuando tu perfil sea aprobado.</li>
+                <li>Una vez aprobado, tu perfil será visible para los clientes.</li>
+              </ul>
+
+              <p>Si tienes cualquier duda o necesitas modificar algún dato, escríbenos a <a href="mailto:${this.fromEmail}" style="color:#8CA48F;">${this.fromEmail}</a>.</p>
+
+              <p>¡Estamos encantados de tenerte con nosotros!</p>
+
+              <a href="${process.env.FRONTEND_URL || 'https://dharadimensionhumana.es'}" class="button">Visitar la web</a>
+            </div>
+            <div class="footer">
+              <p>© ${new Date().getFullYear()} Dhara Dimensión Humana. Todos los derechos reservados.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    return await this.sendEmail({
+      to: email,
+      subject: '¡Bienvenido/a a Dhara! Tu registro está siendo procesado',
+      html
+    });
+  }
+
+  /**
    * Notificación al admin cuando se registra un nuevo terapeuta
    */
   async sendNewTherapistAdminNotification({ nombre, apellidos, email, telefono, plan, especialidades, ciudad }) {
