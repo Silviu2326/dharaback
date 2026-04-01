@@ -304,6 +304,8 @@ class UserModel {
     if (updateData.videoPresentation !== undefined) data.video_presentation = updateData.videoPresentation;
     if (updateData.stripeCustomerId !== undefined) data.stripe_customer_id = updateData.stripeCustomerId;
     if (updateData.subscriptionStatus) data.subscription_status = updateData.subscriptionStatus;
+    if (updateData.resetPasswordToken !== undefined) data.reset_password_token = updateData.resetPasswordToken;
+    if (updateData.resetPasswordExpire !== undefined) data.reset_password_expire = updateData.resetPasswordExpire;
 
     const result = await this.service.update(id, data);
     return options.new !== false ? new User(result) : null;

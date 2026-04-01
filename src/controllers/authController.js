@@ -1,9 +1,12 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 const { User, Client, ClientTherapist, Conversation } = require('../models');
 const { InvitationCodeModel } = require('../models/InvitationCode');
 const InvitationCode = new InvitationCodeModel();
 const { AppError, asyncHandler } = require('../middleware/errorHandler');
+const emailService = require('../services/emailService');
+const { supabase } = require('../config/supabase');
 
 // Generate JWT token
 const generateToken = (id, type = null) => {
@@ -355,28 +358,18 @@ const forgotPassword = asyncHandler(async (req, res, next) => {
   // Create reset URL
   const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
 
-  const message = `
-    You are receiving this email because you (or someone else) has requested the reset of a password.
-    Please click on the following link to reset your password:
-
-    ${resetUrl}
-
-    If you did not request this, please ignore this email and your password will remain unchanged.
-
-    This link will expire in 10 minutes.
-  `;
-
   try {
-    // Here you would send the email
-    // await sendEmail({
-    //   email: user.email,
-    //   subject: 'Password Reset Request',
-    //   message
-    // });
+    const emailResult = await emailService.sendPasswordResetEmail({
+      email: user.email,
+      name: user.name,
+      resetUrl
+    });
 
-    // For now, just log it (in production, implement proper email service)
-    console.log('Password reset email would be sent to:', user.email);
-    console.log('Reset URL:', resetUrl);
+    if (!emailResult.success) {
+      throw new Error(emailResult.error || 'Email sending failed');
+    }
+
+    console.log('Password reset email sent to:', user.email);
 
     res.status(200).json({
       success: true,
@@ -404,13 +397,14 @@ const forgotPassword = asyncHandler(async (req, res, next) => {
 // @route   POST /api/auth/reset-password
 // @access  Public
 const resetPassword = asyncHandler(async (req, res, next) => {
-  const { token, password, confirmPassword } = req.body;
+  const { token, newPassword, password: passwordAlias, confirmPassword } = req.body;
+  const password = newPassword || passwordAlias;
 
-  if (!token || !password || !confirmPassword) {
+  if (!token || !password) {
     return next(new AppError('Please provide all required fields', 400));
   }
 
-  if (password !== confirmPassword) {
+  if (confirmPassword && password !== confirmPassword) {
     return next(new AppError('Passwords do not match', 400));
   }
 
@@ -736,12 +730,6 @@ const registerCliente = asyncHandler(async (req, res, next) => {
       return next(new AppError('Ya existe un cliente con este email', 400));
     }
 
-    // Check if user (therapist) already exists with this email
-    const existingUser = await User.findOne({ email: normalizedEmail });
-    if (existingUser) {
-      return next(new AppError('Ya existe un usuario con este email', 400));
-    }
-
     // Create client
     const clientData = {
       name,
@@ -759,6 +747,11 @@ const registerCliente = asyncHandler(async (req, res, next) => {
       name: client.name
     });
   }
+
+  // Email de bienvenida al cliente
+  const [clientNombre] = (client.name || '').split(' ');
+  emailService.sendClientWelcomeEmail({ email: client.email, nombre: clientNombre || client.name })
+    .catch(err => console.error('❌ Error sending welcome email to client:', err));
 
   // Generate token for client with type 'client'
   const token = generateToken(client.id, 'client');
@@ -780,6 +773,71 @@ const registerCliente = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Change password for Supabase-based users (therapists and clients)
+// @route   POST /api/auth/change-password-supabase
+// @access  Private
+const changePasswordSupabase = asyncHandler(async (req, res, next) => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return next(new AppError('Por favor proporciona la contraseña actual y la nueva', 400));
+  }
+
+  if (newPassword.length < 8) {
+    return next(new AppError('La nueva contraseña debe tener al menos 8 caracteres', 400));
+  }
+
+  const userId = req.user.id;
+  const isClient = req.user.role === 'client';
+
+  // Get current hashed password from the appropriate table
+  const table = isClient ? 'clients' : 'users';
+  const { data: record, error: fetchError } = await supabase
+    .from(table)
+    .select('id, email, password')
+    .eq('id', userId)
+    .single();
+
+  if (fetchError || !record) {
+    return next(new AppError('Usuario no encontrado', 404));
+  }
+
+  // Verify current password
+  const isMatch = await bcrypt.compare(currentPassword, record.password);
+  if (!isMatch) {
+    return next(new AppError('La contraseña actual es incorrecta', 400));
+  }
+
+  // Hash new password
+  const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+  // Update password hash in Supabase table
+  const { error: updateError } = await supabase
+    .from(table)
+    .update({ password: hashedPassword, updated_at: new Date().toISOString() })
+    .eq('id', userId);
+
+  if (updateError) {
+    return next(new AppError('Error al actualizar la contraseña', 500));
+  }
+
+  // Also update in Supabase Auth so the user can log in with the new password
+  if (!isClient) {
+    const { error: authUpdateError } = await supabase.auth.admin.updateUserById(userId, {
+      password: newPassword
+    });
+    if (authUpdateError) {
+      console.error('Error updating Supabase Auth password:', authUpdateError);
+      // Non-fatal: the table password is updated, auth may lag
+    }
+  }
+
+  res.status(200).json({
+    success: true,
+    message: 'Contraseña actualizada correctamente'
+  });
+});
+
 module.exports = {
   register,
   login,
@@ -789,5 +847,6 @@ module.exports = {
   forgotPassword,
   resetPassword,
   changePassword,
+  changePasswordSupabase,
   registerCliente
 };

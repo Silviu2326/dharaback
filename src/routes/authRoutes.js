@@ -8,6 +8,7 @@ const {
   forgotPassword,
   resetPassword,
   changePassword,
+  changePasswordSupabase,
   registerCliente
 } = require('../controllers/authController');
 
@@ -29,5 +30,6 @@ router.use(protect); // All routes after this are protected
 router.get('/me', getMe);
 router.post('/logout', logout);
 router.post('/change-password', changePassword);
+router.post('/change-password-supabase', changePasswordSupabase);
 
 module.exports = router;

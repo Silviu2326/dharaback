@@ -952,6 +952,15 @@ const getTherapistById = asyncHandler(async (req, res, next) => {
     .single();
   const planType = paymentSettings?.subscription_plan || 'basico';
 
+  // Fetch active coupons for this therapist
+  const { data: therapistCoupons } = await supabase
+    .from('coupons')
+    .select('id, code, name, description, type, value, max_discount, valid_until, target_audience, min_order_amount')
+    .eq('therapistId', id)
+    .eq('is_active', true)
+    .or(`valid_until.is.null,valid_until.gte.${new Date().toISOString()}`);
+  const activeCoupons = therapistCoupons || [];
+
   // Build response with services/packages
   // Buscar en múltiples ubicaciones donde pueden estar los datos
   // Usar profileView (vista) o profile (modelo)
@@ -1109,7 +1118,8 @@ const getTherapistById = asyncHandler(async (req, res, next) => {
     pricing: {
       currency: customRates?.currency || pricing?.currency || rates?.customRates?.currency || 'EUR',
       sessions: sessions,
-      packages: packages
+      packages: packages,
+      coupons: activeCoupons
     }
   };
   
@@ -1192,18 +1202,31 @@ const sendInvitationEmail = asyncHandler(async (req, res, next) => {
     return next(new AppError('Client has no email address', 400));
   }
 
-  // Here you would integrate with your email service (SendGrid, AWS SES, etc.)
-  // For now, we'll just simulate success
-  console.log(`📧 Invitation email would be sent to: ${client.email}`);
-  console.log(`   Code: ${code}`);
-  console.log(`   Client: ${client.name}`);
+  const { therapistName } = req.body;
 
-  // Update the invitation code record to mark email as sent
+  // Send invitation email via emailService
+  const emailResult = await emailService.sendInvitationCodeEmail({
+    email: client.email,
+    clientName: client.name,
+    code,
+    therapistName: therapistName || null,
+  });
+
+  if (!emailResult.success) {
+    console.error('❌ Failed to send invitation email:', emailResult.error);
+    return next(new AppError('Error al enviar el email de invitación', 500));
+  }
+
+  console.log(`✅ Invitation email sent to: ${client.email} (code: ${code})`);
+
+  // Mark email as sent in the invitation code record
   const invitationCode = await InvitationCode.findByCode(code);
   if (invitationCode) {
-    invitationCode.metadata.emailSent = true;
-    invitationCode.metadata.emailSentAt = new Date().toISOString();
-    // Note: You would need to implement an update method in InvitationCode model
+    invitationCode.metadata = {
+      ...invitationCode.metadata,
+      emailSent: true,
+      emailSentAt: new Date().toISOString(),
+    };
   }
 
   res.status(200).json({

@@ -506,56 +506,84 @@ class EmailService {
    */
   async sendTherapistWelcomeEmail({ email, nombre, apellidos, plan }) {
     const name = `${nombre} ${apellidos}`;
-    const planLabel = plan === 'basico' ? 'Básico' : plan === 'avanzado' ? 'Avanzado' : plan;
+
+    const gdprFooter = `
+      <div style="margin-top:32px; padding:16px; background:#f5f5f5; border-radius:6px; font-size:11px; color:#777; line-height:1.6;">
+        <strong>Información básica sobre Protección de Datos (RGPD y LOPDGDD):</strong><br/>
+        <strong>Responsable:</strong> Isabel Miralles Rubert (DNI: 24399337V) – App Dhara.<br/>
+        <strong>Finalidad:</strong> Gestión de la relación con el usuario/profesional, envío de comunicaciones sobre el estado de la plataforma y novedades de la comunidad.<br/>
+        <strong>Legitimación:</strong> Ejecución de contrato y consentimiento del interesado.<br/>
+        <strong>Destinatarios:</strong> No se cederán datos a terceros salvo obligación legal o proveedores técnicos necesarios para la prestación del servicio (Stripe, Supabase).<br/>
+        <strong>Derechos:</strong> Tienes derecho a acceder, rectificar y suprimir tus datos, así como otros derechos detallados en nuestra Política de Privacidad, enviando un correo a <a href="mailto:info@dharadimensionhumana.es" style="color:#8CA48F;">info@dharadimensionhumana.es</a>.<br/>
+        <strong>Baja:</strong> En Dhara respetamos tu espacio. Si sientes que este ya no es tu lugar, puedes responder a este correo con la palabra "Baja".
+      </div>
+    `;
 
     const html = `
       <!DOCTYPE html>
       <html>
         <head>
+          <meta charset="UTF-8"/>
           <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background-color: #8CA48F; color: white; padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0; }
-            .header h1 { margin: 0; font-size: 24px; }
-            .content { background-color: #f9f7f4; padding: 30px; border-radius: 0 0 8px 8px; }
-            .highlight { background-color: #fff; border-left: 4px solid #8CA48F; padding: 15px 20px; margin: 20px 0; border-radius: 0 6px 6px 0; }
-            .steps { list-style: none; padding: 0; }
-            .steps li { padding: 8px 0; padding-left: 28px; position: relative; }
-            .steps li::before { content: "✓"; position: absolute; left: 0; color: #8CA48F; font-weight: bold; }
-            .button { display: inline-block; background-color: #8CA48F; color: white !important; padding: 14px 28px; text-decoration: none; border-radius: 6px; margin-top: 20px; font-weight: bold; }
-            .footer { text-align: center; margin-top: 24px; font-size: 12px; color: #999; }
+            body { font-family: Georgia, 'Times New Roman', serif; line-height: 1.8; color: #333; margin: 0; padding: 0; background-color: #f9f7f4; }
+            .container { max-width: 600px; margin: 0 auto; padding: 32px 20px; }
+            .header { background-color: #8CA48F; color: white; padding: 32px 28px; text-align: center; border-radius: 10px 10px 0 0; }
+            .header h1 { margin: 0; font-size: 22px; font-weight: normal; letter-spacing: 0.5px; }
+            .header p { margin: 8px 0 0; opacity: 0.85; font-size: 14px; }
+            .content { background-color: #ffffff; padding: 36px 32px; border-radius: 0 0 10px 10px; border: 1px solid #e8e4df; border-top: none; }
+            .content p { margin: 0 0 18px; font-size: 15px; }
+            .highlight { background-color: #f9f7f4; border-left: 3px solid #8CA48F; padding: 16px 20px; margin: 24px 0; border-radius: 0 6px 6px 0; font-size: 14px; }
+            .steps { list-style: none; padding: 0; margin: 0 0 18px; }
+            .steps li { padding: 6px 0 6px 28px; position: relative; font-size: 15px; }
+            .steps li::before { content: "·"; position: absolute; left: 8px; color: #8CA48F; font-size: 20px; line-height: 1.3; }
+            .button { display: inline-block; background-color: #8CA48F; color: white !important; padding: 14px 32px; text-decoration: none; border-radius: 6px; margin: 8px 0 24px; font-size: 14px; letter-spacing: 0.3px; }
+            .signature { margin-top: 32px; font-size: 14px; color: #555; }
           </style>
         </head>
         <body>
           <div class="container">
             <div class="header">
-              <h1>¡Bienvenido/a a Dhara Dimensión Humana!</h1>
-              <p style="margin:8px 0 0; opacity:0.9;">Tu perfil de terapeuta está en camino</p>
+              <h1>Te damos la bienvenida a Dhara</h1>
+              <p>¡Ya estás dentro!</p>
             </div>
             <div class="content">
-              <h2>Hola ${name},</h2>
-              <p>Gracias por registrarte como terapeuta en nuestra plataforma. Hemos recibido tu solicitud y estamos revisando tu documentación.</p>
+              <p>Hola, <strong>${nombre}</strong>:</p>
 
-              <div class="highlight">
-                <strong>Plan contratado:</strong> ${planLabel}<br/>
-                <strong>Estado:</strong> Pendiente de verificación
-              </div>
+              <p>Hoy no recibes un correo más. Recibes un espacio que también es tuyo.</p>
 
-              <p><strong>¿Qué ocurre ahora?</strong></p>
+              <p>Gracias por registrarte en Dhara. Gracias por estar aquí, en este momento en el que la plataforma ya no es solo una visión… sino un lugar vivo que empezamos a habitar en comunidad.</p>
+
+              <p>Sabemos que dedicarte a las terapias naturales no es casualidad. Es una elección profunda y a veces solitaria. Muy valiente y muy honesta. Y Dhara va a estar contigo, para que no tengas que sostener ese camino en soledad.</p>
+
+              <p>Desde este momento ya puedes acceder a tu espacio dentro de la plataforma. Te invitamos a entrar con calma, sin prisa, y empezar por lo esencial:</p>
+
               <ul class="steps">
-                <li>Nuestro equipo revisará los documentos que has aportado.</li>
-                <li>Recibirás un email de confirmación cuando tu perfil sea aprobado.</li>
-                <li>Una vez aprobado, tu perfil será visible para los clientes.</li>
+                <li>Completar tu perfil desde un lugar auténtico (no perfecto)</li>
+                <li>Explorar tus herramientas sin presión</li>
+                <li>Sentir si este espacio también te sostiene a ti</li>
               </ul>
 
-              <p>Si tienes cualquier duda o necesitas modificar algún dato, escríbenos a <a href="mailto:${this.fromEmail}" style="color:#8CA48F;">${this.fromEmail}</a>.</p>
+              <p>No necesitas hacerlo todo hoy. Aquí no venimos a correr. Venimos a hacer las cosas bien.</p>
 
-              <p>¡Estamos encantados de tenerte con nosotros!</p>
+              <div class="highlight">
+                Además, como parte de este momento fundacional, mantienes tus <strong>3 meses de acceso al plan avanzado</strong>, para que puedas explorar Dhara con libertad y sin presión.
+              </div>
 
-              <a href="${process.env.FRONTEND_URL || 'https://dharadimensionhumana.es'}" class="button">Visitar la web</a>
-            </div>
-            <div class="footer">
-              <p>© ${new Date().getFullYear()} Dhara Dimensión Humana. Todos los derechos reservados.</p>
+              <p>Si en algún momento algo no se siente claro, o simplemente necesitas compartir cómo estás viviendo la experiencia, puedes escribirnos. Estamos aquí.</p>
+
+              <p>También seguimos compartiendo el camino en <a href="https://www.instagram.com/dhara.dimensionhumana/" style="color:#8CA48F;">Instagram</a>, por si te apetece acompañarnos más de cerca.</p>
+
+              <a href="${process.env.FRONTEND_URL || 'https://appdhara.com'}/dashboard" class="button">Acceder a mi espacio</a>
+
+              <p>Gracias por elegir formar parte de esto. Gracias por cuidar.</p>
+              <p>Nuestra más cálida bienvenida a Dhara. Y al que esperamos sea un espacio que te aporte valor.</p>
+
+              <div class="signature">
+                Isabel Miralles y Raquel García<br/>
+                <em>Equipo Dhara</em>
+              </div>
+
+              ${gdprFooter}
             </div>
           </div>
         </body>
@@ -564,7 +592,100 @@ class EmailService {
 
     return await this.sendEmail({
       to: email,
-      subject: '¡Bienvenido/a a Dhara! Tu registro está siendo procesado',
+      subject: 'Te damos la bienvenida a Dhara. ¡Ya estás dentro!',
+      html
+    });
+  }
+
+  /**
+   * Email de bienvenida específico para clientes recién registrados
+   */
+  async sendClientWelcomeEmail({ email, nombre }) {
+    const frontendUrl = process.env.FRONTEND_URL || 'https://appdhara.com';
+
+    const gdprFooter = `
+      <div style="margin-top:32px; padding:16px; background:#f5f5f5; border-radius:6px; font-size:11px; color:#777; line-height:1.6;">
+        <strong>Información básica sobre Protección de Datos (RGPD y LOPDGDD):</strong><br/>
+        <strong>Responsable:</strong> Isabel Miralles Rubert (DNI: 24399337V) – App Dhara.<br/>
+        <strong>Finalidad:</strong> Gestión de la relación con el usuario/profesional, envío de comunicaciones sobre el estado de la plataforma y novedades de la comunidad.<br/>
+        <strong>Legitimación:</strong> Ejecución de contrato y consentimiento del interesado.<br/>
+        <strong>Destinatarios:</strong> No se cederán datos a terceros salvo obligación legal o proveedores técnicos necesarios para la prestación del servicio (Stripe, Supabase).<br/>
+        <strong>Derechos:</strong> Tienes derecho a acceder, rectificar y suprimir tus datos, así como otros derechos detallados en nuestra Política de Privacidad, enviando un correo a <a href="mailto:info@dharadimensionhumana.es" style="color:#8CA48F;">info@dharadimensionhumana.es</a>.<br/>
+        <strong>Baja:</strong> En Dhara respetamos tu espacio. Si sientes que este ya no es tu lugar, puedes responder a este correo con la palabra "Baja".
+      </div>
+    `;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8"/>
+          <style>
+            body { font-family: Georgia, 'Times New Roman', serif; line-height: 1.8; color: #333; margin: 0; padding: 0; background-color: #f9f7f4; }
+            .container { max-width: 600px; margin: 0 auto; padding: 32px 20px; }
+            .header { background-color: #8CA48F; color: white; padding: 32px 28px; text-align: center; border-radius: 10px 10px 0 0; }
+            .header h1 { margin: 0; font-size: 22px; font-weight: normal; letter-spacing: 0.5px; }
+            .content { background-color: #ffffff; padding: 36px 32px; border-radius: 0 0 10px 10px; border: 1px solid #e8e4df; border-top: none; }
+            .content p { margin: 0 0 18px; font-size: 15px; }
+            .features { list-style: none; padding: 0; margin: 0 0 24px; }
+            .features li { padding: 6px 0 6px 28px; position: relative; font-size: 15px; }
+            .features li::before { content: "·"; position: absolute; left: 8px; color: #8CA48F; font-size: 20px; line-height: 1.3; }
+            .cta-block { background-color: #f9f7f4; border-radius: 8px; padding: 20px 24px; margin: 24px 0; }
+            .cta-block p { margin: 0 0 10px; font-size: 14px; font-weight: bold; color: #555; }
+            .cta-link { display: inline-block; margin: 4px 0; color: #8CA48F; font-size: 14px; text-decoration: underline; }
+            .button { display: inline-block; background-color: #8CA48F; color: white !important; padding: 14px 32px; text-decoration: none; border-radius: 6px; margin: 8px 0 24px; font-size: 14px; }
+            .signature { margin-top: 32px; font-size: 14px; color: #555; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Te damos la bienvenida a Dhara</h1>
+            </div>
+            <div class="content">
+              <p>Hola, <strong>${nombre}</strong>:</p>
+
+              <p>Hemos creado este espacio para que puedas descubrir, con calma y confianza, diferentes terapias naturales y profesionales que pueden acompañarte en tu proceso.</p>
+
+              <p>En Dhara puedes:</p>
+              <ul class="features">
+                <li>Encontrar terapeutas según lo que necesitas o cerca de ti</li>
+                <li>Descubrir qué terapia puede encajar contigo</li>
+                <li>Reservar sesiones de forma sencilla</li>
+                <li>Guardar y gestionar tu experiencia en un solo lugar</li>
+              </ul>
+
+              <p>Cada persona es diferente, y aquí tienes la libertad de explorar hasta encontrar lo que realmente resuene contigo.</p>
+
+              <div class="cta-block">
+                <p>Si lo deseas, puedes empezar por aquí:</p>
+                <a href="${frontendUrl}/terapias" class="cta-link">→ Explorar terapias en el diccionario</a><br/>
+                <a href="${frontendUrl}/terapeutas" class="cta-link">→ Buscar profesionales</a><br/>
+                <a href="${frontendUrl}/favoritos" class="cta-link">→ Guardar aquellos que te resuenen en favoritos</a>
+              </div>
+
+              <p>Estamos aquí para acompañarte en este camino, a tu ritmo.</p>
+
+              <p>Gracias por formar parte de Dhara. Puedes seguirnos en <a href="https://www.instagram.com/dhara.dimensionhumana/" style="color:#8CA48F;">Instagram</a>.</p>
+
+              <a href="${frontendUrl}" class="button">Empezar a explorar</a>
+
+              <div class="signature">
+                Gracias por elegirte.<br/>
+                Con cariño,<br/>
+                <strong>El equipo de Dhara</strong>
+              </div>
+
+              ${gdprFooter}
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    return await this.sendEmail({
+      to: email,
+      subject: 'Te damos la bienvenida a Dhara',
       html
     });
   }
@@ -594,6 +715,150 @@ class EmailService {
     return await this.sendEmail({
       to: adminEmail,
       subject: `Nuevo terapeuta registrado: ${nombre} ${apellidos}`,
+      html
+    });
+  }
+
+  /**
+   * Enviar email de recuperación de contraseña
+   */
+  async sendPasswordResetEmail({ email, name, resetUrl }) {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #8CA48F; color: white; padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0; }
+            .header h1 { margin: 0; font-size: 22px; }
+            .content { background-color: #f9f7f4; padding: 30px; border-radius: 0 0 8px 8px; }
+            .button { display: inline-block; background-color: #8CA48F; color: white !important; padding: 14px 28px; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold; font-size: 15px; }
+            .warning { background-color: #fff8e1; border-left: 4px solid #f4a460; padding: 12px 16px; margin: 20px 0; border-radius: 0 6px 6px 0; font-size: 13px; color: #7a6a3a; }
+            .footer { text-align: center; margin-top: 24px; font-size: 12px; color: #999; }
+            .url-box { background-color: #f0f0f0; padding: 10px; border-radius: 4px; word-break: break-all; font-size: 12px; color: #555; margin-top: 10px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Recuperar contraseña</h1>
+              <p style="margin:8px 0 0; opacity:0.9;">Dhara Dimensión Humana</p>
+            </div>
+            <div class="content">
+              <h2>Hola${name ? ` ${name}` : ''},</h2>
+              <p>Hemos recibido una solicitud para restablecer la contraseña de tu cuenta.</p>
+              <p>Haz clic en el botón de abajo para crear una nueva contraseña. Este enlace es válido durante <strong>10 minutos</strong>.</p>
+
+              <div style="text-align: center;">
+                <a href="${resetUrl}" class="button">Restablecer contraseña</a>
+              </div>
+
+              <div class="warning">
+                <strong>¿No has solicitado esto?</strong> Ignora este email y tu contraseña no cambiará.
+              </div>
+
+              <p style="font-size: 13px; color: #666;">Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
+              <div class="url-box">${resetUrl}</div>
+            </div>
+            <div class="footer">
+              <p>© ${new Date().getFullYear()} Dhara Dimensión Humana. Todos los derechos reservados.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    return await this.sendEmail({
+      to: email,
+      subject: 'Restablecer contraseña - Dhara Dimensión Humana',
+      html
+    });
+  }
+
+  /**
+   * Email con código de invitación para clientes
+   */
+  async sendInvitationCodeEmail({ email, clientName, code, therapistName }) {
+    const firstName = (clientName || '').split(' ')[0] || clientName;
+    const appUrl = process.env.FRONTEND_URL || 'https://appdhara.com';
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8"/>
+          <style>
+            body { font-family: Georgia, 'Times New Roman', serif; line-height: 1.8; color: #333; margin: 0; padding: 0; background-color: #f9f7f4; }
+            .container { max-width: 600px; margin: 0 auto; padding: 32px 20px; }
+            .header { background-color: #8CA48F; color: white; padding: 32px 28px; text-align: center; border-radius: 10px 10px 0 0; }
+            .header h1 { margin: 0; font-size: 22px; font-weight: normal; letter-spacing: 0.5px; }
+            .content { background-color: #ffffff; padding: 36px 32px; border-radius: 0 0 10px 10px; border: 1px solid #e8e4df; border-top: none; }
+            .content p { margin: 0 0 18px; font-size: 15px; }
+            .code-box { background-color: #f9f7f4; border: 2px dashed #8CA48F; border-radius: 10px; padding: 24px; text-align: center; margin: 28px 0; }
+            .code-box .label { font-size: 13px; color: #888; margin-bottom: 8px; }
+            .code-box .code { font-family: 'Courier New', monospace; font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #3a5a3d; }
+            .button { display: inline-block; background-color: #8CA48F; color: white !important; padding: 14px 32px; text-decoration: none; border-radius: 6px; margin: 8px 0 24px; font-size: 14px; }
+            .steps { list-style: none; padding: 0; margin: 0 0 24px; }
+            .steps li { padding: 6px 0 6px 28px; position: relative; font-size: 14px; color: #555; }
+            .steps li::before { content: counter(step-counter); counter-increment: step-counter; position: absolute; left: 0; top: 6px; background-color: #8CA48F; color: white; width: 18px; height: 18px; border-radius: 50%; font-size: 11px; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 18px; }
+            .steps { counter-reset: step-counter; }
+            .signature { margin-top: 32px; font-size: 14px; color: #555; }
+            .gdpr { margin-top: 32px; padding: 16px; background:#f5f5f5; border-radius:6px; font-size:11px; color:#777; line-height:1.6; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Has sido invitado/a a Dhara</h1>
+            </div>
+            <div class="content">
+              <p>Hola, <strong>${firstName}</strong>:</p>
+
+              <p>Tu profesional de referencia en las terapias naturales${therapistName ? `, <strong>${therapistName}</strong>,` : ''} te ha invitado a unirte a Dhara.</p>
+
+              <p>En Dhara podrás acceder a tus sesiones, documentos y comunicarte directamente con tu terapeuta, todo en un solo lugar.</p>
+
+              <div class="code-box">
+                <div class="label">Tu código de invitación</div>
+                <div class="code">${code}</div>
+              </div>
+
+              <p>Para comenzar, sigue estos pasos:</p>
+              <ol class="steps">
+                <li>Entra en <a href="${appUrl}/registro-cliente" style="color:#8CA48F;">${appUrl}/registro-cliente</a></li>
+                <li>Rellena tus datos de registro</li>
+                <li>Introduce el código de invitación cuando te lo solicite</li>
+                <li>¡Listo! Tú y tu terapeuta ya estaréis conectados</li>
+              </ol>
+
+              <a href="${appUrl}/registro-cliente" class="button">Crear mi cuenta</a>
+
+              <p style="font-size:13px; color:#888;">Este código es personal e intransferible. Caduca en 30 días.</p>
+
+              <div class="signature">
+                Con cariño,<br/>
+                <strong>El equipo de Dhara</strong>
+              </div>
+
+              <div class="gdpr">
+                <strong>Información básica sobre Protección de Datos (RGPD y LOPDGDD):</strong><br/>
+                <strong>Responsable:</strong> Isabel Miralles Rubert (DNI: 24399337V) – App Dhara.<br/>
+                <strong>Finalidad:</strong> Gestión de la relación con el usuario/profesional, envío de comunicaciones sobre el estado de la plataforma y novedades de la comunidad.<br/>
+                <strong>Legitimación:</strong> Ejecución de contrato y consentimiento del interesado.<br/>
+                <strong>Destinatarios:</strong> No se cederán datos a terceros salvo obligación legal o proveedores técnicos necesarios para la prestación del servicio (Stripe, Supabase).<br/>
+                <strong>Derechos:</strong> Tienes derecho a acceder, rectificar y suprimir tus datos, así como otros derechos detallados en nuestra Política de Privacidad, enviando un correo a <a href="mailto:info@dharadimensionhumana.es" style="color:#8CA48F;">info@dharadimensionhumana.es</a>.<br/>
+                <strong>Baja:</strong> En Dhara respetamos tu espacio. Si sientes que este ya no es tu lugar, puedes responder a este correo con la palabra "Baja".
+              </div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    return await this.sendEmail({
+      to: email,
+      subject: 'Tu invitación a Dhara – código de acceso',
       html
     });
   }
