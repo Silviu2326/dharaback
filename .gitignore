@@ -1,3 +1,6 @@
+# Secrets / env reference files
+.envrailway.md
+
 # Dependencies
 node_modules/
 npm-debug.log*

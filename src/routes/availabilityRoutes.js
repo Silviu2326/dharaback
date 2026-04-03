@@ -269,6 +269,91 @@ router.post('/exceptions', protect, async (req, res) => {
   }
 });
 
+router.put('/exceptions/:id', protect, async (req, res) => {
+  const { id } = req.params;
+  const therapistId = req.user.id || req.user._id;
+  const { title, startDate, endDate, absenceType, type: formType, reason, notes } = req.body;
+  const supabase = require('../config/supabase').supabase;
+
+  try {
+    const { data: existing, error: findError } = await supabase
+      .from('absences')
+      .select('id')
+      .eq('id', id)
+      .eq('therapist_id', therapistId)
+      .single();
+
+    if (findError || !existing) {
+      return res.status(404).json({ success: false, error: 'Absence not found' });
+    }
+
+    const rawType = absenceType || formType;
+    const VALID_ABSENCE_TYPES = ['vacation', 'sick', 'personal', 'other'];
+    const updateData = {};
+    if (startDate) updateData.start_date = startDate;
+    if (endDate) updateData.end_date = endDate;
+    if (rawType) updateData.type = VALID_ABSENCE_TYPES.includes(rawType) ? rawType : 'other';
+    if (title || reason || notes) updateData.reason = title || reason || notes;
+
+    const { data, error } = await supabase
+      .from('absences')
+      .update(updateData)
+      .eq('id', id)
+      .eq('therapist_id', therapistId)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    res.status(200).json({
+      id: data.id,
+      title: data.reason || data.type || 'Ausencia',
+      startDate: data.start_date,
+      endDate: data.end_date,
+      allDay: true,
+      absenceType: data.type,
+      type: 'absence',
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.delete('/exceptions/:id', protect, async (req, res) => {
+  const { id } = req.params;
+  const therapistId = req.user.id || req.user._id;
+  const supabase = require('../config/supabase').supabase;
+
+  try {
+    const { data: existing, error: findError } = await supabase
+      .from('absences')
+      .select('id')
+      .eq('id', id)
+      .eq('therapist_id', therapistId)
+      .single();
+
+    if (findError || !existing) {
+      return res.status(404).json({ success: false, error: 'Absence not found' });
+    }
+
+    const { error } = await supabase
+      .from('absences')
+      .delete()
+      .eq('id', id)
+      .eq('therapist_id', therapistId);
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    res.status(200).json({ id, deleted: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 router.get('/:therapistId/external-calendar-status', (req, res) => {
   res.json({
     success: true,
