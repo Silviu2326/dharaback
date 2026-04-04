@@ -952,24 +952,34 @@ const getTherapistById = asyncHandler(async (req, res, next) => {
     .single();
   const planType = paymentSettings?.subscription_plan || 'basico';
 
-  // Fetch active coupons for this therapist
-  const { data: therapistCoupons } = await supabase
-    .from('coupons')
-    .select('id, code, name, description, type, value, max_discount, valid_until, target_audience, min_order_amount')
-    .eq('therapistId', id)
-    .eq('is_active', true)
-    .or(`valid_until.is.null,valid_until.gte.${new Date().toISOString()}`);
-  const activeCoupons = therapistCoupons || [];
-
   // Build response with services/packages
   // Buscar en múltiples ubicaciones donde pueden estar los datos
   // Usar profileView (vista) o profile (modelo)
   const profileData = profileView || profile || {};
-  
+
   const pricing = profileData?.pricing || {};
   const customRates = pricing?.customRates || {};
   const profileRates = profileData?.rates || {};
-  const pricingPackages = profileData?.pricingPackages || {};
+
+  // pricing_packages viene como snake_case desde Supabase; parsear si es string
+  let pricingPackagesRaw = profileData?.pricing_packages || profileData?.pricingPackages || {};
+  if (typeof pricingPackagesRaw === 'string') {
+    try { pricingPackagesRaw = JSON.parse(pricingPackagesRaw); } catch (e) { pricingPackagesRaw = {}; }
+  }
+  const pricingPackages = pricingPackagesRaw;
+
+  console.log('🎫 [COUPONS DEBUG] profileData.pricing_packages (raw):', profileData?.pricing_packages);
+  console.log('🎫 [COUPONS DEBUG] pricingPackages parsed:', JSON.stringify(pricingPackages));
+  console.log('🎫 [COUPONS DEBUG] pricingPackages.coupons:', pricingPackages?.coupons);
+
+  // Los cupones están en pricing_packages.coupons (no en tabla coupons separada)
+  const now = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  const activeCoupons = (pricingPackages?.coupons || []).filter(c => {
+    if (c.isActive === false) return false;
+    if (c.validUntil && c.validUntil < now) return false;
+    return true;
+  });
+  console.log('🎫 [COUPONS DEBUG] activeCoupons final:', JSON.stringify(activeCoupons));
   
   // Los servicios pueden estar en diferentes ubicaciones según el formato
   const sessions = customRates?.sessions || 
