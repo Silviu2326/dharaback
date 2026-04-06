@@ -420,21 +420,31 @@ async function handleCheckoutSessionCompleted(session) {
       return;
     }
 
+    // Marcar que el usuario usó el trial (para evitar abusos en futuras cuentas)
+    const trialDaysUsed = parseInt(session.metadata?.trialDays || '0', 10);
+    const isTrialCheckout = trialDaysUsed > 0;
+
     // Actualizar el estado de suscripción del usuario
+    const updatePayload = {
+      subscription_status: plan === 'avanzado-pro' ? 'active' : 'trial',
+      stripe_customer_id: session.customer,
+      stripe_subscription_id: session.subscription,
+      updated_at: new Date().toISOString()
+    };
+
+    if (isTrialCheckout) {
+      updatePayload.has_used_trial = true;
+    }
+
     const { error: updateError } = await supabase
       .from('users')
-      .update({
-        subscription_status: plan === 'avanzado-pro' ? 'active' : 'trial',
-        stripe_customer_id: session.customer,
-        stripe_subscription_id: session.subscription,
-        updated_at: new Date().toISOString()
-      })
+      .update(updatePayload)
       .eq('id', userId);
 
     if (updateError) {
       console.error('❌ Error updating user subscription status:', updateError);
     } else {
-      console.log('✅ User subscription status updated:', userId);
+      console.log('✅ User subscription status updated:', userId, isTrialCheckout ? '(trial marcado)' : '');
     }
 
     // Actualizar subscription_plan en therapist_payment_settings

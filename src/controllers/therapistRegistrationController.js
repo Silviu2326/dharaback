@@ -540,16 +540,70 @@ const createTherapistSubscription = asyncHandler(async (req, res) => {
   };
 
   const selectedPlan = planConfig[plan] || planConfig['avanzado'];
-  const finalTrialDays = trialDays !== undefined ? trialDays : selectedPlan.defaultTrialDays;
 
   try {
     const frontendUrl = process.env.FRONTEND_URL || 'https://dhara-peach.vercel.app';
+
+    // --- Protección contra abuso del trial gratuito ---
+    // 1. Los cambios de plan NUNCA tienen trial.
+    // 2. No confiamos en el trialDays que envía el frontend; lo calculamos aquí.
+    // 3. Comprobamos si el usuario (por userId o email) ya usó un trial anteriormente.
+    let finalTrialDays = 0;
+
+    if (context !== 'plan_change') {
+      // Determinar días de trial basado en el plan (nunca confiar en el valor del frontend)
+      const serverTrialDays = selectedPlan.defaultTrialDays;
+
+      if (serverTrialDays > 0) {
+        // Verificar si el usuario ya tiene o tuvo suscripción (por userId o email)
+        let hasUsedTrial = false;
+
+        if (userId) {
+          const { data: existingUser } = await supabase
+            .from('users')
+            .select('subscription_status, has_used_trial')
+            .eq('id', userId)
+            .single();
+
+          if (existingUser) {
+            hasUsedTrial =
+              existingUser.has_used_trial === true ||
+              ['trial', 'active', 'past_due', 'canceled', 'unpaid'].includes(existingUser.subscription_status);
+          }
+        }
+
+        if (!hasUsedTrial && email) {
+          // Segunda comprobación por email (cubre cuentas recién creadas con el mismo email)
+          const { data: emailUser } = await supabase
+            .from('users')
+            .select('subscription_status, has_used_trial')
+            .eq('email', email.toLowerCase().trim())
+            .neq('id', userId || '')
+            .maybeSingle();
+
+          if (emailUser) {
+            hasUsedTrial =
+              emailUser.has_used_trial === true ||
+              ['trial', 'active', 'past_due', 'canceled', 'unpaid'].includes(emailUser.subscription_status);
+          }
+        }
+
+        finalTrialDays = hasUsedTrial ? 0 : serverTrialDays;
+
+        if (hasUsedTrial) {
+          console.log(`⚠️ Trial denegado para ${email} — ya usó el período de prueba anteriormente`);
+        }
+      }
+    }
+
+    console.log(`📋 [createTherapistSubscription] context=${context} plan=${plan} trialDays=${finalTrialDays}`);
 
     const session = await stripeService.createSubscriptionCheckout({
       priceId: selectedPlan.priceId,
       email,
       name: nombre,
       trialDays: finalTrialDays,
+      requirePaymentMethod: true,
       successUrl: customSuccessUrl || `${frontendUrl}/registro-exitoso?session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: customCancelUrl || `${frontendUrl}/registro-terapeuta?cancelled=true`,
       metadata: {

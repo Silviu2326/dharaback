@@ -94,7 +94,7 @@ const bulkValidation = [
 ];
 
 const idValidation = [
-  param("documentId").isMongoId().withMessage("Document ID must be valid"),
+  param("documentId").isUUID().withMessage("Document ID must be a valid UUID"),
 ];
 
 // Main routes
@@ -132,20 +132,20 @@ router.get(
 router.get("/timeline", verificationController.getVerificationTimeline);
 
 // Individual document routes
-router.get("/:documentId", idValidation, verificationController.getDocument);
+router.get("/documents/:documentId", idValidation, verificationController.getDocument);
 router.put(
-  "/:documentId",
+  "/documents/:documentId",
   idValidation,
   updateValidation,
   verificationController.updateDocument,
 );
 router.delete(
-  "/:documentId",
+  "/documents/:documentId",
   idValidation,
   verificationController.deleteDocument,
 );
 router.get(
-  "/:documentId/download",
+  "/documents/:documentId/download",
   idValidation,
   verificationController.downloadDocument,
 );

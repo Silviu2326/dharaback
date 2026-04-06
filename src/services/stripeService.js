@@ -373,15 +373,16 @@ class StripeService {
    */
   async createSubscriptionCheckout(data) {
     try {
-      const { 
-        priceId, 
-        customerId, 
-        email, 
-        name, 
-        trialDays = 90, 
-        successUrl, 
-        cancelUrl, 
-        metadata = {} 
+      const {
+        priceId,
+        customerId,
+        email,
+        name,
+        trialDays = 90,
+        requirePaymentMethod = true,
+        successUrl,
+        cancelUrl,
+        metadata = {}
       } = data;
 
       if (!successUrl || !cancelUrl) {
@@ -431,6 +432,11 @@ class StripeService {
           tipo: 'registro_terapeuta'
         }
       };
+
+      // Siempre requerir método de pago para evitar abusos del trial con cuentas desechables
+      if (requirePaymentMethod) {
+        sessionData.payment_method_collection = 'always';
+      }
 
       // Solo agregar trial_period_days si es mayor que 0
       // Stripe no permite 0 días (mínimo es 1), así que para pago inmediato no incluimos el parámetro

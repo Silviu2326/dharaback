@@ -45,6 +45,7 @@ const getVerificationDocuments = async (req, res) => {
         issuingBody: doc.issuing_body,
         documentNumber: doc.document_number,
         terapia: doc.terapias_diccionario?.nombre || null,
+        aiValid: notesData.aiValid || false,
       };
     });
 
@@ -93,12 +94,17 @@ const uploadDocument = async (req, res) => {
 
     const fileUrl = publicUrlData.publicUrl;
 
-    // Buscar coincidencia en terapias_diccionario si el frontend envía metadata
+    // Leer terapia_id y aiValid del análisis IA si el frontend lo envía en metadata
     let terapiaId = null;
+    let aiValid = false;
     try {
       const metadata = req.body.metadata ? JSON.parse(req.body.metadata) : {};
-      // No hay análisis IA aquí, terapia_id queda null (pendiente de verificación)
+      if (metadata.terapia_id) terapiaId = metadata.terapia_id;
+      if (metadata.aiValid === true) aiValid = true;
     } catch (_) {}
+
+    // Si la IA lo valida como válido, se aprueba automáticamente
+    const status = aiValid ? 'approved' : 'pending';
 
     // Insertar en verification_documents
     const { data: docData, error: insertError } = await supabase
@@ -108,9 +114,9 @@ const uploadDocument = async (req, res) => {
         type: 'degree',
         issuing_body: req.body.issuingBody || null,
         document_number: req.body.documentNumber || null,
-        status: 'pending',
+        status,
         file_url: fileUrl,
-        notes: JSON.stringify({ originalName, fileSize: fileBuffer.length }),
+        notes: JSON.stringify({ originalName, fileSize: fileBuffer.length, aiValid }),
         terapia_id: terapiaId,
       })
       .select()
@@ -299,42 +305,54 @@ const reviewDocument = async (req, res) => {
 // Download document
 const downloadDocument = async (req, res) => {
   try {
+    const { supabase } = require('../config/supabase');
     const { documentId } = req.params;
-
-    const document = await VerificationDocument.findById(documentId);
-
-    if (!document) {
-      return res.status(404).json({
-        success: false,
-        message: "Document not found",
-      });
-    }
-
-    // Check permissions
     const userId = req.user.id || req.user._id;
-    if (req.user.role === "therapist" && document.userId !== userId) {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied",
-      });
+
+    const { data: doc, error } = await supabase
+      .from('verification_documents')
+      .select('id, file_url, user_id, notes')
+      .eq('id', documentId)
+      .single();
+
+    if (error || !doc) {
+      return res.status(404).json({ success: false, message: 'Document not found' });
     }
 
-    const filePath = path.join(
-      __dirname,
-      "../../uploads/verification",
-      path.basename(document.fileUrl),
-    );
-
-    try {
-      await fs.access(filePath);
-    } catch {
-      return res.status(404).json({
-        success: false,
-        message: "File not found on server",
-      });
+    if (req.user.role === 'therapist' && doc.user_id !== userId) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
-    res.download(filePath, document.name || "document");
+    if (!doc.file_url) {
+      return res.status(404).json({ success: false, message: 'File URL not available' });
+    }
+
+    let notesData = {};
+    try { notesData = doc.notes ? JSON.parse(doc.notes) : {}; } catch {}
+    const filename = notesData.originalName || doc.file_url.split('/').pop() || 'documento';
+
+    // Extract storage path from public URL
+    const urlParts = doc.file_url.split('/storage/v1/object/public/documents/');
+    if (urlParts.length !== 2) {
+      return res.status(500).json({ success: false, message: 'Invalid file URL format' });
+    }
+    const storagePath = urlParts[1];
+
+    const { data: fileBlob, error: downloadError } = await supabase.storage
+      .from('documents')
+      .download(storagePath);
+
+    if (downloadError || !fileBlob) {
+      return res.status(500).json({ success: false, message: 'Error retrieving file from storage' });
+    }
+
+    const arrayBuffer = await fileBlob.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', fileBlob.type || 'application/octet-stream');
+    res.setHeader('Content-Length', buffer.length);
+    res.send(buffer);
   } catch (error) {
     console.error("Error downloading document:", error);
     res.status(500).json({
@@ -348,54 +366,44 @@ const downloadDocument = async (req, res) => {
 // Delete document
 const deleteDocument = async (req, res) => {
   try {
+    const { supabase } = require('../config/supabase');
     const { documentId } = req.params;
-
-    const document = await VerificationDocument.findById(documentId);
-
-    if (!document) {
-      return res.status(404).json({
-        success: false,
-        message: "Document not found",
-      });
-    }
-
-    // Check permissions
     const userId = req.user.id || req.user._id;
-    if (req.user.role === "therapist" && document.userId !== userId) {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied",
-      });
+
+    const { data: doc, error: fetchError } = await supabase
+      .from('verification_documents')
+      .select('id, file_url, user_id')
+      .eq('id', documentId)
+      .single();
+
+    if (fetchError || !doc) {
+      return res.status(404).json({ success: false, message: 'Document not found' });
     }
 
-    // Don't allow deletion of approved documents
-    if (document.status === "approved") {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot delete approved documents",
-      });
+    if (req.user.role === 'therapist' && doc.user_id !== userId) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
-    // Delete file from filesystem
-    if (document.fileUrl) {
-      const filePath = path.join(
-        __dirname,
-        "../../uploads/verification",
-        path.basename(document.fileUrl),
-      );
+    // Delete file from Supabase Storage
+    if (doc.file_url) {
       try {
-        await fs.unlink(filePath);
-      } catch (error) {
-        console.error("Error deleting file:", error);
+        const urlParts = doc.file_url.split('/storage/v1/object/public/documents/');
+        if (urlParts.length === 2) {
+          await supabase.storage.from('documents').remove([urlParts[1]]);
+        }
+      } catch (storageError) {
+        console.error("Error deleting file from storage:", storageError);
       }
     }
 
-    await VerificationDocument.findByIdAndDelete(documentId);
+    const { error: deleteError } = await supabase
+      .from('verification_documents')
+      .delete()
+      .eq('id', documentId);
 
-    res.json({
-      success: true,
-      message: "Document deleted successfully",
-    });
+    if (deleteError) throw deleteError;
+
+    res.json({ success: true, message: 'Document deleted successfully' });
   } catch (error) {
     console.error("Error deleting document:", error);
     res.status(500).json({
