@@ -7,6 +7,7 @@ const {
   deleteClient,
   getClientsStats,
   getClientTags,
+  getClientsSessionsSummary,
   updateClientAvatar,
   getClientSummary,
   bulkUpdateClients,
@@ -48,6 +49,7 @@ router.put('/bulk', bulkUpdateClients);
 // Statistics and tags
 router.get('/stats', getClientsStats);
 router.get('/tags', getClientTags);
+router.get('/sessions-summary', getClientsSessionsSummary);
 
 // Client CRUD routes
 router.route('/')

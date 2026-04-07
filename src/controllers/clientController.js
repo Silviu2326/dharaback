@@ -99,22 +99,56 @@ const getClients = asyncHandler(async (req, res, next) => {
     }
   }
 
+  // Get summary stats for all clients in this page in a single query (optimization)
+  const summaryMap = {};
+  if (allClientIds.length > 0) {
+    try {
+      const { data: sessionsSummary } = await supabase
+        .from('bookings')
+        .select('client_id, date, start_time')
+        .in('client_id', allClientIds)
+        .eq('therapist_id', therapistId)
+        .in('status', ['completed', 'finalizada', 'realizada']);
+
+      if (sessionsSummary) {
+        sessionsSummary.forEach(b => {
+          const cid = String(b.client_id);
+          if (!summaryMap[cid]) summaryMap[cid] = { count: 0, lastDate: null };
+          summaryMap[cid].count++;
+          const bDateString = `${b.date}T${b.start_time || '00:00:00'}`;
+          const bDate = new Date(bDateString);
+          if (!summaryMap[cid].lastDate || bDate > new Date(summaryMap[cid].lastDate)) {
+            summaryMap[cid].lastDate = bDate.toISOString();
+          }
+        });
+      }
+    } catch (err) {
+      // Non-fatal
+    }
+  }
+
   // Get recent bookings for each client
   const clientsWithBookings = await Promise.all(
     clients.map(async (client) => {
       try {
-        const recentBookings = await Booking.findByClient(client.id || client._id, {
+        const clientId = client.id || client._id;
+        const recentBookings = await Booking.findByClient(clientId, {
           limit: 5,
           order: { column: 'date', ascending: false }
         });
-        const clientIdStr = String(client.id || client._id);
+        const clientIdStr = String(clientId);
         const ratings = clientRatingMap[clientIdStr] || [];
         const avgRating = ratings.length > 0
           ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
           : null;
+        
+        const summary = summaryMap[clientIdStr] || { count: 0, lastDate: null };
+
         return {
           ...client.toJSON(),
           rating: avgRating,
+          lastSession: summary.lastDate,
+          sessionCount: summary.count,
           recentBookings: recentBookings.map(b => ({
             id: b.id,
             date: b.date,
@@ -141,6 +175,61 @@ const getClients = asyncHandler(async (req, res, next) => {
       hasNextPage: page < totalPages,
       hasPrevPage: page > 1
     }
+  });
+});
+
+// @desc    Get sessions summary for all clients
+// @route   GET /api/clients/sessions-summary
+// @access  Private
+const getClientsSessionsSummary = asyncHandler(async (req, res, next) => {
+  const therapistId = req.user.id || req.user._id;
+
+  // Get client IDs for this therapist
+  const clientIds = await ClientTherapist.getClientIdsByTherapist(therapistId, 'active');
+
+  if (clientIds.length === 0) {
+    return res.status(200).json({
+      success: true,
+      data: []
+    });
+  }
+
+  // Get completed sessions count and last session date for all clients
+  const { data: bookings, error } = await supabase
+    .from('bookings')
+    .select('client_id, date, start_time')
+    .eq('therapist_id', therapistId)
+    .in('client_id', clientIds)
+    .in('status', ['completed', 'finalizada', 'realizada']);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const stats = {};
+  clientIds.forEach(id => {
+    stats[String(id)] = {
+      clientId: id,
+      lastSession: null,
+      sessionCount: 0
+    };
+  });
+
+  bookings.forEach(booking => {
+    const cid = String(booking.client_id);
+    if (stats[cid]) {
+      stats[cid].sessionCount++;
+      const currentBookingDateString = `${booking.date}T${booking.start_time || '00:00:00'}`;
+      const currentBookingDate = new Date(currentBookingDateString);
+      if (!stats[cid].lastSession || currentBookingDate > new Date(stats[cid].lastSession)) {
+        stats[cid].lastSession = currentBookingDate.toISOString();
+      }
+    }
+  });
+
+  res.status(200).json({
+    success: true,
+    data: Object.values(stats)
   });
 });
 
@@ -1698,6 +1787,7 @@ module.exports = {
   deleteClient,
   getClientsStats,
   getClientTags,
+  getClientsSessionsSummary,
   updateClientAvatar,
   getClientSummary,
   bulkUpdateClients,
