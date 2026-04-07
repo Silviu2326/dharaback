@@ -4,6 +4,7 @@ const { InvitationCodeModel } = require('../models/InvitationCode');
 const InvitationCode = new InvitationCodeModel();
 const { AppError, asyncHandler } = require('../middleware/errorHandler');
 const { supabase } = require('../config/supabase');
+const emailService = require('../services/emailService');
 
 // @desc    Get all clients for therapist
 // @route   GET /api/clients
