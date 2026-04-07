@@ -110,9 +110,9 @@ const createBooking = asyncHandler(async (req, res, next) => {
 
   // Create conversation
   try {
-    await Conversation.findOrCreate({
-      where: { therapistId: req.user.id, clientId },
-      defaults: { therapistId: req.user.id, clientId }
+    await Conversation.create({
+      therapistId: req.user.id,
+      clientId
     });
   } catch (error) {
     console.error('Error creating conversation:', error);
@@ -120,7 +120,7 @@ const createBooking = asyncHandler(async (req, res, next) => {
 
   // Send confirmation email
   try {
-    const client = await Client.findByPk(clientId);
+    const client = await Client.findById(clientId);
     if (client) {
       await emailService.sendAppointmentConfirmation({
         to: client.email,
@@ -398,32 +398,82 @@ const rescheduleBooking = asyncHandler(async (req, res, next) => {
 // @access  Private (Therapist)
 const getBookingStats = asyncHandler(async (req, res, next) => {
   const { startDate, endDate } = req.query;
+  const therapistId = req.user.id || req.user._id;
 
-  const whereClause = { therapistId: req.user.id };
+  let query = supabase
+    .from('bookings')
+    .select('status, amount, client_id')
+    .eq('therapist_id', therapistId);
+
   if (startDate && endDate) {
-    whereClause.date = { gte: new Date(startDate), lte: new Date(endDate) };
+    query = query.gte('date', startDate).lte('date', endDate);
+  } else if (startDate) {
+    query = query.gte('date', startDate);
+  } else if (endDate) {
+    query = query.lte('date', endDate);
   }
 
-  const stats = await Booking.findAll({
-    where: whereClause,
-    attributes: ['status', [Booking.sequelize.fn('COUNT', Booking.sequelize.col('status')), 'count']],
-    group: ['status']
+  const { data: bookings, error } = await query;
+
+  if (error) throw new Error(error.message);
+
+  const stats = {
+    totalBookings: bookings.length,
+    completedBookings: 0,
+    upcomingBookings: 0,
+    cancelledBookings: 0,
+    totalRevenue: 0,
+    activeUniqueClients: 0,
+    totalUniqueClients: 0,
+    completionRate: 0,
+    avgSessionDuration: 0,
+    statusCounts: {}
+  };
+
+  const uniqueClients = new Set();
+  const activeClients = new Set();
+  let totalDuration = 0;
+
+  bookings.forEach(booking => {
+    // Status counts
+    stats.statusCounts[booking.status] = (stats.statusCounts[booking.status] || 0) + 1;
+
+    // Specific status totals
+    if (booking.status === 'completed') {
+      stats.completedBookings++;
+      stats.totalRevenue += (booking.amount || 0);
+      totalDuration += (booking.therapy_duration || 60);
+    }
+    
+    if (booking.status === 'upcoming' || booking.status === 'pending' || booking.status === 'confirmed') {
+      stats.upcomingBookings++;
+    }
+    
+    if (booking.status === 'cancelled') {
+      stats.cancelledBookings++;
+    }
+
+    // Clients
+    if (booking.client_id) {
+      uniqueClients.add(booking.client_id);
+      // Client is active if they have any non-cancelled, non-no_show booking
+      if (booking.status !== 'cancelled' && booking.status !== 'no_show') {
+        activeClients.add(booking.client_id);
+      }
+    }
   });
 
-  const revenue = await Booking.findAll({
-    where: { ...whereClause, status: 'completed', paymentStatus: 'paid' },
-    attributes: [[Booking.sequelize.fn('SUM', Booking.sequelize.col('amount')), 'totalRevenue']]
-  });
+  stats.totalUniqueClients = uniqueClients.size;
+  stats.activeUniqueClients = activeClients.size;
+  stats.avgSessionDuration = stats.completedBookings > 0 ? Math.round(totalDuration / stats.completedBookings) : 0;
+  
+  if (stats.totalBookings > 0) {
+    stats.completionRate = Math.round((stats.completedBookings / stats.totalBookings) * 100);
+  }
 
   res.status(200).json({
     success: true,
-    data: {
-      statusCounts: stats.reduce((acc, stat) => {
-        acc[stat.status] = parseInt(stat.getDataValue('count'));
-        return acc;
-      }, {}),
-      totalRevenue: parseFloat(revenue[0]?.getDataValue('totalRevenue') || 0)
-    }
+    data: stats
   });
 });
 
@@ -432,19 +482,28 @@ const getBookingStats = asyncHandler(async (req, res, next) => {
 // @access  Private (Therapist)
 const getUpcomingBookings = asyncHandler(async (req, res, next) => {
   const { limit = 5 } = req.query;
+  const therapistId = req.user.id || req.user._id;
+  const today = new Date().toISOString().split('T')[0];
 
-  const bookings = await Booking.findAll({
-    where: {
-      therapistId: req.user.id,
-      status: 'upcoming',
-      date: { gte: new Date() }
-    },
-    order: [['date', 'ASC'], ['startTime', 'ASC']],
-    limit: parseInt(limit),
-    include: [{ model: Client, attributes: ['id', 'name', 'email', 'phone', 'avatar'] }]
+  const { data: bookings, error } = await supabase
+    .from('bookings')
+    .select('*, client:clients(id, name, email, phone, avatar)')
+    .eq('therapist_id', therapistId)
+    .in('status', ['upcoming', 'pending'])
+    .gte('date', today)
+    .order('date', { ascending: true })
+    .order('start_time', { ascending: true })
+    .limit(parseInt(limit));
+
+  if (error) throw new Error(error.message);
+
+  const transformedBookings = (bookings || []).map(transformBookingToCamelCase);
+
+  res.status(200).json({
+    success: true,
+    count: transformedBookings.length,
+    data: transformedBookings
   });
-
-  res.status(200).json({ success: true, count: bookings.length, data: bookings });
 });
 
 module.exports = {
