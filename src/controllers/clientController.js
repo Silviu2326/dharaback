@@ -77,6 +77,28 @@ const getClients = asyncHandler(async (req, res, next) => {
     total = result.pagination.total;
   }
 
+  // Get review ratings for all clients in a single query
+  const allClientIds = clients.map(c => c.id || c._id).filter(Boolean);
+  const clientRatingMap = {};
+  if (allClientIds.length > 0) {
+    try {
+      const { data: reviewData } = await supabase
+        .from('reviews')
+        .select('client_id, rating')
+        .eq('therapist_id', therapistId)
+        .in('client_id', allClientIds);
+      if (reviewData) {
+        reviewData.forEach(r => {
+          const id = String(r.client_id);
+          if (!clientRatingMap[id]) clientRatingMap[id] = [];
+          clientRatingMap[id].push(r.rating);
+        });
+      }
+    } catch (err) {
+      // Non-fatal: proceed without ratings
+    }
+  }
+
   // Get recent bookings for each client
   const clientsWithBookings = await Promise.all(
     clients.map(async (client) => {
@@ -85,8 +107,14 @@ const getClients = asyncHandler(async (req, res, next) => {
           limit: 5,
           order: { column: 'date', ascending: false }
         });
+        const clientIdStr = String(client.id || client._id);
+        const ratings = clientRatingMap[clientIdStr] || [];
+        const avgRating = ratings.length > 0
+          ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
+          : null;
         return {
           ...client.toJSON(),
+          rating: avgRating,
           recentBookings: recentBookings.map(b => ({
             id: b.id,
             date: b.date,
