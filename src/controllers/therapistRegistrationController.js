@@ -7,6 +7,7 @@ const { supabase } = require('../config/supabase');
 const bcrypt = require('bcryptjs');
 const VerificationDocument = require('../models/VerificationDocument');
 const crypto = require('crypto');
+const { validarNIF } = require('../services/billingService');
 
 /**
  * @desc    Registrar terapeuta completo (Auth + Perfil + Stripe)
@@ -32,7 +33,11 @@ const registerTherapist = asyncHandler(async (req, res) => {
     direccion,
     modalidad,
     zonasAtencion,
-    idiomas
+    idiomas,
+    // CAMPOS FACTURACIÓN
+    nif,
+    codigoPostal,
+    provincia
   } = req.body;
 
   // Validaciones
@@ -62,6 +67,20 @@ const registerTherapist = asyncHandler(async (req, res) => {
     return res.status(400).json({
       success: false,
       message: 'La contraseña debe tener al menos 8 caracteres'
+    });
+  }
+
+  if (!nif || !validarNIF(nif)) {
+    return res.status(400).json({
+      success: false,
+      message: 'NIF/NIE obligatorio y debe tener un formato válido (ej: 12345678A o X1234567A)'
+    });
+  }
+
+  if (!direccion || !codigoPostal || !ciudad || !provincia) {
+    return res.status(400).json({
+      success: false,
+      message: 'Dirección fiscal, código postal, ciudad y provincia son requeridos'
     });
   }
 
@@ -173,9 +192,23 @@ const registerTherapist = asyncHandler(async (req, res) => {
           modalidad: modalidad || 'hibrido',
           zonas_atencion: zonasAtencion?.length > 0 ? zonasAtencion : [ciudad || 'Madrid'],
           // IDIOMAS
-          languages: idiomas?.length > 0 
+          languages: idiomas?.length > 0
             ? idiomas.map(lang => ({ language: lang, level: 'nativo' }))
             : [{ language: 'Español', level: 'nativo' }],
+          // DATOS FACTURACIÓN
+          datos_facturacion: {
+            nif: nif.trim().toUpperCase(),
+            nombreFiscal: `${nombre} ${apellidos}`.trim(),
+            direccionFiscal: {
+              calle: direccion || null,
+              codigoPostal: codigoPostal || null,
+              ciudad: ciudad || null,
+              provincia: provincia || null
+            },
+            contadorTickets: 0,
+            contadorFacturas: 0,
+            serieActual: new Date().getFullYear().toString()
+          },
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }

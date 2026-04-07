@@ -303,6 +303,8 @@ const paymentController = {
 
       if (status === 'completed') {
         updateData.paidAt = new Date().toISOString();
+        // El número de ticket se genera automáticamente por el trigger SQL
+        // trg_asignar_ticket en Supabase al pasar status a 'completed'
       }
 
       const updatedPayment = await Payment.findByIdAndUpdate(id, updateData, { new: true });
@@ -344,6 +346,52 @@ const paymentController = {
         success: true,
         message: 'Refund processed successfully',
         data: payment.toJSON()
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  // Delete payment
+  async deletePayment(req, res, next) {
+    try {
+      const { id } = req.params;
+      const therapistId = req.user.id;
+      const { reason } = req.body;
+
+      const payment = await Payment.findOne({
+        id: id,
+        therapist_id: therapistId
+      });
+
+      if (!payment) {
+        return next(new AppError('Payment not found', 404));
+      }
+
+      // Check if payment is already completed - optional: maybe prevent deletion of completed payments?
+      // For now, follow the directive to allow deletion with a reason if provided.
+
+      await Payment.findByIdAndDelete(id);
+
+      // Create audit log for deletion if possible
+      try {
+        const { AuditLog } = require('../models');
+        if (AuditLog && typeof AuditLog.create === 'function') {
+          await AuditLog.create({
+            userId: therapistId,
+            action: 'payment_deleted',
+            resourceId: id,
+            details: { reason, amount: payment.amount, client: payment.client_id }
+          });
+        }
+      } catch (auditError) {
+        console.warn('Could not create audit log for payment deletion:', auditError.message);
+      }
+
+      res.json({
+        success: true,
+        message: 'Cobro eliminado correctamente',
+        data: { id }
       });
     } catch (error) {
       next(error);
@@ -961,30 +1009,78 @@ const paymentController = {
     }
   },
 
-  // Delete a payment
-  async deletePayment(req, res, next) {
+  // Request invoice (full invoice with client fiscal data)
+  async requestInvoice(req, res, next) {
     try {
-      const { id } = req.params;
-      const therapistId = req.user.id;
+      const { paymentId } = req.params;
+      const clientId = req.user.id;
+      const { nombreFiscal, nif, calle, codigoPostal, ciudad } = req.body;
 
-      // Find the payment
-      const payment = await Payment.findOne({
-        id: id,
-        therapist_id: therapistId
-      });
-
-      if (!payment) {
-        return next(new AppError('Payment not found', 404));
+      // Validate required fields
+      if (!nombreFiscal || !nif) {
+        return next(new AppError('Nombre fiscal y NIF son obligatorios', 400));
       }
 
-      // Delete the payment
-      await Payment.delete(id);
+      // Get the payment from Supabase
+      const { data: payment, error: paymentError } = await supabase
+        .from('payments')
+        .select('*, therapist:therapist_id(id, name)')
+        .eq('id', paymentId)
+        .eq('client_id', clientId)
+        .single();
+
+      if (paymentError || !payment) {
+        return next(new AppError('Pago no encontrado', 404));
+      }
+
+      if (payment.status !== 'completed') {
+        return next(new AppError('Solo se puede solicitar factura de pagos completados', 400));
+      }
+
+      // Generate invoice number using billing service
+      const billingService = require('../services/billingService');
+      const invoiceNumber = await billingService.generarNumeroFactura(payment.therapist_id);
+
+      // Save client fiscal data in the payment record
+      const { error: updateError } = await supabase
+        .from('payments')
+        .update({
+          invoice_number: invoiceNumber,
+          document_type: 'factura',
+          metadata: {
+            ...payment.metadata,
+            clienteFiscal: {
+              nombreFiscal,
+              nif: nif.toUpperCase(),
+              direccionFiscal: {
+                calle: calle || '',
+                codigoPostal: codigoPostal || '',
+                ciudad: ciudad || ''
+              }
+            }
+          }
+        })
+        .eq('id', paymentId);
+
+      if (updateError) {
+        console.error('❌ Error updating payment with invoice data:', updateError);
+        return next(new AppError('Error al generar la factura', 500));
+      }
+
+      console.log('✅ Invoice requested:', { paymentId, invoiceNumber, clientId });
+
+      // TODO: Send invoice email to client (optional enhancement)
 
       res.json({
         success: true,
-        message: 'Cobro eliminado correctamente'
+        message: 'Factura solicitada correctamente',
+        data: {
+          invoiceNumber,
+          paymentId
+        }
       });
     } catch (error) {
+      console.error('❌ Error requesting invoice:', error);
       next(error);
     }
   }

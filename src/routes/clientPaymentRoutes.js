@@ -3,7 +3,8 @@ const { body, param, query } = require('express-validator');
 const {
   getClientPayments,
   getClientPayment,
-  getClientPaymentSummary
+  getClientPaymentSummary,
+  requestInvoice
 } = require('../controllers/paymentController');
 const { protectClient } = require('../middleware/auth');
 
@@ -56,6 +57,17 @@ const periodValidation = [
     .withMessage('Period must be one of: week, month, quarter, year')
 ];
 
+const invoiceRequestValidation = [
+  body('nombreFiscal')
+    .notEmpty()
+    .withMessage('Nombre fiscal es obligatorio')
+    .trim(),
+  body('nif')
+    .notEmpty()
+    .withMessage('NIF es obligatorio')
+    .trim()
+];
+
 // Client payment routes
 
 // Get all payments for the client
@@ -74,6 +86,13 @@ router.get('/summary',
 router.get('/:paymentId',
   paymentIdValidation,
   getClientPayment
+);
+
+// Request invoice for a specific payment
+router.post('/:paymentId/request-invoice',
+  paymentIdValidation,
+  invoiceRequestValidation,
+  requestInvoice
 );
 
 module.exports = router;

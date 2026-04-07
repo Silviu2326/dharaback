@@ -471,5 +471,14 @@ module.exports = {
   checkOwnership,
   authRateLimit,
   protectClient,
-  protectMixed
+  protectMixed,
+  requireAdmin: (req, res, next) => {
+    if (req.user && req.user.role === 'admin') {
+      return next();
+    }
+    return res.status(403).json({
+      success: false,
+      message: 'Acceso restringido a administradores'
+    });
+  }
 };

@@ -48,6 +48,7 @@ const favoriteRoutes = require("./routes/favoriteRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const terapiasRoutes = require("./routes/terapiasRoutes");
 const autoResponseRoutes = require("./routes/autoResponseRoutes");
+const billingRoutes = require("./routes/billingRoutes");
 const adminVerificationRoutes = require("./routes/adminVerificationRoutes");
 const healthRoutes = require("./routes/health");
 const storageRoutes = require("./routes/storageRoutes");
@@ -206,6 +207,7 @@ app.use("/api/favorites", favoriteRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/terapias", terapiasRoutes);
 app.use("/api/auto-responses", autoResponseRoutes);
+app.use("/api/billing", billingRoutes);
 app.use("/api/admin/verification", adminVerificationRoutes);
 app.use("/api/storage", storageRoutes);
 

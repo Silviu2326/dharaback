@@ -25,6 +25,9 @@ class Payment {
     this.netAmount = parseFloat(data.net_amount) || 0;
     this.platformFee = parseFloat(data.platform_fee) || 0;
     this.paidAt = data.paid_at;
+    this.ticketNumber = data.ticket_number || null;
+    this.invoiceNumber = data.invoice_number || null;
+    this.documentType = data.document_type || 'ticket';
     this.createdAt = data.created_at;
     this.updatedAt = data.updated_at;
 
@@ -297,6 +300,9 @@ class Payment {
       therapistAmount: this.therapistAmount,
       isStripePayment: this.isStripePayment,
       paidAt: this.paidAt,
+      ticketNumber: this.ticketNumber,
+      invoiceNumber: this.invoiceNumber,
+      documentType: this.documentType,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt
     };

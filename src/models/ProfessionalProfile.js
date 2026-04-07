@@ -531,6 +531,39 @@ const professionalProfileSchema = new mongoose.Schema({
     type: String,
     trim: true,
     maxlength: [20, 'Phone number cannot exceed 20 characters']
+  },
+  datosFacturacion: {
+    nif: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      maxlength: [10, 'NIF/NIE no puede superar 10 caracteres']
+    },
+    nombreFiscal: {
+      type: String,
+      trim: true,
+      maxlength: [200, 'Nombre fiscal no puede superar 200 caracteres']
+    },
+    direccionFiscal: {
+      calle: { type: String, trim: true },
+      codigoPostal: { type: String, trim: true },
+      ciudad: { type: String, trim: true },
+      provincia: { type: String, trim: true }
+    },
+    contadorTickets: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    contadorFacturas: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    serieActual: {
+      type: String,
+      default: () => new Date().getFullYear().toString()
+    }
   }
 }, {
   timestamps: true,
@@ -543,6 +576,7 @@ professionalProfileSchema.index({ userId: 1 });
 professionalProfileSchema.index({ therapies: 1 });
 professionalProfileSchema.index({ 'stats.averageRating': -1 });
 professionalProfileSchema.index({ isAvailable: 1 });
+professionalProfileSchema.index({ 'datosFacturacion.nif': 1 }, { sparse: true });
 
 // Virtual for user details
 professionalProfileSchema.virtual('user', {

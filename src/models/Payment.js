@@ -115,6 +115,19 @@ const paymentSchema = new mongoose.Schema({
     default: 0,
     min: 0,
     max: 3
+  },
+  ticketNumber: {
+    type: String,
+    sparse: true
+  },
+  invoiceNumber: {
+    type: String,
+    sparse: true
+  },
+  documentType: {
+    type: String,
+    enum: ['ticket', 'factura'],
+    default: 'ticket'
   }
 }, {
   timestamps: true,

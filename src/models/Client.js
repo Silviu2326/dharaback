@@ -164,6 +164,15 @@ const clientSchema = new mongoose.Schema({
       default: Date.now
     },
     ipAddress: String
+  },
+  datosFiscales: {
+    nif: { type: String, trim: true, uppercase: true },
+    nombreFiscal: { type: String, trim: true },
+    direccionFiscal: {
+      calle: { type: String, trim: true },
+      codigoPostal: { type: String, trim: true },
+      ciudad: { type: String, trim: true }
+    }
   }
 }, {
   timestamps: true,
