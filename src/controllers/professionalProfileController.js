@@ -195,8 +195,10 @@ const updateProfile = asyncHandler(async (req, res, next) => {
     'featuredTestimonials',
     'ciudad',
     'direccion',
+    'direccion_fiscal',
     'modalidad',
-    'zonasAtencion'
+    'zonasAtencion',
+    'datosFacturacion'
   ];
 
   // Filter allowed fields

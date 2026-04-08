@@ -36,6 +36,7 @@ class ProfessionalProfile {
     // NUEVOS CAMPOS DE UBICACIÓN
     this.ciudad = data.ciudad;
     this.direccion = data.direccion;
+    this.direccion_fiscal = data.direccion_fiscal;
     this.modalidad = data.modalidad;
     this.telefono = data.telefono;
     
@@ -175,6 +176,7 @@ class ProfessionalProfile {
       legal_info: this.legalInfo,
       ciudad: this.ciudad,
       direccion: this.direccion,
+      direccion_fiscal: this.direccion_fiscal,
       modalidad: this.modalidad,
       zonas_atencion: this.zonas_atencion,
       telefono: this.telefono,
@@ -217,6 +219,7 @@ class ProfessionalProfile {
       datosFacturacion: this.datosFacturacion,
       ciudad: this.ciudad,
       direccion: this.direccion,
+      direccion_fiscal: this.direccion_fiscal,
       modalidad: this.modalidad,
       zonas_atencion: this.zonas_atencion,
       createdAt: this.createdAt,
@@ -265,7 +268,8 @@ class ProfessionalProfileModel {
       pricing_packages: data.pricingPackages || {},
       preferences: data.preferences || {},
       legal_info: data.legalInfo || {},
-      datos_facturacion: data.datosFacturacion || null
+      datos_facturacion: data.datosFacturacion || null,
+      direccion_fiscal: data.direccion_fiscal || null
     };
 
     const result = await this.service.create(profileData);
@@ -331,6 +335,7 @@ class ProfessionalProfileModel {
     if (updateData.telefono !== undefined) data.telefono = updateData.telefono;
     if (updateData.ciudad !== undefined) data.ciudad = updateData.ciudad;
     if (updateData.direccion !== undefined) data.direccion = updateData.direccion;
+    if (updateData.direccion_fiscal !== undefined) data.direccion_fiscal = updateData.direccion_fiscal;
     if (updateData.modalidad !== undefined) data.modalidad = updateData.modalidad;
     if (updateData.zonasAtencion !== undefined) data.zonas_atencion = updateData.zonasAtencion;
     if (updateData.datosFacturacion !== undefined) data.datos_facturacion = updateData.datosFacturacion;
