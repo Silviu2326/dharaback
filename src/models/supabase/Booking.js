@@ -20,6 +20,7 @@ class Booking {
     this.currency = data.currency || 'EUR';
     this.paymentStatus = data.payment_status || 'unpaid';
     this.paymentMethod = data.payment_method;
+    this.clientPaymentMethod = data.client_payment_method;
     this.location = data.location;
     this.notes = data.notes;
     this.meetingLink = data.meeting_link;
@@ -101,7 +102,8 @@ class Booking {
       amount: this.amount,
       currency: this.currency,
       payment_status: this.paymentStatus,
-      payment_method: this.paymentMethod,
+      payment_method: this.paymentMethod === 'bizum' ? 'transfer' : this.paymentMethod,
+      client_payment_method: this.paymentMethod === 'bizum' ? 'bizum' : this.clientPaymentMethod,
       location: this.location,
       notes: this.notes,
       meeting_link: this.meetingLink,
@@ -140,7 +142,7 @@ class Booking {
       amount: this.amount,
       currency: this.currency,
       paymentStatus: this.paymentStatus,
-      paymentMethod: this.paymentMethod,
+      paymentMethod: this.clientPaymentMethod === 'bizum' ? 'bizum' : this.paymentMethod,
       location: this.location,
       notes: this.notes,
       meetingLink: this.meetingLink,
@@ -183,7 +185,8 @@ class BookingModel {
       amount: data.amount,
       currency: data.currency || 'EUR',
       payment_status: data.paymentStatus || 'unpaid',
-      payment_method: data.paymentMethod,
+      payment_method: data.paymentMethod === 'bizum' ? 'transfer' : data.paymentMethod,
+      client_payment_method: data.paymentMethod === 'bizum' ? 'bizum' : null,
       location: data.location,
       notes: data.notes,
       meeting_link: data.meetingLink,
@@ -268,7 +271,15 @@ class BookingModel {
     if (updateData.amount !== undefined) data.amount = updateData.amount;
     if (updateData.currency) data.currency = updateData.currency;
     if (updateData.paymentStatus) data.payment_status = updateData.paymentStatus;
-    if (updateData.paymentMethod !== undefined) data.payment_method = updateData.paymentMethod;
+    if (updateData.paymentMethod !== undefined) {
+      if (updateData.paymentMethod === 'bizum') {
+        data.payment_method = 'transfer';
+        data.client_payment_method = 'bizum';
+      } else {
+        data.payment_method = updateData.paymentMethod;
+        data.client_payment_method = null;
+      }
+    }
     if (updateData.location) data.location = updateData.location;
     if (updateData.notes !== undefined) data.notes = updateData.notes;
     if (updateData.meetingLink !== undefined) data.meeting_link = updateData.meetingLink;

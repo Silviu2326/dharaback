@@ -36,6 +36,7 @@ const registerTherapist = asyncHandler(async (req, res) => {
     idiomas,
     // CAMPOS FACTURACIÓN
     nif,
+    direccionFiscal,
     codigoPostal,
     provincia
   } = req.body;
@@ -77,7 +78,7 @@ const registerTherapist = asyncHandler(async (req, res) => {
     });
   }
 
-  if (!direccion || !codigoPostal || !ciudad || !provincia) {
+  if (!direccionFiscal || !codigoPostal || !ciudad || !provincia) {
     return res.status(400).json({
       success: false,
       message: 'Dirección fiscal, código postal, ciudad y provincia son requeridos'
@@ -189,7 +190,7 @@ const registerTherapist = asyncHandler(async (req, res) => {
           telefono: telefono || null,
           ciudad: ciudad || 'Madrid',
           direccion: direccion || null,
-          direccion_fiscal: direccion || null,
+          direccion_fiscal: direccionFiscal || null,
           modalidad: modalidad || 'hibrido',
           zonas_atencion: zonasAtencion?.length > 0 ? zonasAtencion : [ciudad || 'Madrid'],
           // IDIOMAS
@@ -201,7 +202,7 @@ const registerTherapist = asyncHandler(async (req, res) => {
             nif: nif.trim().toUpperCase(),
             nombreFiscal: `${nombre} ${apellidos}`.trim(),
             direccionFiscal: {
-              calle: direccion || null,
+              calle: direccionFiscal || null,
               codigoPostal: codigoPostal || null,
               ciudad: ciudad || null,
               provincia: provincia || null

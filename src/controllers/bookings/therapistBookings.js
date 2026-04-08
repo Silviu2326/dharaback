@@ -191,7 +191,17 @@ const updateBooking = asyncHandler(async (req, res, next) => {
     if (field === 'dateTime') return; // already handled above
     const dbField = fieldMap[field];
     if (dbField && req.body[field] !== undefined) {
-      updateData[dbField] = req.body[field];
+      if (field === 'paymentMethod') {
+        if (req.body[field] === 'bizum') {
+          updateData['payment_method'] = 'transfer';
+          updateData['client_payment_method'] = 'bizum';
+        } else {
+          updateData['payment_method'] = req.body[field];
+          updateData['client_payment_method'] = null;
+        }
+      } else {
+        updateData[dbField] = req.body[field];
+      }
     }
   });
 
@@ -524,7 +534,8 @@ const markPackPaid = asyncHandler(async (req, res, next) => {
 
   const updateData = {
     payment_status: 'paid',
-    payment_method: paymentMethod || 'cash',
+    payment_method: paymentMethod === 'bizum' ? 'transfer' : (paymentMethod || 'cash'),
+    client_payment_method: paymentMethod === 'bizum' ? 'bizum' : null,
     updated_at: new Date().toISOString()
   };
 

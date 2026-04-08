@@ -23,7 +23,7 @@ const transformBookingToCamelCase = (booking) => ({
   amount: booking.amount,
   currency: booking.currency,
   paymentStatus: booking.payment_status,
-  paymentMethod: booking.payment_method,
+  paymentMethod: booking.client_payment_method === 'bizum' ? 'bizum' : booking.payment_method,
   location: booking.location,
   notes: booking.notes,
   meetingLink: booking.meeting_link,
