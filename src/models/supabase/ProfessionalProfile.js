@@ -37,8 +37,18 @@ class ProfessionalProfile {
     this.ciudad = data.ciudad;
     this.direccion = data.direccion;
     this.modalidad = data.modalidad;
-    this.zonas_atencion = data.zonas_atencion || [];
     this.telefono = data.telefono;
+    
+    // Parsear datos de facturación si vienen como string (Supabase)
+    try {
+      this.datosFacturacion = typeof data.datos_facturacion === 'string'
+        ? JSON.parse(data.datos_facturacion)
+        : (data.datos_facturacion || data.datosFacturacion || null);
+    } catch (e) {
+      console.error('❌ Error parsing datosFacturacion in constructor:', e);
+      this.datosFacturacion = data.datos_facturacion || null;
+    }
+
     this.createdAt = data.created_at;
     this.updatedAt = data.updated_at;
 
@@ -167,7 +177,8 @@ class ProfessionalProfile {
       direccion: this.direccion,
       modalidad: this.modalidad,
       zonas_atencion: this.zonas_atencion,
-      telefono: this.telefono
+      telefono: this.telefono,
+      datos_facturacion: this.datosFacturacion
     };
 
     if (this.id) {
@@ -203,6 +214,7 @@ class ProfessionalProfile {
       preferences: this.preferences,
       legalInfo: this.legalInfo,
       telefono: this.telefono,
+      datosFacturacion: this.datosFacturacion,
       ciudad: this.ciudad,
       direccion: this.direccion,
       modalidad: this.modalidad,
@@ -252,7 +264,8 @@ class ProfessionalProfileModel {
       external_links: data.externalLinks || [],
       pricing_packages: data.pricingPackages || {},
       preferences: data.preferences || {},
-      legal_info: data.legalInfo || {}
+      legal_info: data.legalInfo || {},
+      datos_facturacion: data.datosFacturacion || null
     };
 
     const result = await this.service.create(profileData);
@@ -320,6 +333,7 @@ class ProfessionalProfileModel {
     if (updateData.direccion !== undefined) data.direccion = updateData.direccion;
     if (updateData.modalidad !== undefined) data.modalidad = updateData.modalidad;
     if (updateData.zonasAtencion !== undefined) data.zonas_atencion = updateData.zonasAtencion;
+    if (updateData.datosFacturacion !== undefined) data.datos_facturacion = updateData.datosFacturacion;
 
     console.log('🔍 [MODEL] Data to update in Supabase:', JSON.stringify(data, null, 2));
     

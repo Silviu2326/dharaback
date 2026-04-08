@@ -137,6 +137,25 @@ const getProfile = asyncHandler(async (req, res, next) => {
     }
   }
 
+  // Map billing data from Supabase (snake_case) to Frontend (camelCase)
+  if (profileData.datos_facturacion) {
+    try {
+      const billingData = typeof profileData.datos_facturacion === 'string'
+        ? JSON.parse(profileData.datos_facturacion)
+        : profileData.datos_facturacion;
+        
+      profileData.datosFacturacion = billingData;
+    } catch (error) {
+      console.error('Error parsing datos_facturacion:', error);
+    }
+  }
+
+  console.log('📤 [BACKEND getProfile] Sending profile data with billing:', {
+    hasBilling: !!profileData.datosFacturacion,
+    billingType: typeof profileData.datosFacturacion,
+    userId: profileData.userId
+  });
+
   res.status(200).json({
     success: true,
     data: profileData
