@@ -222,7 +222,7 @@ const VALID_ABSENCE_TYPES = ['vacation', 'sick', 'personal', 'other'];
 
 router.post('/exceptions', protect, async (req, res) => {
   const therapistId = req.user.id || req.user._id;
-  const { title, startDate, endDate, absenceType, type: formType, reason, notes } = req.body;
+  const { title, startDate, endDate, absenceType, type: formType, reason, notes, notifyClients } = req.body;
   const supabase = require('../config/supabase').supabase;
 
   if (!startDate || !endDate) {
@@ -255,6 +255,86 @@ router.post('/exceptions', protect, async (req, res) => {
     }
 
     console.log('✅ Absence created:', data.id);
+
+    // --- Notify affected clients via email ---
+    let notifiedCount = 0;
+    if (notifyClients) {
+      console.log(`🔍 [Absence Notify] Iniciando proceso para terapeuta: ${therapistId}`);
+      try {
+        // 1. Find bookings affected by this absence date range
+        console.log(`🔍 [Absence Notify] Buscando citas entre ${startDate} y ${endDate}`);
+        const { data: affectedBookings, error: bookingsError } = await supabase
+          .from('bookings')
+          .select('id, date, start_time, end_time, status, client_id')
+          .eq('therapist_id', therapistId)
+          .gte('date', startDate)
+          .lte('date', endDate)
+          .in('status', ['upcoming', 'pending', 'confirmed']);
+
+        if (bookingsError) {
+          console.error('❌ [Absence Notify] Error al buscar citas:', bookingsError.message);
+        } else if (affectedBookings && affectedBookings.length > 0) {
+          console.log(`📊 [Absence Notify] Citas afectadas encontradas: ${affectedBookings.length}`);
+          const emailService = require('../services/emailService');
+
+          // 2. Get therapist info
+          const { data: therapist } = await supabase
+            .from('users')
+            .select('name, email')
+            .eq('id', therapistId)
+            .single();
+          
+          console.log(`👤 [Absence Notify] Terapeuta: ${therapist?.name || 'No encontrado'}`);
+
+          // 3. Get unique client IDs
+          const clientIds = [...new Set(affectedBookings.map(b => b.client_id).filter(Boolean))];
+          console.log(`👥 [Absence Notify] IDs de clientes únicos:`, clientIds);
+
+          // 4. Get client details from 'clients' table (not 'users')
+          const { data: clients } = await supabase
+            .from('clients')
+            .select('id, name, email')
+            .in('id', clientIds);
+          
+          console.log(`📝 [Absence Notify] Datos de clientes recuperados: ${clients?.length || 0}`);
+
+          const clientMap = {};
+          (clients || []).forEach(c => { clientMap[c.id] = c; });
+
+          // 5. Send email to each affected client
+          for (const booking of affectedBookings) {
+            const client = clientMap[booking.client_id];
+            if (client && client.email) {
+              console.log(`📧 [Absence Notify] Enviando email a: ${client.email} para la cita del ${booking.date} a las ${booking.start_time}`);
+              try {
+                await emailService.sendAbsenceNotification({
+                  to: client.email,
+                  clientName: client.name || 'Cliente',
+                  therapistName: therapist?.name || 'Tu terapeuta',
+                  absenceStartDate: startDate,
+                  absenceEndDate: endDate,
+                  absenceReason: title || reason || null,
+                  appointmentDate: booking.date,
+                  appointmentTime: booking.start_time,
+                });
+                notifiedCount++;
+              } catch (emailErr) {
+                console.error(`❌ [Absence Notify] Fallo al notificar a ${client.email}:`, emailErr.message);
+              }
+            } else {
+              console.warn(`⚠️ [Absence Notify] No se pudo encontrar email para el cliente ID: ${booking.client_id}`);
+            }
+          }
+
+          console.log(`✅ [Absence Notify] Proceso completado. Notificados ${notifiedCount}/${affectedBookings.length} citas.`);
+        } else {
+          console.log('ℹ️ [Absence Notify] No se encontraron citas afectadas para este periodo.');
+        }
+      } catch (notifyError) {
+        console.error('❌ [Absence Notify] Error crítico en el proceso:', notifyError.message);
+      }
+    }
+
     res.status(201).json({
       id: data.id,
       title: data.reason || data.type || 'Ausencia',
@@ -263,11 +343,13 @@ router.post('/exceptions', protect, async (req, res) => {
       allDay: true,
       absenceType: data.type,
       type: 'absence',
+      notifiedClients: notifiedCount,
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
 
 router.put('/exceptions/:id', protect, async (req, res) => {
   const { id } = req.params;

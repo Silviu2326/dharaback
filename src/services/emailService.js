@@ -330,7 +330,7 @@ class EmailService {
                 <p><strong>Hora:</strong> ${time}</p>
                 ${location ? `<p><strong>Ubicación:</strong> ${location}</p>` : ''}
               </div>
-              <p>Si necesitas cancelar o reprogramar, por favor contacta con nosotros con al menos 24 horas de anticipación.</p>
+              <p>Si necesitas cancelar o reprogramar, por favor contacta con el profesional con al menos 24 horas de anticipación.</p>
               <p>¡Te esperamos!</p>
             </div>
             <div class="footer">
@@ -859,6 +859,110 @@ class EmailService {
     return await this.sendEmail({
       to: email,
       subject: 'Tu invitación a Dhara – código de acceso',
+      html
+    });
+  }
+
+  /**
+   * Enviar notificación de ausencia del terapeuta a un cliente afectado
+   * @param {Object} data
+   * @param {string} data.to - Email del cliente
+   * @param {string} data.clientName - Nombre del cliente
+   * @param {string} data.therapistName - Nombre del terapeuta
+   * @param {string} data.absenceStartDate - Fecha inicio ausencia (YYYY-MM-DD)
+   * @param {string} data.absenceEndDate - Fecha fin ausencia (YYYY-MM-DD)
+   * @param {string} data.absenceReason - Motivo de la ausencia (opcional)
+   * @param {string} data.appointmentDate - Fecha de la cita afectada
+   * @param {string} data.appointmentTime - Hora de la cita afectada
+   */
+  async sendAbsenceNotification(data) {
+    const {
+      to,
+      clientName,
+      therapistName,
+      absenceStartDate,
+      absenceEndDate,
+      absenceReason,
+      appointmentDate,
+      appointmentTime
+    } = data;
+
+    // Format dates for display
+    const formatDate = (dateStr) => {
+      try {
+        return new Date(dateStr).toLocaleDateString('es-ES', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      } catch {
+        return dateStr;
+      }
+    };
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8"/>
+          <style>
+            body { font-family: Georgia, 'Times New Roman', serif; line-height: 1.8; color: #333; margin: 0; padding: 0; background-color: #f9f7f4; }
+            .container { max-width: 600px; margin: 0 auto; padding: 32px 20px; }
+            .header { background-color: #F4A460; color: white; padding: 32px 28px; text-align: center; border-radius: 10px 10px 0 0; }
+            .header h1 { margin: 0; font-size: 22px; font-weight: normal; letter-spacing: 0.5px; }
+            .header p { margin: 8px 0 0; opacity: 0.85; font-size: 14px; }
+            .content { background-color: #ffffff; padding: 36px 32px; border-radius: 0 0 10px 10px; border: 1px solid #e8e4df; border-top: none; }
+            .content p { margin: 0 0 18px; font-size: 15px; }
+            .info-box { background-color: #fff8f0; border-left: 4px solid #F4A460; padding: 16px 20px; margin: 24px 0; border-radius: 0 6px 6px 0; }
+            .info-box p { margin: 4px 0; font-size: 14px; }
+            .cta { background-color: #f9f7f4; border-radius: 8px; padding: 20px 24px; margin: 24px 0; text-align: center; }
+            .button { display: inline-block; background-color: #8CA48F; color: white !important; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-size: 14px; }
+            .signature { margin-top: 32px; font-size: 14px; color: #555; }
+            .footer { text-align: center; margin-top: 24px; font-size: 12px; color: #999; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>⚠️ Cambio en tu próxima cita</h1>
+              <p>Información importante sobre tu sesión</p>
+            </div>
+            <div class="content">
+              <p>Hola, <strong>${clientName || 'estimado/a cliente'}</strong>:</p>
+
+              <p>Te escribimos para informarte de que tu terapeuta, <strong>${therapistName || 'tu profesional de referencia'}</strong>, no estará disponible durante el siguiente periodo:</p>
+
+              <div class="info-box">
+                <p><strong>📅 Periodo de ausencia:</strong> ${formatDate(absenceStartDate)} – ${formatDate(absenceEndDate)}</p>
+                ${absenceReason ? `<p><strong>📝 Motivo:</strong> ${absenceReason}</p>` : ''}
+                <p><strong>🕐 Tu cita afectada:</strong> ${formatDate(appointmentDate)} a las ${appointmentTime || ''}</p>
+              </div>
+
+              <p>Lamentamos las molestias. Te invitamos a contactar directamente con tu profesional para reprogramar tu sesión en una fecha que te resulte conveniente.</p>
+
+              <div class="cta">
+                <a href="${process.env.FRONTEND_URL || 'https://appdhara.com'}/mis-citas" class="button">Ver mis citas</a>
+              </div>
+
+              <p>Si tienes alguna duda, no dudes en escribir a tu terapeuta.</p>
+
+              <div class="signature">
+                Con cariño,<br/>
+                <strong>El equipo de Dhara</strong>
+              </div>
+            </div>
+            <div class="footer">
+              <p>© ${new Date().getFullYear()} Dhara Dimensión Humana. Todos los derechos reservados.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    return await this.sendEmail({
+      to,
+      subject: `Cambio en tu cita – ${therapistName || 'Tu terapeuta'} no estará disponible`,
       html
     });
   }
