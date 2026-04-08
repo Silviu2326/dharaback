@@ -36,12 +36,23 @@ class ClientTherapistModel {
    * Crear relación cliente-terapeuta
    */
   async create(clientId, therapistId, status = 'active') {
+    const supabase = require('../../config/supabase').supabase;
+
+    const { data: therapistSettings } = await supabase
+      .from('therapist_payment_settings')
+      .select('subscription_plan')
+      .eq('therapist_id', therapistId)
+      .single();
+
+    const paymentMethod = therapistSettings?.subscription_plan === 'avanzado-pro' ? 'stripe' : 'cash';
+
     const data = {
       client_id: clientId,
       therapist_id: therapistId,
-      status
+      status,
+      payment_method: paymentMethod
     };
-    
+
     const result = await this.service.create(data);
     return new ClientTherapist(result);
   }

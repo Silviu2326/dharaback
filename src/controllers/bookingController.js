@@ -22,7 +22,8 @@ const {
   markNoShow,
   rescheduleBooking,
   getBookingStats,
-  getUpcomingBookings
+  getUpcomingBookings,
+  markPackPaid
 } = require('./bookings/therapistBookings');
 
 // Client functions
@@ -56,7 +57,8 @@ module.exports = {
   rescheduleBooking,
   getBookingStats,
   getUpcomingBookings,
-  
+  markPackPaid,
+
   // Client functions
   getClientBookings,
   getClientBooking,

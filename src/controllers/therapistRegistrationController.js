@@ -189,6 +189,7 @@ const registerTherapist = asyncHandler(async (req, res) => {
           telefono: telefono || null,
           ciudad: ciudad || 'Madrid',
           direccion: direccion || null,
+          direccion_fiscal: direccion || null,
           modalidad: modalidad || 'hibrido',
           zonas_atencion: zonasAtencion?.length > 0 ? zonasAtencion : [ciudad || 'Madrid'],
           // IDIOMAS

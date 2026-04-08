@@ -506,6 +506,62 @@ const getUpcomingBookings = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Mark all bookings in a pack as paid
+// @route   PATCH /api/bookings/:id/mark-pack-paid
+// @access  Private (Therapist)
+const markPackPaid = asyncHandler(async (req, res, next) => {
+  const { paymentMethod } = req.body;
+
+  // Fetch the target booking to get its pack_group_id
+  const { data: booking, error: fetchError } = await supabase
+    .from('bookings')
+    .select('id, pack_group_id, therapist_id')
+    .eq('id', req.params.id)
+    .eq('therapist_id', req.user.id)
+    .single();
+
+  if (fetchError || !booking) return next(new AppError('Booking not found', 404));
+
+  const updateData = {
+    payment_status: 'paid',
+    payment_method: paymentMethod || 'cash',
+    updated_at: new Date().toISOString()
+  };
+
+  if (booking.pack_group_id) {
+    // Update all bookings in the pack
+    const { error: updateError } = await supabase
+      .from('bookings')
+      .update(updateData)
+      .eq('pack_group_id', booking.pack_group_id)
+      .eq('therapist_id', req.user.id);
+
+    if (updateError) return next(new AppError(`Failed to update pack bookings: ${updateError.message}`, 500));
+
+    const { data: updatedBookings } = await supabase
+      .from('bookings')
+      .select('id, payment_status, payment_method')
+      .eq('pack_group_id', booking.pack_group_id)
+      .eq('therapist_id', req.user.id);
+
+    return res.status(200).json({
+      success: true,
+      updatedCount: updatedBookings?.length || 0,
+      data: updatedBookings
+    });
+  }
+
+  // Single booking (not part of a pack)
+  const { error: updateError } = await supabase
+    .from('bookings')
+    .update(updateData)
+    .eq('id', req.params.id);
+
+  if (updateError) return next(new AppError(`Failed to update booking: ${updateError.message}`, 500));
+
+  return res.status(200).json({ success: true, updatedCount: 1 });
+});
+
 module.exports = {
   getBookings,
   getBooking,
@@ -515,5 +571,6 @@ module.exports = {
   markNoShow,
   rescheduleBooking,
   getBookingStats,
-  getUpcomingBookings
+  getUpcomingBookings,
+  markPackPaid
 };

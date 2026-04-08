@@ -14,6 +14,7 @@ const {
   getBookingStats,
   getUpcomingBookings,
   rescheduleBooking,
+  markPackPaid,
   getClientCompletedTherapists,
   // Client functions
   getClientBookings,
@@ -72,6 +73,7 @@ router.route('/:id')
 router.put('/:id/complete', completeBooking);
 router.put('/:id/no-show', markNoShow);
 router.put('/:id/reschedule', rescheduleBooking);
+router.patch('/:id/mark-pack-paid', markPackPaid);
 
 // New routes for frontend compatibility
 // PATCH /:id/cancel - Alternative cancel endpoint (returns updated booking)

@@ -7,6 +7,7 @@ const stripe = require('../../config/stripe');
 const { AppError } = require('../../middleware/errorHandler');
 const { supabase } = require('../../config/supabase');
 const { ClientTherapist, Conversation } = require('../../models');
+const { randomUUID } = require('crypto');
 
 const createBookingWithPayment = async (req, res, next) => {
   console.log('\n🚀 [createBookingWithPayment] INICIANDO PROCESO DE RESERVA CON PAGO');
@@ -155,7 +156,11 @@ const createBookingWithPayment = async (req, res, next) => {
   console.log('\n🔍 [Paso 5] Calculando montos...');
   const sessionPrice = parseFloat(service.price) || 0;
   const totalSessions = appointments.length;
-  let totalAmount = sessionPrice * totalSessions;
+  // For packages, the price already covers all sessions; for individual services, multiply per session
+  let totalAmount = service.isPackage ? sessionPrice : sessionPrice * totalSessions;
+
+  // Generate a shared group ID for all bookings in a pack
+  const packGroupId = (service.isPackage && totalSessions > 1) ? randomUUID() : null;
   
   console.log('  - sessionPrice:', sessionPrice);
   console.log('  - totalSessions:', totalSessions);
@@ -281,7 +286,8 @@ const createBookingWithPayment = async (req, res, next) => {
         service_id: serviceId,
         service_name: service.name,
         status: 'awaiting_payment',
-        expires_at: expiresAt.toISOString()
+        expires_at: expiresAt.toISOString(),
+        ...(packGroupId && { pack_group_id: packGroupId })
       };
       
       const { data: pendingBooking, error: pendingError } = await supabase
@@ -321,7 +327,8 @@ const createBookingWithPayment = async (req, res, next) => {
         requires_online_payment: false,
         session_number: i + 1,
         total_sessions: totalSessions,
-        notes: `Servicio: ${service.name || 'Sesion'}${appliedCoupon ? ` (Cupon: ${appliedCoupon.code})` : ''}${(finalPaymentMethod === 'manual' || finalPaymentMethod === 'cash') ? ' (Pago manual)' : ' (Exento)'}`
+        notes: `Servicio: ${service.name || 'Sesion'}${appliedCoupon ? ` (Cupon: ${appliedCoupon.code})` : ''}${(finalPaymentMethod === 'manual' || finalPaymentMethod === 'cash') ? ' (Pago manual)' : ' (Exento)'}`,
+        ...(packGroupId && { pack_group_id: packGroupId })
       };
 
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
