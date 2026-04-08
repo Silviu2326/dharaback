@@ -142,12 +142,9 @@ class GeminiService {
   initialize(apiKey = process.env.GEMINI_API_KEY) {
     try {
       this.genAI = new GoogleGenerativeAI(apiKey);
-      const modelName = process.env.GEMINI_MODEL || "gemini-2.0-flash";
-      this.model = this.genAI.getGenerativeModel({
-        model: modelName,
-      }, {
-        apiVersion: "v1"
-      });
+      const modelName = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
+      this.model = this.genAI.getGenerativeModel({ model: modelName }, { apiVersion: "v1beta" });
+      this.fallbackModel = this.genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" }, { apiVersion: "v1beta" });
       console.log(`✅ Gemini AI inicializado correctamente con modelo: ${modelName}`);
     } catch (error) {
       console.error("❌ Error al inicializar Gemini:", error);
@@ -191,8 +188,7 @@ class GeminiService {
         ? this._buildPDFAnalysisPrompt(context)
         : this._buildAnalysisPrompt(context);
 
-      // Crear el contenido para el modelo
-      const result = await this.model.generateContent({
+      const requestContent = {
         contents: [
           {
             role: "user",
@@ -207,7 +203,19 @@ class GeminiService {
             ],
           },
         ],
-      });
+      };
+
+      let result;
+      try {
+        result = await this.model.generateContent(requestContent);
+      } catch (primaryError) {
+        if (primaryError.status === 503 && this.fallbackModel) {
+          console.warn("⚠️ gemini-3-flash-preview no disponible (503), usando fallback gemini-3.1-flash-lite-preview...");
+          result = await this.fallbackModel.generateContent(requestContent);
+        } else {
+          throw primaryError;
+        }
+      }
 
       const response = await result.response;
       const text = response.text();
