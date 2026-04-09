@@ -436,9 +436,8 @@ const createTimeBlock = asyncHandler(async (req, res, next) => {
   const [eh, em] = endTime.split(':').map(Number);
   const durationMinutes = (eh * 60 + em) - (sh * 60 + sm);
 
-  // Build base data with correct snake_case column names for Supabase
   const slotData = {
-    therapist_id:  therapistId,     // Fixed: snake_case for Supabase
+    therapist_id:  therapistId,
     day_of_week:   dayOfWeek,
     start_time:    startTime,
     end_time:      endTime,
@@ -447,61 +446,26 @@ const createTimeBlock = asyncHandler(async (req, res, next) => {
     location_type: 'office',
     slot_duration: durationMinutes > 0 ? durationMinutes : 60,
     valid_from:    startDate,
-    valid_until:   endDate || startDate
+    valid_until:   endDate || startDate,
+    title:         title || 'Disponible',
+    color:         color || 'sage',
+    repeat:        repeat === 'never' ? 'none' : (repeat || 'none'),
+    notes:         notes || null,
+    timezone:      timezone || 'Europe/Madrid'
   };
 
-  // Try to insert with all fields (some may not exist in older schemas)
-  try {
-    const fullSlotData = {
-      ...slotData,
-      // Extra fields that may exist in newer schema
-      title:         title || 'Disponible',
-      color:         color || 'sage',
-      repeat:        repeat === 'never' ? 'none' : (repeat || 'none'),
-      notes:         notes || null,
-      timezone:      timezone || 'Europe/Madrid'
-    };
+  const { data, error } = await supabase
+    .from('availability_slots')
+    .insert(slotData)
+    .select()
+    .single();
 
-    const { data, error } = await supabase
-      .from('availability_slots')
-      .insert(fullSlotData)
-      .select()
-      .single();
-
-    if (error) {
-      // If extra columns don't exist, retry with minimal data
-      console.warn('⚠️  Insert with extra cols failed, retrying minimal:', error.message);
-      
-      const { data: data2, error: error2 } = await supabase
-        .from('availability_slots')
-        .insert(slotData)  // Use only the base fields with correct column names
-        .select()
-        .single();
-
-      if (error2) {
-        console.error('❌ Error creating time block:', error2.message);
-        return next(new AppError(`Failed to create time block: ${error2.message}`, 500));
-      }
-
-      
-      // Return formatted response including frontend fields
-      return res.status(201).json(formatSlot({ 
-        ...data2, 
-        title: title || 'Disponible', 
-        color: color || 'sage', 
-        repeat: repeat || 'none', 
-        notes: notes || null, 
-        timezone: timezone || 'Europe/Madrid' 
-      }));
-    }
-
-    
-    res.status(201).json(formatSlot(data));
-
-  } catch (err) {
-    console.error('❌ Unexpected error creating time block:', err.message);
-    return next(new AppError(`Failed to create time block: ${err.message}`, 500));
+  if (error) {
+    console.error('❌ Error creating time block:', error.message);
+    return next(new AppError(`Failed to create time block: ${error.message}`, 500));
   }
+
+  res.status(201).json(formatSlot(data));
 });
 
 // @desc  Get time block by ID
@@ -539,9 +503,7 @@ const updateTimeBlock = asyncHandler(async (req, res, next) => {
     return next(new AppError('Time block not found', 404));
   }
 
-  // Build update data - only columns that definitely exist in the table
   const updateData = {
-    // Note: therapist_id should not be updated, it's the owner
     start_time:    body.startTime || existing.start_time,
     end_time:      body.endTime || existing.end_time,
     is_available:  body.isActive !== undefined ? body.isActive : existing.is_available,
@@ -549,51 +511,29 @@ const updateTimeBlock = asyncHandler(async (req, res, next) => {
     slot_duration: existing.slot_duration,
     valid_from:    body.startDate || existing.valid_from,
     valid_until:   body.endDate || existing.valid_until,
-    day_of_week:   body.startDate ? new Date(body.startDate).getDay() : existing.day_of_week
+    day_of_week:   body.startDate ? new Date(body.startDate).getDay() : existing.day_of_week,
+    title:         body.title || existing.title,
+    color:         body.color || existing.color,
+    notes:         body.notes !== undefined ? body.notes : existing.notes,
+    repeat:        body.repeat || existing.repeat || 'none'
   };
 
-  try {
-    // Try to update with all fields
-    const fullUpdateData = {
-      ...updateData,
-      title:   body.title || existing.title,
-      color:   body.color || existing.color,
-      notes:   body.notes !== undefined ? body.notes : existing.notes,
-      repeat:  body.repeat || existing.repeat || 'none'
-    };
+  console.log('🔄 updateTimeBlock payload:', JSON.stringify(updateData));
 
-    const { data, error } = await supabase
-      .from('availability_slots')
-      .update(fullUpdateData)
-      .eq('id', id)
-      .select()
-      .single();
+  const { data, error } = await supabase
+    .from('availability_slots')
+    .update(updateData)
+    .eq('id', id)
+    .select()
+    .single();
 
-    if (error) {
-      // If columns don't exist, retry with basic columns only
-      console.warn('⚠️ Update with extra cols failed, retrying minimal:', error.message);
-      
-      const { data: data2, error: error2 } = await supabase
-        .from('availability_slots')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
+  console.log('🔄 updateTimeBlock result color:', data?.color, 'error:', error?.message);
 
-      if (error2) {
-        return next(new AppError(`Failed to update time block: ${error2.message}`, 500));
-      }
-
-      
-      return res.status(200).json(formatSlot({ ...data2, title: body.title, color: body.color, notes: body.notes }));
-    }
-
-    
-    res.status(200).json(formatSlot(data));
-
-  } catch (err) {
-    return next(new AppError(`Failed to update time block: ${err.message}`, 500));
+  if (error) {
+    return next(new AppError(`Failed to update time block: ${error.message}`, 500));
   }
+
+  res.status(200).json(formatSlot(data));
 });
 
 // @desc  Delete time block
@@ -732,37 +672,19 @@ const bulkCreateTimeBlocks = asyncHandler(async (req, res, next) => {
     };
   });
 
-  let data, error;
-
-  ({ data, error } = await supabase.from('availability_slots').insert(rows).select());
-
-  if (error) {
-    // Retry with only the columns that are guaranteed to exist
-    const minimalRows = rows.map(({ title, color, repeat, notes, timezone, ...rest }) => rest);
-    ({ data, error } = await supabase.from('availability_slots').insert(minimalRows).select());
-  }
+  const { data, error } = await supabase.from('availability_slots').insert(rows).select();
 
   if (error) {
     console.error('❌ Error bulk creating time blocks:', error.message);
     return next(new AppError(`Failed to bulk create time blocks: ${error.message}`, 500));
   }
 
-  // Merge back the extra fields that weren't stored
-  const enriched = (data || []).map((row, i) => ({
-    ...row,
-    title:    rows[i]?.title    ?? 'Disponible',
-    color:    rows[i]?.color    ?? 'sage',
-    repeat:   rows[i]?.repeat   ?? 'none',
-    notes:    rows[i]?.notes    ?? null,
-    timezone: rows[i]?.timezone ?? 'Europe/Madrid',
-  }));
-
   const skipped = slots.length - newSlots.length;
 
   res.status(201).json({
     success: true,
-    created: enriched.map(formatSlot),
-    total: enriched.length,
+    created: (data || []).map(formatSlot),
+    total: data?.length ?? 0,
     skipped,
   });
 });

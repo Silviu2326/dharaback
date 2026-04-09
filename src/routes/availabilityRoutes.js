@@ -522,16 +522,49 @@ router.get('/calendar/events', protect, async (req, res) => {
       .lte('date', endDate)
       .in('status', ['upcoming', 'pending', 'confirmed', 'completed']);
 
+    // Obtener locations para los slots que tengan location_id
+    const locationIds = [...new Set(
+      (slots || []).map(s => s.location).filter(Boolean)
+    )];
+
+    let locationsMap = {};
+    if (locationIds.length > 0) {
+      const { data: locations } = await supabase
+        .from('locations')
+        .select('id, name, address, city, postal_code, country, phone, email, offers_online')
+        .in('id', locationIds);
+
+      if (locations) {
+        locationsMap = Object.fromEntries(locations.map(l => [l.id, l]));
+      }
+    }
+
     // Formatear como eventos de calendario
     const events = [
-      ...(slots || []).map(s => ({
-        id: s.id,
-        title: s.title || 'Disponible',
-        start: `${s.valid_from || s.day_of_week}T${s.start_time}:00`,
-        end: `${s.valid_until || s.day_of_week}T${s.end_time}:00`,
-        type: 'availability',
-        color: s.color || 'sage'
-      })),
+      ...(slots || []).map(s => {
+        const location = s.location ? locationsMap[s.location] : null;
+        return {
+          id: s.id,
+          title: s.title || 'Disponible',
+          start: `${s.valid_from || s.day_of_week}T${s.start_time}:00`,
+          end: `${s.valid_until || s.day_of_week}T${s.end_time}:00`,
+          type: 'availability',
+          color: s.color || 'sage',
+          locationId: s.location || null,
+          locationType: s.location_type || null,
+          location: location ? {
+            id: location.id,
+            name: location.name,
+            address: location.address,
+            city: location.city,
+            postalCode: location.postal_code,
+            country: location.country,
+            phone: location.phone,
+            email: location.email,
+            offersOnline: location.offers_online
+          } : null
+        };
+      }),
       ...(bookings || []).map(b => ({
         id: b.id,
         title: `Sesión con cliente`,
@@ -539,7 +572,8 @@ router.get('/calendar/events', protect, async (req, res) => {
         end: `${b.date}T${b.end_time}:00`,
         type: 'booking',
         status: b.status,
-        clientId: b.client_id
+        clientId: b.client_id,
+        locationId: b.location_id || null
       }))
     ];
 

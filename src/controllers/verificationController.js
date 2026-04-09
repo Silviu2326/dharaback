@@ -671,17 +671,18 @@ const analizarTitulacion = async (req, res) => {
     const { nombre, especialidad, titulacion } = req.body;
     const bucketName = 'documents';
     const tempFolder = 'temp-analysis';
-    
+
     const fileBuffer = req.file.buffer || await fs.readFile(req.file.path);
     const mimeType = req.file.mimetype;
     const isPDF = mimeType === 'application/pdf';
     const fileExt = path.extname(req.file.originalname) || (isPDF ? '.pdf' : '.jpg');
-    
+
     // Generar nombre único para el archivo temporal en el bucket
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     const tempFilename = `${tempFolder}/analysis-${uniqueSuffix}${fileExt}`;
 
     console.log(`📄 Analizando documento: ${req.file.originalname} (${isPDF ? 'PDF' : 'Imagen'})`);
+    console.log(`👤 Contexto recibido -> nombre: "${nombre || 'NO ENVIADO'}" | especialidad: "${especialidad || 'NO ENVIADA'}" | titulacion: "${titulacion || 'NO ENVIADA'}"`);
 
     // Subir archivo temporal al bucket de Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase.storage
@@ -748,11 +749,21 @@ const analizarTitulacion = async (req, res) => {
       },
     );
 
+    const nombreEnDocumento = aiAnalysis.camposDetectados?.nombreTitulado || null;
+    const nombreCoincide = nombre && nombreEnDocumento
+      ? nombreEnDocumento.toLowerCase().includes(nombre.toLowerCase()) ||
+        nombre.toLowerCase().includes(nombreEnDocumento.toLowerCase())
+      : null;
+
     console.log("✅ Análisis de titulación completado:", {
       esValida: aiAnalysis.esTitulacionValida,
       recomendacion: aiAnalysis.recomendacion,
+      nivelConfianza: aiAnalysis.nivelConfianza,
       tipoArchivo: isPDF ? 'PDF' : 'Imagen',
     });
+    console.log(`🔍 Comparación de nombres -> enviado: "${nombre || 'NO ENVIADO'}" | detectado en doc: "${nombreEnDocumento || 'NO DETECTADO'}" | coincide: ${nombreCoincide === null ? 'NO DETERMINADO' : nombreCoincide}`);
+    console.log(`📋 Detalle IA -> tipoDocumento: "${aiAnalysis.tipoDocumento}" | entidadEmisora: "${aiAnalysis.entidadEmisora}" | terapiasDetectadas: [${(aiAnalysis.terapiasDetectadas || []).join(', ')}]`);
+    console.log(`💬 Observaciones IA: ${aiAnalysis.observaciones}`);
 
     // Verificar si alguna terapia detectada existe en terapias_diccionario
     let terapiaEnDiccionario = false;
