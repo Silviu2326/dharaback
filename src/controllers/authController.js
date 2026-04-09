@@ -601,7 +601,8 @@ const registerCliente = asyncHandler(async (req, res, next) => {
           {
             name,
             phone: telefono || existingClientWithEmail.phone,
-            password
+            password,
+            isRegisteredOnPlatform: true
           },
           { new: true }
         );
@@ -636,7 +637,8 @@ const registerCliente = asyncHandler(async (req, res, next) => {
           name,
           email: normalizedEmail,
           phone: telefono || client.phone,
-          password
+          password,
+          isRegisteredOnPlatform: true
         };
 
         client = await Client.findByIdAndUpdate(linkedClientId, updateData, { new: true });
@@ -678,7 +680,8 @@ const registerCliente = asyncHandler(async (req, res, next) => {
       const updateData = {
         name,
         phone: telefono || client.phone,
-        password
+        password,
+        isRegisteredOnPlatform: true
       };
 
       client = await Client.findByIdAndUpdate(linkedClientId, updateData, { new: true });
@@ -736,7 +739,8 @@ const registerCliente = asyncHandler(async (req, res, next) => {
       email: normalizedEmail,
       password,
       phone: telefono || undefined,
-      status: 'active'
+      status: 'active',
+      isRegisteredOnPlatform: true
     };
 
     client = await Client.create(clientData);

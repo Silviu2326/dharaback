@@ -39,6 +39,7 @@ class Client {
     this.messagesCount = data.messages_count || 0;
     this.preferences = data.preferences || {};
     this.gdprConsent = data.gdpr_consent || {};
+    this.isRegisteredOnPlatform = data.is_registered_on_platform || false;
     this.createdAt = data.created_at;
     this.updatedAt = data.updated_at;
 
@@ -181,7 +182,8 @@ class Client {
       documents_count: this.documentsCount,
       messages_count: this.messagesCount,
       preferences: this.preferences,
-      gdpr_consent: this.gdprConsent
+      gdpr_consent: this.gdprConsent,
+      is_registered_on_platform: this.isRegisteredOnPlatform
     };
 
     if (this.id) {
@@ -215,6 +217,7 @@ class Client {
       rating: this.rating,
       preferences: this.preferences,
       gdprConsent: this.gdprConsent,
+      isRegisteredOnPlatform: this.isRegisteredOnPlatform,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt
     };
@@ -271,7 +274,8 @@ class ClientModel {
         reminderEnabled: true,
         reminderTime: 24
       },
-      gdpr_consent: data.gdprConsent || { given: false }
+      gdpr_consent: data.gdprConsent || { given: false },
+      is_registered_on_platform: data.isRegisteredOnPlatform || false
     };
 
     const result = await this.service.create(clientData);
@@ -397,6 +401,7 @@ class ClientModel {
     if (updateData.messagesCount !== undefined) data.messages_count = updateData.messagesCount;
     if (updateData.preferences) data.preferences = updateData.preferences;
     if (updateData.gdprConsent) data.gdpr_consent = updateData.gdprConsent;
+    if (updateData.isRegisteredOnPlatform !== undefined) data.is_registered_on_platform = updateData.isRegisteredOnPlatform;
 
     const result = await this.service.update(id, data);
     return options.new !== false ? new Client(result) : null;

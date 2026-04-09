@@ -73,6 +73,16 @@ const sendCancellationEmail = async ({ booking, client, therapist, reason }, sup
       client = clientData;
     }
 
+    if (!therapist && booking.therapist_id) {
+      // Intentar obtener el terapeuta si no se proporcionó
+      const { data: therapistData } = await supabase
+        .from('therapist_profiles')
+        .select('name')
+        .eq('user_id', booking.therapist_id)
+        .single();
+      therapist = therapistData;
+    }
+
     if (client) {
       await emailService.sendAppointmentCancellation({
         to: client.email,
