@@ -1,6 +1,7 @@
 const { validationResult } = require('express-validator');
-const { Document } = require('../../models');
+const { Document, Client, User } = require('../../models');
 const { AppError } = require('../../middleware/errorHandler');
+const emailService = require('../../services/emailService');
 
 const updateController = {
   // Update document metadata
@@ -32,8 +33,12 @@ const updateController = {
 
       console.log('🔍 [updateController] Documento encontrado:', document.id);
 
+      // Verificar si necesitamos enviar notificaciones
+      const shouldNotifyClients = updateData.isShared === true || updateData.notifyClients === true;
+      const clientIdsChanged = updateData.clientIds !== undefined;
+
       // Update only allowed fields
-      const allowedUpdates = ['title', 'category', 'tags', 'visibility', 'isConfidential', 'session', 'clientIds', 'clientId', 'description'];
+      const allowedUpdates = ['title', 'category', 'tags', 'visibility', 'isConfidential', 'session', 'clientIds', 'clientId', 'description', 'isShared'];
       const updates = {};
 
       console.log('🔍 [updateController] Campos permitidos:', allowedUpdates);
@@ -73,6 +78,10 @@ const updateController = {
             }
           } else if (field === 'description') {
             updates.description = updateData[field];
+          } else if (field === 'isShared') {
+            // Map isShared to isPublic for database storage
+            updates.isPublic = updateData[field] === true;
+            console.log('🔍 [updateController] Actualizando isPublic basado en isShared:', updates.isPublic);
           } else {
             updates[field] = updateData[field];
           }
@@ -155,12 +164,64 @@ const updateController = {
         }
       }
 
+      // Enviar notificaciones por email si está habilitado
+      if (shouldNotifyClients) {
+        // Obtener los clientes actualizados (después de la actualización de relaciones)
+        const clientIdsToNotify = updateData.clientIds || [];
+
+        if (clientIdsToNotify.length > 0) {
+          console.log(`📧 [UPDATE] Enviando notificaciones por email a ${clientIdsToNotify.length} clientes...`);
+
+          try {
+            // Obtener datos del terapeuta
+            const uploaderForEmail = await User.findById(therapistId);
+            const therapistName = uploaderForEmail ? uploaderForEmail.name : 'Tu terapeuta';
+
+            // Obtener datos completos de los clientes
+            const clientsForEmail = await Promise.all(
+              clientIdsToNotify.map(id => Client.findById(id))
+            );
+
+            // Determinar el tipo de documento para el email
+            const documentType = document.type || 'other';
+
+            // Enviar email a cada cliente
+            const emailPromises = clientsForEmail
+              .filter(client => client && client.email)
+              .map(client => {
+                console.log(`📧 [UPDATE] Enviando email a ${client.email} (${client.name})`);
+                return emailService.sendDocumentSharedNotification({
+                  to: client.email,
+                  clientName: client.name,
+                  documentTitle: updates.title || document.title,
+                  therapistName: therapistName,
+                  documentType: documentType,
+                  description: updates.description || document.description || ''
+                });
+              });
+
+            const emailResults = await Promise.allSettled(emailPromises);
+            const successfulEmails = emailResults.filter(r => r.status === 'fulfilled' && r.value.success).length;
+            const failedEmails = emailResults.filter(r => r.status === 'rejected' || !r.value.success).length;
+
+            console.log(`✅ [UPDATE] Emails enviados: ${successfulEmails} exitosos, ${failedEmails} fallidos`);
+          } catch (emailError) {
+            console.error(`❌ [UPDATE] Error enviando notificaciones por email:`, emailError);
+            // No fallamos la actualización del documento si los emails fallan
+          }
+        } else {
+          console.log(`📧 [UPDATE] Notificaciones habilitadas pero no hay clientes para notificar`);
+        }
+      } else {
+        console.log(`📧 [UPDATE] Notificaciones por email no habilitadas`);
+      }
+
       // Fetch the document again to get updated data including clients
       const finalDocument = await Document.findOne({
         id: documentId,
         user_id: therapistId
       });
-      
+
       // Get updated client list
       const documentClients = await Document.getDocumentClients(documentId);
       console.log('🔍 [updateController] Clientes finales del documento:', documentClients?.map(c => c.id) || []);
@@ -171,7 +232,8 @@ const updateController = {
         success: true,
         data: {
           ...finalDocument.toJSON(),
-          clients: documentClients || []
+          clients: documentClients || [],
+          isShared: shouldNotifyClients || updates.isPublic || false
         }
       });
     } catch (error) {

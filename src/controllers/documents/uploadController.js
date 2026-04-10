@@ -4,6 +4,7 @@ const { Document, Client, User } = require('../../models');
 const { AppError } = require('../../middleware/errorHandler');
 const { uploadToSupabaseStorage } = require('../../helpers/documentStorage');
 const { supabase } = require('../../config/supabase');
+const emailService = require('../../services/emailService');
 
 const uploadController = {
   // Upload a new document
@@ -35,8 +36,12 @@ const uploadController = {
         session,
         tags = [],
         visibility = 'therapist_only',
-        isConfidential = true
+        isConfidential = true,
+        notifyClients = 'false'
       } = req.body;
+
+      // Parse notifyClients (could be string 'true'/'false' or boolean)
+      const shouldNotifyClients = notifyClients === 'true' || notifyClients === true;
 
       console.log(`📄 [UPLOAD] Datos recibidos - Title: "${title}", Category: ${category}`);
       console.log(`📄 [UPLOAD] ClientId (legacy): ${clientId || 'N/A'}`);
@@ -158,7 +163,7 @@ const uploadController = {
         category,
         title: title || req.file.originalname.split('.')[0], // Use title or fallback to filename
         tags: parsedTags, // Now as separate field
-        isPublic: visibility === 'public',
+        isPublic: visibility === 'public' || shouldNotifyClients,
         metadata: {
           session,
           visibility,
@@ -220,11 +225,54 @@ const uploadController = {
         console.log(`📄 [UPLOAD] No hay clientes válidos - omitiendo creación de asociaciones`);
       }
 
+      // Enviar notificaciones por email si está habilitado y hay clientes asociados
+      if (shouldNotifyClients && validClientIds.length > 0) {
+        console.log(`📧 [UPLOAD] Enviando notificaciones por email a ${validClientIds.length} clientes...`);
+
+        try {
+          // Obtener datos del terapeuta
+          const uploaderForEmail = await User.findById(therapistId);
+          const therapistName = uploaderForEmail ? uploaderForEmail.name : 'Tu terapeuta';
+
+          // Obtener datos completos de los clientes
+          const clientsForEmail = await Promise.all(
+            validClientIds.map(id => Client.findById(id))
+          );
+
+          // Enviar email a cada cliente
+          const documentType = getDocumentType(req.file.mimetype);
+          const emailPromises = clientsForEmail
+            .filter(client => client && client.email)
+            .map(client => {
+              console.log(`📧 [UPLOAD] Enviando email a ${client.email} (${client.name})`);
+              return emailService.sendDocumentSharedNotification({
+                to: client.email,
+                clientName: client.name,
+                documentTitle: title || req.file.originalname.split('.')[0],
+                therapistName: therapistName,
+                documentType: documentType,
+                description: req.body.description || ''
+              });
+            });
+
+          const emailResults = await Promise.allSettled(emailPromises);
+          const successfulEmails = emailResults.filter(r => r.status === 'fulfilled' && r.value.success).length;
+          const failedEmails = emailResults.filter(r => r.status === 'rejected' || !r.value.success).length;
+
+          console.log(`✅ [UPLOAD] Emails enviados: ${successfulEmails} exitosos, ${failedEmails} fallidos`);
+        } catch (emailError) {
+          console.error(`❌ [UPLOAD] Error enviando notificaciones por email:`, emailError);
+          // No fallamos la subida del documento si los emails fallan
+        }
+      } else {
+        console.log(`📧 [UPLOAD] Notificaciones por email: ${shouldNotifyClients ? 'Sí, pero no hay clientes' : 'No habilitadas'}`);
+      }
+
       // Fetch related data for response
       console.log(`📄 [UPLOAD] Recuperando datos de clientes para la respuesta...`);
       const [clients, uploader] = await Promise.all([
         // Fetch all associated clients from the junction table
-        validClientIds.length > 0 
+        validClientIds.length > 0
           ? Promise.all(validClientIds.map(id => Client.findById(id)))
           : Promise.resolve([]),
         User.findById(document.userId)
@@ -250,6 +298,7 @@ const uploadController = {
         name: uploader.name,
         avatar: uploader.avatar
       } : null;
+      responseData.isShared = shouldNotifyClients;
 
       console.log(`✅ [UPLOAD] =========================================`);
       console.log(`✅ [UPLOAD] SUBIDA COMPLETADA EXITOSAMENTE`);

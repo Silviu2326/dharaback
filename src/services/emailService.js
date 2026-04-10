@@ -968,6 +968,74 @@ class EmailService {
   }
 
   /**
+   * Enviar notificación de documento compartido
+   * @param {Object} data - Datos del documento compartido
+   * @param {string} data.to - Email del cliente
+   * @param {string} data.clientName - Nombre del cliente
+   * @param {string} data.documentTitle - Título del documento
+   * @param {string} data.therapistName - Nombre del terapeuta
+   * @param {string} data.documentType - Tipo de documento
+   * @param {string} data.description - Descripción opcional del documento
+   * @returns {Promise<Object>} Resultado del envío
+   */
+  async sendDocumentSharedNotification(data) {
+    const { to, clientName, documentTitle, therapistName, documentType, description } = data;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #4F46E5; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+            .content { background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+            .document-box { background-color: white; border-left: 4px solid #4F46E5; padding: 15px; margin: 20px 0; border-radius: 0 4px 4px 0; }
+            .button { display: inline-block; background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px; }
+            .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
+            .document-type { display: inline-block; background-color: #EEF2FF; color: #4F46E5; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>📄 Nuevo documento compartido</h1>
+            </div>
+            <div class="content">
+              <h2>Hola ${clientName || 'Cliente'},</h2>
+              <p><strong>${therapistName || 'Tu terapeuta'}</strong> ha compartido un nuevo documento contigo.</p>
+
+              <div class="document-box">
+                <div class="document-type">${documentType || 'Documento'}</div>
+                <h3 style="margin: 10px 0 5px 0; color: #1f2937;">${documentTitle}</h3>
+                ${description ? `<p style="color: #6b7280; margin: 0;">${description}</p>` : ''}
+              </div>
+
+              <p>Ya puedes acceder a este documento desde tu área de cliente en cualquier momento.</p>
+
+              <a href="${process.env.FRONTEND_URL}/client/documents" class="button">Ver mis documentos</a>
+
+              <p style="margin-top: 30px; font-size: 13px; color: #6b7280;">
+                Si tienes alguna pregunta sobre este documento, no dudes en contactar con tu terapeuta.
+              </p>
+            </div>
+            <div class="footer">
+              <p>© ${new Date().getFullYear()} Dhara Dimensión Humana. Todos los derechos reservados.</p>
+              <p>Este es un email automático, por favor no respondas a este mensaje.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    return await this.sendEmail({
+      to,
+      subject: `Nuevo documento compartido: ${documentTitle}`,
+      html
+    });
+  }
+
+  /**
    * Remover tags HTML de un string
    */
   stripHtml(html) {
