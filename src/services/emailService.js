@@ -432,7 +432,7 @@ class EmailService {
                 <p><strong>Hora:</strong> ${time}</p>
                 ${reason ? `<p><strong>Razón:</strong> ${reason}</p>` : ''}
               </div>
-              <p>Por favor, contacta con nosotros para reagendar tu cita.</p>
+              <p>Por favor, contacta con tu terapeuta para reagendar tu cita.</p>
               <p>Disculpa las molestias.</p>
             </div>
             <div class="footer">

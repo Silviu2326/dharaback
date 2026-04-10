@@ -76,9 +76,9 @@ const sendCancellationEmail = async ({ booking, client, therapist, reason }, sup
     if (!therapist && booking.therapist_id) {
       // Intentar obtener el terapeuta si no se proporcionó
       const { data: therapistData } = await supabase
-        .from('therapist_profiles')
-        .select('name')
-        .eq('user_id', booking.therapist_id)
+        .from('users')
+        .select('id, name, email')
+        .eq('id', booking.therapist_id)
         .single();
       therapist = therapistData;
     }
