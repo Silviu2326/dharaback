@@ -285,37 +285,47 @@ const createClient = asyncHandler(async (req, res, next) => {
 
   const therapistId = req.user.id || req.user._id;
 
+  console.log('=== CREATE CLIENT - START ===');
+  console.log('Received data:', { name, email, phone, age });
+  console.log('Therapist ID:', therapistId);
+
   // Validate required fields
   if (!name || !email) {
+    console.log('Validation failed: Name or email missing');
     return next(new AppError('Name and email are required', 400));
   }
 
   // Check if client with same email already exists (globally)
+  console.log('Searching for existing client with email:', email.toLowerCase());
   const existingClient = await Client.findOne({
     email: email.toLowerCase()
   });
+  console.log('Existing client found:', existingClient ? 'YES - ID: ' + existingClient.id : 'NO');
 
   let client;
 
   if (existingClient) {
-    // Client exists, check if already has relationship with this therapist
+    console.log('Client already exists with ID:', existingClient.id);
+    // Client exists in platform - check relationship status for specific error message
     const existingRelation = await ClientTherapist.findByClientAndTherapist(
       existingClient.id,
       therapistId
     );
 
-    if (existingRelation) {
-      if (existingRelation.status === 'active') {
-        return next(new AppError('A client with this email already exists in your client list', 400));
-      }
-      // Reactivate archived relationship
-      await ClientTherapist.reactivate(existingClient.id, therapistId);client = existingClient;
-    } else {
-      // Create new relationship
-      await ClientTherapist.create(existingClient.id, therapistId, 'active');
-      client = existingClient;
+    if (existingRelation && existingRelation.status === 'active') {
+      console.log('ERROR: Client already in therapist list - rejecting creation');
+      return next(new AppError('Este cliente ya está en tu lista de clientes', 400));
     }
+
+    // Client exists but is not related to this therapist
+    // Must be added by the client, not created by the therapist
+    console.log('ERROR: Client exists in platform but not related to this therapist');
+    return next(new AppError(
+      'Este cliente ya está registrado en la plataforma. El cliente debe agregarte a ti desde su cuenta.',
+      400
+    ));
   } else {
+    console.log('Creating new client in database');
     // Create new client
     client = await Client.create({
       name: name.trim(),
@@ -329,11 +339,15 @@ const createClient = asyncHandler(async (req, res, next) => {
       preferences,
       therapist_id: therapistId
     });
+    console.log('New client created with ID:', client.id);
 
     // Create client-therapist relationship
     await ClientTherapist.create(client.id, therapistId, 'active');
+    console.log('Client-therapist relationship created');
   }
 
+  console.log('=== CREATE CLIENT - END ===');
+  console.log('Returning client:', client.id);
   res.status(201).json({
     success: true,
     data: client.toJSON(),

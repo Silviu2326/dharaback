@@ -24,9 +24,9 @@ const {
   updateClientSettings,
   exportClientData
 } = require('../controllers/clientController');
-const { 
-  getClientPaymentMethod, 
-  updateClientPaymentMethod 
+const {
+  getClientPaymentMethod,
+  updateClientPaymentMethod
 } = require('../controllers/clientPaymentSettingsController');
 const { protect } = require('../middleware/auth');
 const reviewController = require('../controllers/reviewController');

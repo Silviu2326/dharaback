@@ -23,7 +23,8 @@ const {
   rescheduleBooking,
   getBookingStats,
   getUpcomingBookings,
-  markPackPaid
+  markPackPaid,
+  updatePaymentStatus
 } = require('./bookings/therapistBookings');
 
 // Client functions
@@ -58,6 +59,7 @@ module.exports = {
   getBookingStats,
   getUpcomingBookings,
   markPackPaid,
+  updatePaymentStatus,
 
   // Client functions
   getClientBookings,
@@ -68,7 +70,7 @@ module.exports = {
   createClientBooking,
   completeClientBooking,
   getClientCompletedTherapists,
-  
+
   // Cancel operations
   cancelBooking,
   patchCancelBooking,

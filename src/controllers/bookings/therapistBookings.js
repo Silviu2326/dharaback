@@ -573,6 +573,94 @@ const markPackPaid = asyncHandler(async (req, res, next) => {
   return res.status(200).json({ success: true, updatedCount: 1 });
 });
 
+// @desc    Update payment status for a booking
+// @route   PATCH /api/bookings/:id/payment-status
+// @access  Private (Therapist)
+const updatePaymentStatus = asyncHandler(async (req, res, next) => {
+  const { paymentStatus } = req.body;
+
+  // Validate paymentStatus
+  const validStatuses = ['unpaid', 'paid', 'refunded', 'pending'];
+  if (!paymentStatus || !validStatuses.includes(paymentStatus)) {
+    return next(new AppError(`Invalid payment status. Must be one of: ${validStatuses.join(', ')}`, 400));
+  }
+
+  // Fetch the booking
+  const { data: booking, error: fetchError } = await supabase
+    .from('bookings')
+    .select('id, therapist_id, payment_status, payment_method')
+    .eq('id', req.params.id)
+    .eq('therapist_id', req.user.id)
+    .single();
+
+  if (fetchError || !booking) return next(new AppError('Booking not found', 404));
+
+  // Update the payment status
+  const updateData = {
+    payment_status: paymentStatus,
+    updated_at: new Date().toISOString()
+  };
+
+  const { error: updateError } = await supabase
+    .from('bookings')
+    .update(updateData)
+    .eq('id', req.params.id);
+
+  if (updateError) return next(new AppError(`Failed to update payment status: ${updateError.message}`, 500));
+
+  // If status is 'refunded', also update the associated payment record
+  if (paymentStatus === 'refunded') {
+    try {
+      // Find the payment associated with this booking
+      const { data: payment, error: paymentError } = await supabase
+        .from('payments')
+        .select('id, status, amount')
+        .eq('booking_id', req.params.id)
+        .eq('therapist_id', req.user.id)
+        .single();
+
+      if (payment && !paymentError) {
+        // Update payment status to refunded
+        const { error: paymentUpdateError } = await supabase
+          .from('payments')
+          .update({
+            status: 'refunded',
+            refunded_amount: payment.amount,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', payment.id);
+
+        if (paymentUpdateError) {
+          console.warn('Failed to update payment status to refunded:', paymentUpdateError.message);
+        } else {
+          console.log('✅ Payment status updated to refunded:', payment.id);
+        }
+      }
+    } catch (paymentErr) {
+      console.warn('Error updating associated payment:', paymentErr.message);
+      // Don't fail the request if payment update fails
+    }
+  }
+
+  // Fetch the updated booking
+  const { data: updatedBooking, error: fetchAfterError } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('id', req.params.id)
+    .eq('therapist_id', req.user.id)
+    .single();
+
+  if (fetchAfterError) {
+    return next(new AppError('Payment status updated but could not fetch updated data', 500));
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: `Payment status updated to ${paymentStatus}`,
+    data: transformBookingToCamelCase(updatedBooking)
+  });
+});
+
 module.exports = {
   getBookings,
   getBooking,
@@ -583,5 +671,6 @@ module.exports = {
   rescheduleBooking,
   getBookingStats,
   getUpcomingBookings,
-  markPackPaid
+  markPackPaid,
+  updatePaymentStatus
 };
