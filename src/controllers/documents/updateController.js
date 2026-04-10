@@ -42,7 +42,9 @@ const updateController = {
         if (updateData[field] !== undefined) {
           console.log(`🔍 [updateController] Procesando campo: ${field} =`, updateData[field]);
           if (field === 'title') {
-            updates.description = updateData[field];
+            updates.title = updateData[field];
+          } else if (field === 'tags') {
+            updates.tags = updateData[field];
           } else if (field === 'visibility') {
             updates.isPublic = updateData[field] === 'public';
             // Update metadata too

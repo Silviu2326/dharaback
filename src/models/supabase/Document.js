@@ -19,7 +19,9 @@ class Document {
     this.supabaseUrl = data.supabase_url;
     this.isPublic = data.is_public || false;
     this.category = data.category || 'general';
+    this.title = data.title;
     this.description = data.description;
+    this.tags = data.tags || [];
     this.metadata = data.metadata || {};
     this.accessLog = data.access_log || [];
     this.expiresAt = data.expires_at;
@@ -236,7 +238,9 @@ class Document {
       path: this.path,
       is_public: this.isPublic,
       category: this.category,
+      title: this.title,
       description: this.description,
+      tags: this.tags,
       metadata: metadata,
       access_log: this.accessLog,
       expires_at: this.expiresAt
@@ -291,8 +295,9 @@ class Document {
       isPublic: this.isPublic,
       isExpired: this.isExpired,
       category: this.category,
-      title: this.description,
+      title: this.title || this.originalName,
       description: this.description,
+      tags: this.tags,
       metadata: this.metadata,
       accessLog: this.accessLog,
       documentAge: this.documentAge,
@@ -333,7 +338,9 @@ class DocumentModel {
       path: data.path,
       is_public: data.isPublic || false,
       category: data.category || 'general',
+      title: data.title,
       description: data.description,
+      tags: data.tags || [],
       metadata: metadata,
       access_log: data.accessLog || [],
       expires_at: data.expiresAt
@@ -557,7 +564,9 @@ class DocumentModel {
     if (updateData.path !== undefined) data.path = updateData.path;
     if (updateData.isPublic !== undefined) data.is_public = updateData.isPublic;
     if (updateData.category !== undefined) data.category = updateData.category;
+    if (updateData.title !== undefined) data.title = updateData.title;
     if (updateData.description !== undefined) data.description = updateData.description;
+    if (updateData.tags !== undefined) data.tags = updateData.tags;
     if (updateData.metadata !== undefined) data.metadata = updateData.metadata;
     if (updateData.accessLog !== undefined) data.access_log = updateData.accessLog;
     if (updateData.expiresAt !== undefined) data.expires_at = updateData.expiresAt;

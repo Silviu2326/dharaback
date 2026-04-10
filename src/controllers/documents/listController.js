@@ -115,7 +115,7 @@ const listController = {
         const columnMap = {
           'uploadedAt': 'created_at',
           'updatedAt': 'updated_at',
-          'title': 'description'
+          'title': 'title'
         };
         
         const mappedSortBy = columnMap[sortBy] || sortBy;
@@ -264,7 +264,7 @@ const listController = {
       const columnMap = {
         'uploadedAt': 'created_at',
         'updatedAt': 'updated_at',
-        'title': 'description'
+        'title': 'title'
       };
       
       const mappedSortBy = columnMap[sortBy] || sortBy;

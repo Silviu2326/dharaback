@@ -449,7 +449,7 @@ const createTimeBlock = asyncHandler(async (req, res, next) => {
     valid_until:   endDate || startDate,
     title:         title || 'Disponible',
     color:         color || 'sage',
-    repeat:        repeat === 'never' ? 'none' : (repeat || 'none'),
+    repeat:        ['none', 'daily', 'weekly', 'monthly'].includes(repeat) ? repeat : 'none',
     notes:         notes || null,
     timezone:      timezone || 'Europe/Madrid'
   };
@@ -515,7 +515,9 @@ const updateTimeBlock = asyncHandler(async (req, res, next) => {
     title:         body.title || existing.title,
     color:         body.color || existing.color,
     notes:         body.notes !== undefined ? body.notes : existing.notes,
-    repeat:        body.repeat || existing.repeat || 'none'
+    repeat:        ['none', 'daily', 'weekly', 'monthly'].includes(body.repeat)
+                     ? body.repeat
+                     : (['none', 'daily', 'weekly', 'monthly'].includes(existing.repeat) ? existing.repeat : 'none')
   };
 
   console.log('🔄 updateTimeBlock payload:', JSON.stringify(updateData));
@@ -666,7 +668,7 @@ const bulkCreateTimeBlocks = asyncHandler(async (req, res, next) => {
       valid_until:   endDate || startDate,
       title:         title || 'Disponible',
       color:         color || 'sage',
-      repeat:        repeat === 'never' ? 'none' : (repeat || 'none'),
+      repeat:        ['none', 'daily', 'weekly', 'monthly'].includes(repeat) ? repeat : 'none',
       notes:         notes || null,
       timezone:      timezone || 'Europe/Madrid',
     };

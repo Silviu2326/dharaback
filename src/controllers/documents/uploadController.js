@@ -63,6 +63,21 @@ const uploadController = {
         console.log(`📄 [UPLOAD] No se recibieron clientIds - documento sin asignar a clientes`);
       }
 
+      // Parse tags if it's a string (from form-data)
+      let parsedTags = [];
+      if (tags) {
+        try {
+          parsedTags = typeof tags === 'string' ? JSON.parse(tags) : tags;
+          if (!Array.isArray(parsedTags)) {
+            parsedTags = [parsedTags];
+          }
+          console.log(`📄 [UPLOAD] Tags parseados: ${JSON.stringify(parsedTags)}`);
+        } catch (e) {
+          parsedTags = tags.split(',').map(tag => tag.trim()).filter(Boolean);
+          console.log(`📄 [UPLOAD] Tags parseados (split): ${JSON.stringify(parsedTags)}`);
+        }
+      }
+
       console.log(`📄 [UPLOAD] Total clientIds a procesar: ${parsedClientIds.length}`);
 
       // Verify all clients exist
@@ -141,7 +156,8 @@ const uploadController = {
         path: supabasePath || `/uploads/documents/${req.file.filename}`,
         supabaseUrl: supabaseUrl,
         category,
-        description: title,
+        title: title || req.file.originalname.split('.')[0], // Use title or fallback to filename
+        tags: parsedTags, // Now as separate field
         isPublic: visibility === 'public',
         metadata: {
           session,
@@ -151,8 +167,7 @@ const uploadController = {
           uploadSource: 'web',
           ipAddress: req.ip,
           userAgent: req.get('User-Agent'),
-          storageType: supabaseUrl ? 'supabase' : 'local',
-          tags: tags
+          storageType: supabaseUrl ? 'supabase' : 'local'
         },
         accessLog: [{
           userId: therapistId,
