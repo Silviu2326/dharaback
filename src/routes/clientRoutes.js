@@ -22,7 +22,8 @@ const {
   regenerateInvitationCode,
   getClientSettings,
   updateClientSettings,
-  exportClientData
+  exportClientData,
+  deleteMyAccount
 } = require('../controllers/clientController');
 const {
   getClientPaymentMethod,
@@ -60,6 +61,9 @@ router.route('/:id')
   .get(getClient)
   .put(updateClient)
   .delete(deleteClient);
+
+// Own account management
+router.delete('/me', deleteMyAccount);
 
 // Client specific actions
 router.post('/:id/avatar', updateClientAvatar);
