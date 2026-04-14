@@ -348,6 +348,8 @@ const protectClient = async (req, res, next) => {
 
       // Add client to request object
       req.user = client;
+      req.user.type = 'client';
+      req.user.role = 'client';
       next();
 
     } catch (error) {
