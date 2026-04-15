@@ -4,6 +4,7 @@
  */
 
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const SupabaseService = require('../../services/supabaseService');
 
 // Helper function to generate random password
@@ -40,6 +41,8 @@ class Client {
     this.preferences = data.preferences || {};
     this.gdprConsent = data.gdpr_consent || {};
     this.isRegisteredOnPlatform = data.is_registered_on_platform || false;
+    this.resetPasswordToken = data.reset_password_token || null;
+    this.resetPasswordExpire = data.reset_password_expire || null;
     this.createdAt = data.created_at;
     this.updatedAt = data.updated_at;
 
@@ -58,6 +61,22 @@ class Client {
   async comparePassword(candidatePassword) {
     if (!this.password) return false;
     return await bcrypt.compare(candidatePassword, this.password);
+  }
+
+  /**
+   * Generar token de reset de contraseña
+   */
+  getResetPasswordToken() {
+    const resetToken = crypto.randomBytes(20).toString('hex');
+
+    this.resetPasswordToken = crypto
+      .createHash('sha256')
+      .update(resetToken)
+      .digest('hex');
+
+    this.resetPasswordExpire = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos
+
+    return resetToken;
   }
 
   /**
@@ -402,6 +421,8 @@ class ClientModel {
     if (updateData.preferences) data.preferences = updateData.preferences;
     if (updateData.gdprConsent) data.gdpr_consent = updateData.gdprConsent;
     if (updateData.isRegisteredOnPlatform !== undefined) data.is_registered_on_platform = updateData.isRegisteredOnPlatform;
+    if (updateData.resetPasswordToken !== undefined) data.reset_password_token = updateData.resetPasswordToken;
+    if (updateData.resetPasswordExpire !== undefined) data.reset_password_expire = updateData.resetPasswordExpire;
 
     const result = await this.service.update(id, data);
     return options.new !== false ? new Client(result) : null;

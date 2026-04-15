@@ -336,32 +336,57 @@ const forgotPassword = asyncHandler(async (req, res, next) => {
     return next(new AppError('Please provide email address', 400));
   }
 
-  const user = await User.findOne({ email: email.toLowerCase() });
+  const normalizedEmail = email.toLowerCase().trim();
+
+  // Buscar tanto en usuarios (terapeutas) como en clientes
+  let user = await User.findOne({ email: normalizedEmail });
+  let client = null;
+  let entity = user;
+  let isClient = false;
 
   if (!user) {
+    client = await Client.findOne({ email: normalizedEmail });
+    if (client) {
+      entity = client;
+      isClient = true;
+    }
+  }
+
+  if (!entity) {
     return next(new AppError('No user found with that email', 404));
   }
 
   // Get reset token
-  const resetToken = user.getResetPasswordToken();
+  const resetToken = entity.getResetPasswordToken();
 
-  // Update user with reset token
-  await User.findByIdAndUpdate(
-    user.id || user._id,
-    {
-      resetPasswordToken: user.resetPasswordToken,
-      resetPasswordExpire: user.resetPasswordExpire
-    },
-    { new: false }
-  );
+  // Update entity with reset token
+  if (isClient) {
+    await Client.findByIdAndUpdate(
+      entity.id,
+      {
+        resetPasswordToken: entity.resetPasswordToken,
+        resetPasswordExpire: entity.resetPasswordExpire
+      },
+      { new: false }
+    );
+  } else {
+    await User.findByIdAndUpdate(
+      user.id || user._id,
+      {
+        resetPasswordToken: user.resetPasswordToken,
+        resetPasswordExpire: user.resetPasswordExpire
+      },
+      { new: false }
+    );
+  }
 
   // Create reset URL
   const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
 
   try {
     const emailResult = await emailService.sendPasswordResetEmail({
-      email: user.email,
-      name: user.name,
+      email: entity.email,
+      name: entity.name,
       resetUrl
     });
 
@@ -369,7 +394,7 @@ const forgotPassword = asyncHandler(async (req, res, next) => {
       throw new Error(emailResult.error || 'Email sending failed');
     }
 
-    console.log('Password reset email sent to:', user.email);
+    console.log('Password reset email sent to:', entity.email);
 
     res.status(200).json({
       success: true,
@@ -380,14 +405,25 @@ const forgotPassword = asyncHandler(async (req, res, next) => {
     console.error('Error sending email:', error);
 
     // Clear reset token
-    await User.findByIdAndUpdate(
-      user.id || user._id,
-      {
-        resetPasswordToken: null,
-        resetPasswordExpire: null
-      },
-      { new: false }
-    );
+    if (isClient) {
+      await Client.findByIdAndUpdate(
+        entity.id,
+        {
+          resetPasswordToken: null,
+          resetPasswordExpire: null
+        },
+        { new: false }
+      );
+    } else {
+      await User.findByIdAndUpdate(
+        user.id || user._id,
+        {
+          resetPasswordToken: null,
+          resetPasswordExpire: null
+        },
+        { new: false }
+      );
+    }
 
     return next(new AppError('Email could not be sent', 500));
   }
@@ -418,22 +454,43 @@ const resetPassword = asyncHandler(async (req, res, next) => {
     .update(token)
     .digest('hex');
 
-  // Find user with valid reset token
+  // Find user with valid reset token (first in users, then in clients)
   const supabase = require('../config/supabase').supabase;
-  const { data: userData, error } = await supabase
+
+  let userData = null;
+  let isClient = false;
+
+  const { data: userResult, error: userError } = await supabase
     .from('users')
     .select('*')
     .eq('reset_password_token', resetPasswordToken)
     .gt('reset_password_expire', new Date().toISOString())
     .single();
 
-  if (error || !userData) {
+  if (userResult) {
+    userData = userResult;
+  } else {
+    const { data: clientResult, error: clientError } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('reset_password_token', resetPasswordToken)
+      .gt('reset_password_expire', new Date().toISOString())
+      .single();
+
+    if (clientResult) {
+      userData = clientResult;
+      isClient = true;
+    }
+  }
+
+  if (!userData) {
     return next(new AppError('Invalid or expired reset token', 400));
   }
 
-  // Update password and clear reset token
+  // Update password and clear reset token in the correct table
+  const table = isClient ? 'clients' : 'users';
   await supabase
-    .from('users')
+    .from(table)
     .update({
       password: await require('bcryptjs').hash(password, 12),
       reset_password_token: null,
@@ -441,10 +498,31 @@ const resetPassword = asyncHandler(async (req, res, next) => {
     })
     .eq('id', userData.id);
 
-  // Get updated user
-  const user = await User.findById(userData.id);
+  if (isClient) {
+    const client = await Client.findById(userData.id);
+    client.password = undefined;
 
-  sendTokenResponse(user, 200, res);
+    const tokenPayload = generateToken(client.id, 'client');
+    const refreshTokenPayload = generateRefreshToken(client.id, 'client');
+
+    res.status(200).json({
+      success: true,
+      accessToken: tokenPayload,
+      refreshToken: refreshTokenPayload,
+      user: {
+        id: client.id,
+        name: client.name,
+        email: client.email,
+        role: 'cliente',
+        phone: client.phone,
+        status: client.status,
+        avatar: client.avatar
+      }
+    });
+  } else {
+    const user = await User.findById(userData.id);
+    sendTokenResponse(user, 200, res);
+  }
 });
 
 // @desc    Change password
