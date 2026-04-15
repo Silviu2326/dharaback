@@ -1793,6 +1793,99 @@ const exportClientData = asyncHandler(async (req, res, next) => {
   }
 });
 
+// @desc    Delete own client account and all related data
+// @route   DELETE /api/clients/me
+// @access  Private (Client only)
+const deleteMyAccount = asyncHandler(async (req, res, next) => {
+  const clientId = req.user.id || req.user._id;
+
+  if (!clientId) {
+    return next(new AppError('Client ID not found in token', 401));
+  }
+
+  console.log('=== DELETE MY ACCOUNT ===');
+  console.log('Client ID:', clientId);
+
+  const deletionResults = {};
+
+  // Helper to delete from a table and log result
+  const deleteFromTable = async (table, column) => {
+    try {
+      const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq(column, clientId);
+
+      if (error) {
+        console.error(`Error deleting from ${table}:`, error.message);
+        deletionResults[table] = { success: false, error: error.message };
+      } else {
+        deletionResults[table] = { success: true };
+      }
+    } catch (err) {
+      console.error(`Exception deleting from ${table}:`, err.message);
+      deletionResults[table] = { success: false, error: err.message };
+    }
+  };
+
+  // Delete related data in child tables first
+  await Promise.all([
+    deleteFromTable('client_therapists', 'client_id'),
+    deleteFromTable('bookings', 'client_id'),
+    deleteFromTable('documents', 'client_id'),
+    deleteFromTable('reviews', 'client_id'),
+    deleteFromTable('notifications', 'client_id'),
+    deleteFromTable('notification_settings', 'client_id'),
+    deleteFromTable('payments', 'client_id'),
+    deleteFromTable('messages', 'sender_id'), // messages may use sender_id for clients
+    deleteFromTable('conversations', 'client_id'),
+    deleteFromTable('favorites', 'client_id'),
+    deleteFromTable('session_notes', 'client_id'),
+    deleteFromTable('plan_assignments', 'client_id'),
+    deleteFromTable('client_plan_progress', 'client_id'),
+    deleteFromTable('invitation_codes', 'client_id'),
+  ]);
+
+  // Delete messages where client is the recipient (if applicable)
+  try {
+    const { error } = await supabase
+      .from('messages')
+      .delete()
+      .eq('recipient_id', clientId);
+    if (error) {
+      deletionResults.messages_recipient = { success: false, error: error.message };
+    } else {
+      deletionResults.messages_recipient = { success: true };
+    }
+  } catch (err) {
+    deletionResults.messages_recipient = { success: false, error: err.message };
+  }
+
+  // Finally delete the client record
+  try {
+    const { error } = await supabase
+      .from('clients')
+      .delete()
+      .eq('id', clientId);
+
+    if (error) {
+      console.error('Error deleting client:', error.message);
+      return next(new AppError(`Failed to delete account: ${error.message}`, 500));
+    }
+  } catch (err) {
+    console.error('Exception deleting client:', err.message);
+    return next(new AppError(`Failed to delete account: ${err.message}`, 500));
+  }
+
+  console.log('Account and data deleted successfully');
+
+  res.status(200).json({
+    success: true,
+    message: 'Your account and all related data have been deleted successfully',
+    details: deletionResults
+  });
+});
+
 module.exports = {
   getClients,
   getClient,
@@ -1816,5 +1909,6 @@ module.exports = {
   updateClientSettings,
   invalidateInvitationCodes,
   regenerateInvitationCode,
-  exportClientData
+  exportClientData,
+  deleteMyAccount
 };
