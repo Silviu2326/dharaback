@@ -1030,11 +1030,12 @@ const getTherapistById = asyncHandler(async (req, res, next) => {
     console.log('🔍 [BACKEND] View external_links:', profileView.external_links);
   }
   
-  // Fallback to ProfessionalProfile model if view fails
+  // Fallback to ProfessionalProfile model if view fails or if critical fields are missing
   let profile = null;
-  if (profileError || !profileView) {
-    console.log('🔍 [BACKEND] View not found, using ProfessionalProfile model');
+  if (profileError || !profileView || !profileView?.telefono) {
+    console.log('🔍 [BACKEND] View not found or missing telefono, using ProfessionalProfile model');
     profile = await ProfessionalProfile.findOne({ user_id: id });
+    console.log('🔍 [BACKEND] ProfessionalProfile telefono:', profile?.telefono);
   }
 
   // Get rates
@@ -1248,7 +1249,7 @@ const getTherapistById = asyncHandler(async (req, res, next) => {
       console.log('🔍 [BACKEND] ======================================');
       return rawLinks || [];
     })(),
-    telefono: profileData?.telefono || null,
+    telefono: profileView?.telefono || profile?.telefono || null,
     planType,
     // Incluir redes sociales si existen
     socialMedia: profileView?.social_media || profileView?.socialMedia ||
@@ -1266,6 +1267,7 @@ const getTherapistById = asyncHandler(async (req, res, next) => {
   };
   
   console.log('🔍 [BACKEND] ========== FINAL DATA TO SEND ==========');
+  console.log('🔍 [BACKEND] telefono:', therapistData.telefono);
   console.log('🔍 [BACKEND] workLocations count:', therapistData.workLocations?.length || 0);
   console.log('🔍 [BACKEND] workLocations:', therapistData.workLocations);
   console.log('🔍 [BACKEND] externalLinks count:', therapistData.externalLinks?.length || 0);
